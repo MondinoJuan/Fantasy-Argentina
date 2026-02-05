@@ -1,28 +1,115 @@
-# Angular specific
-/dist/
-/out-tsc/
-/tmp/
-/coverage/
-/e2e/test-output/
-/.angular/
-.angular/
+###############################################################################
+# OS / Editor / IDE
+###############################################################################
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.tmp
 
-# Node modules and dependency files
-/node_modules/
-/package-lock.json
-/yarn.lock
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
 
-# Environment files
-/.env
+.idea/
+*.iml
 
-# Angular CLI and build artefacts
-/.angular-cli.json
-/.ng/
-
-# TypeScript cache
-*.tsbuildinfo
-
-# Logs
+###############################################################################
+# Logs (general)
+###############################################################################
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+###############################################################################
+# Secrets / Local env (global)
+###############################################################################
+.env
+.env.*
+!.env.example
+
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+
+###############################################################################
+# Angular / Node (Frontend/Fantasy-Argentina)
+###############################################################################
+# Dependencies
+Frontend/Fantasy-Argentina/node_modules/
+
+# Build outputs
+Frontend/Fantasy-Argentina/dist/
+Frontend/Fantasy-Argentina/out-tsc/
+
+# Angular caches / workspace artifacts
+Frontend/Fantasy-Argentina/.angular/
+Frontend/Fantasy-Argentina/.ng/
+Frontend/Fantasy-Argentina/.cache/
+Frontend/Fantasy-Argentina/.npm/
+Frontend/Fantasy-Argentina/.pnpm-store/
+Frontend/Fantasy-Argentina/.yarn/
+Frontend/Fantasy-Argentina/.yarn-cache/
+
+# Tests / coverage
+Frontend/Fantasy-Argentina/coverage/
+Frontend/Fantasy-Argentina/e2e/test-output/
+
+# Temp
+Frontend/Fantasy-Argentina/tmp/
+
+# TypeScript build cache
+Frontend/Fantasy-Argentina/*.tsbuildinfo
+
+# Lockfiles (si querés evitar conflictos, pero OJO: normalmente se versionan)
+Frontend/Fantasy-Argentina/package-lock.json
+Frontend/Fantasy-Argentina/yarn.lock
+Frontend/Fantasy-Argentina/pnpm-lock.yaml
+
+# Angular environment files (no subir secrets)
+Frontend/Fantasy-Argentina/src/environments/environment*.ts
+!Frontend/Fantasy-Argentina/src/environments/environment.example.ts
+
+###############################################################################
+# SQL / Database (repo-wide)
+###############################################################################
+# No subir backups/dumps generados localmente
+*.bak
+*.dump
+*.dmp
+*.sql.gz
+*.sql.zip
+*.tar
+*.tar.gz
+
+# Docker volumes / data dirs (si los usás)
+docker-data/
+**/postgres-data/
+**/pgdata/
+**/mysql-data/
+**/mariadb-data/
+
+###############################################################################
+# Optional: backend placeholders (por si sumás runtime en Backend/)
+###############################################################################
+# Python
+Backend/**/__pycache__/
+Backend/**/*.pyc
+Backend/.venv/
+Backend/venv/
+
+# .NET
+Backend/**/bin/
+Backend/**/obj/
+
+# Java
+Backend/**/target/
+
+# Go
+Backend/**/bin/

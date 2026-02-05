@@ -1,0 +1,5 @@
+# Backend
+cd Backend 
+
+# Frontend
+cd "Frontend/Fantasy-Argentina"
