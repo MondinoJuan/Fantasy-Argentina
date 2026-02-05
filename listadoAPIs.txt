@@ -1,0 +1,5 @@
+Listado de posibles APIs
+- https://www.api-football.com/documentation-v3
+- https://rapidapi.com/GiulianoCrescimbeni/api/football98
+- https://github.com/azharimm/football-standings-api
+- https://www.football-data.org/
