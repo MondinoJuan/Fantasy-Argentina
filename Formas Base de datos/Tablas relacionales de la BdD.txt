@@ -1,0 +1,468 @@
+================================================================================
+MODELO RELACIONAL CORREGIDO - FANTASY ARGENTINA
+================================================================================
+
+TOTAL: 18 TABLAS
+
+================================================================================
+MÓDULO: USUARIOS Y TORNEOS
+================================================================================
+
+1. USUARIO
+----------
+USUARIO (id_usuario PK, nombre, email UNIQUE, password, fecha_registro)
+
+
+2. TORNEO
+---------
+TORNEO (
+    id_torneo PK,
+    nombre,
+    id_liga FK,
+    fecha_creacion,
+    presupuesto_inicial,
+    tamaño_plantilla,
+    estado,
+    fecha_habilitacion_clausulas
+)
+
+
+3. LIGA
+-------
+LIGA (id_liga PK, nombre, pais, id_api_externa)
+
+
+4. PARTICIPANTE
+---------------
+PARTICIPANTE (
+    id_participante PK,
+    id_usuario FK,
+    id_torneo FK,
+    presupuesto_banco, 
+    dinero_reservado, 
+    dinero_disponible, 
+    puntaje_total,
+    fecha_ingreso
+)
+UNIQUE (id_usuario, id_torneo)
+
+Notas importantes:
+- presupuesto_banco: Total de dinero que posee
+- dinero_reservado: Suma de todas las pujas ACTIVAS + ofertas PENDIENTES
+- dinero_disponible: presupuesto_banco - dinero_reservado (calculado o trigger)
+- VALIDACIÓN: No puede crear puja/oferta si dinero_disponible < monto
+
+
+================================================================================
+MÓDULO: JUGADORES Y EQUIPOS
+================================================================================
+
+5. JUGADOR_REAL
+---------------
+JUGADOR_REAL (
+    id_jugador_real PK,
+    id_api_externa,
+    nombre,
+    posicion,
+    id_equipo_real FK,
+    valor_mercado,
+    activo,
+    ultima_actualizacion
+)
+
+
+6. EQUIPO_REAL
+--------------
+EQUIPO_REAL (
+    id_equipo_real PK,
+    nombre,
+    id_liga FK,
+    id_api_externa
+)
+
+
+7. PLANTILLA_PARTICIPANTE
+-------------------------
+PLANTILLA_PARTICIPANTE (
+    id_plantilla PK,
+    id_participante FK,
+    id_jugador_real FK,
+    fecha_adquisicion,
+    fecha_liberacion,
+    precio_compra,
+    tipo_adquisicion
+)
+UNIQUE (id_participante, id_jugador_real, fecha_adquisicion)
+
+
+================================================================================
+MÓDULO: JORNADAS Y PARTIDOS
+================================================================================
+
+8. JORNADA
+----------
+JORNADA (
+    id_jornada PK,
+    id_liga FK,
+    temporada,
+    numero_jornada,
+    fecha_inicio,
+    fecha_fin,
+    estado
+)
+UNIQUE (id_liga, temporada, numero_jornada)
+
+
+9. PARTIDO
+----------
+PARTIDO (
+    id_partido PK,
+    id_jornada FK,
+    id_api_externa,
+    equipo_local,
+    equipo_visitante,
+    fecha_hora_inicio,
+    estado
+)
+UNIQUE (id_api_externa)
+
+
+================================================================================
+MÓDULO: MERCADO Y PUJAS
+================================================================================
+
+10. MERCADO_JORNADA
+----------------
+MERCADO_JORNADA (
+    id_mercado PK,
+    id_torneo FK,
+    id_jornada FK,
+    id_jugador_real FK,
+    precio_minimo,
+    origen,
+    id_participante_vendedor FK NULL,
+    fecha_creacion
+)
+UNIQUE (id_torneo, id_jornada, id_jugador_real)
+
+Notas:
+- Un jugador NO puede aparecer dos veces en el mercado de la misma jornada del mismo torneo
+- El mercado es COMÚN para todos los participantes del torneo
+- Tamaño del mercado: 3 jugadores × cantidad de participantes
+
+
+11. PUJA
+-----
+PUJA (
+    id_puja PK,
+    id_mercado FK,
+    id_participante FK,
+    monto_ofertado,
+    estado,
+    fecha_puja,
+    fecha_cancelacion 
+)
+UNIQUE (id_mercado, id_participante) WHERE estado = 'ACTIVA'
+
+Notas CRÍTICAS:
+- Un participante puede tener MÚLTIPLES pujas ACTIVAS por diferentes jugadores
+- Solo puede tener UNA puja ACTIVA por cada jugador del mercado
+- estado puede ser: 'ACTIVA', 'GANADA', 'PERDIDA', 'CANCELADA'
+- Cuando se crea una puja ACTIVA: dinero_reservado += monto_ofertado
+- Cuando se cancela/pierde: dinero_reservado -= monto_ofertado
+- Cuando se gana: dinero_reservado -= monto, presupuesto_banco -= monto
+
+
+================================================================================
+MÓDULO: PUNTOS Y RENDIMIENTO
+================================================================================
+
+12. RENDIMIENTO_JUGADOR
+-----------------------
+RENDIMIENTO_JUGADOR (
+    id_rendimiento PK,
+    id_jugador_real FK,
+    id_jornada FK,
+    puntos_obtenidos,
+    jugo,
+    fecha_actualizacion
+)
+UNIQUE (id_jugador_real, id_jornada)
+
+
+13. PUNTOS_PARTICIPANTE_JORNADA
+-------------------------------
+PUNTOS_PARTICIPANTE_JORNADA (
+    id_puntos_jornada PK,
+    id_participante FK,
+    id_jornada FK,
+    puntos_jornada,
+    /puntos_acumulados,
+    /posicion,
+    fecha_calculo
+)
+UNIQUE (id_participante, id_jornada)
+
+
+14. DESGLOSE_PUNTOS_JUGADOR
+---------------------------
+DESGLOSE_PUNTOS_JUGADOR (
+    id_desglose PK,
+    id_participante FK,
+    id_jornada FK,
+    id_jugador_real FK,
+    puntos_aportados,
+    id_rendimiento FK
+)
+UNIQUE (id_participante, id_jornada, id_jugador_real)
+
+
+================================================================================
+MÓDULO: CLÁUSULAS Y BLINDAJES
+================================================================================
+
+15. CLAUSULA_JUGADOR
+--------------------
+CLAUSULA_JUGADOR (
+    id_clausula PK,
+    id_torneo FK,
+    id_jugador_real FK,
+    id_participante_propietario FK,
+    clausula_base,
+    clausula_adicional_blindajes,
+    clausula_total,
+    fecha_actualizacion
+)
+UNIQUE (id_torneo, id_jugador_real)
+
+Notas sobre transferencia de cláusula:
+- Cuando el jugador cambia de dueño, se ACTUALIZA id_participante_propietario
+- La cláusula_total SE MANTIENE (no se resetea)
+- Solo el nuevo dueño puede blindar más (sumar a clausula_adicional_blindajes)
+
+Ejemplo:
+1. Participante A tiene Messi, lo blinda hasta 5M
+2. Participante B paga la cláusula de 5M y se lleva a Messi
+3. La cláusula sigue siendo 5M, solo cambia el propietario a B
+4. Participante B puede seguir blindándolo (ej: sumar 2M más → cláusula 7M)
+
+
+16. BLINDAJE
+------------
+BLINDAJE (
+    id_blindaje PK,
+    id_clausula FK,
+    id_participante FK,
+    monto_invertido,
+    incremento_clausula,
+    fecha_blindaje
+)
+
+Nota: 
+- incremento_clausula = monto_invertido * 2
+- Historial completo de todos los blindajes (incluso de anteriores propietarios)
+
+
+================================================================================
+MÓDULO: TRANSACCIONES Y NEGOCIACIONES
+================================================================================
+
+17. TRANSACCION
+-----------
+TRANSACCION (
+    id_transaccion PK,
+    id_participante_origen FK NULL,
+    id_participante_destino FK NULL,
+    id_torneo FK,
+    tipo,
+    monto,
+    ref_tabla,
+    ref_id,
+    fecha_creacion,
+    fecha_publicacion,
+    fecha_efectiva
+)
+
+
+18. NEGOCIACION
+-----------
+NEGOCIACION (
+    id_negociacion PK,
+    id_torneo FK,
+    id_participante_vendedor FK,
+    id_participante_comprador FK,
+    id_jugador_real FK,
+    monto_acordado,
+    estado,
+    fecha_creacion,
+    fecha_publicacion,
+    fecha_efectiva,
+    fecha_rechazo
+)
+
+Notas sobre dinero reservado:
+- Cuando se crea (PENDIENTE): 
+  → dinero_reservado del comprador += monto_acordado
+- Si se acepta (ACEPTADA):
+  → dinero_reservado -= monto, presupuesto_banco -= monto
+  → Se crea TRANSACCION
+- Si se rechaza (RECHAZADA):
+  → dinero_reservado -= monto (se libera)
+  → fecha_rechazo = NOW()
+
+
+================================================================================
+RESTRICCIONES Y VALIDACIONES ACTUALIZADAS
+================================================================================
+
+RESTRICCIONES DE INTEGRIDAD:
+---------------------------
+1. ✅ Un usuario solo puede participar una vez por torneo
+   → UNIQUE (id_usuario, id_torneo) en PARTICIPANTE
+
+2. ✅ Un participante no puede tener el mismo jugador activo dos veces
+   → UNIQUE (id_participante, id_jugador_real, fecha_adquisicion) en PLANTILLA_PARTICIPANTE
+   → Solo un registro puede tener fecha_liberacion = NULL por jugador
+
+3. ✅ Un jugador NO puede aparecer dos veces en el mismo mercado
+   → UNIQUE (id_torneo, id_jornada, id_jugador_real) en MERCADO_JORNADA
+
+4. ⚠️ MODIFICADO: Un participante solo puede tener UNA puja ACTIVA por jugador
+   → UNIQUE (id_mercado, id_participante, estado) WHERE estado = 'ACTIVA' en PUJA
+   → Puede tener múltiples pujas activas por DIFERENTES jugadores
+
+5. ✅ Solo puede haber una cláusula por jugador en un torneo
+   → UNIQUE (id_torneo, id_jugador_real) en CLAUSULA_JUGADOR
+
+
+VALIDACIONES DE NEGOCIO (CHECK CONSTRAINTS o triggers):
+-------------------------------------------------------
+1. ✅ dinero_disponible >= 0
+   → CHECK (presupuesto_banco - dinero_reservado >= 0)
+
+2. ✅ No se puede crear puja si no hay dinero disponible
+   → BEFORE INSERT ON PUJA: verificar dinero_disponible >= monto_ofertado
+
+3. ✅ No se puede crear negociación si no hay dinero disponible
+   → BEFORE INSERT ON NEGOCIACION: verificar dinero_disponible >= monto_acordado
+
+4. ✅ dinero_reservado debe coincidir con pujas + negociaciones activas
+   → dinero_reservado = SUM(pujas activas) + SUM(negociaciones pendientes)
+
+5. ✅ Tamaño del mercado correcto
+   → COUNT(MERCADO_JORNADA WHERE id_jornada=X) = 3 * COUNT(PARTICIPANTE WHERE id_torneo=Y)
+
+
+ÍNDICES RECOMENDADOS:
+--------------------
+- PARTICIPANTE: 
+  * (id_torneo, puntaje_total DESC) para rankings
+  * (id_participante, dinero_disponible) para validaciones
+  
+- PUJA: 
+  * (id_participante, estado) para calcular dinero_reservado
+  * (id_mercado, estado) para procesar pujas
+  
+- NEGOCIACION:
+  * (id_participante_comprador, estado) para dinero_reservado
+  * (id_participante_vendedor, estado) para ofertas recibidas
+  
+- MERCADO_JORNADA:
+  * (id_torneo, id_jornada) para consultas de mercado
+
+
+================================================================================
+FLUJOS ACTUALIZADOS
+================================================================================
+
+FLUJO: CREAR PUJA
+-----------------
+1. Validar que dinero_disponible >= monto_ofertado
+2. Validar que no tiene puja ACTIVA para ese jugador
+3. INSERT INTO PUJA (estado = 'ACTIVA', ...)
+4. UPDATE PARTICIPANTE SET dinero_reservado += monto_ofertado
+5. dinero_disponible = presupuesto_banco - dinero_reservado (automático)
+
+
+FLUJO: CANCELAR PUJA
+--------------------
+1. UPDATE PUJA SET estado = 'CANCELADA', fecha_cancelacion = NOW()
+2. UPDATE PARTICIPANTE SET dinero_reservado -= monto_ofertado
+3. El dinero queda disponible nuevamente
+
+
+FLUJO: PROCESAR PUJAS (al final de la jornada)
+----------------------------------------------
+1. Para cada jugador del mercado:
+   a. Obtener la puja con mayor monto_ofertado (WHERE estado = 'ACTIVA')
+   b. GANADOR:
+      - UPDATE PUJA SET estado = 'GANADA'
+      - UPDATE PARTICIPANTE SET dinero_reservado -= monto, presupuesto_banco -= monto
+      - INSERT INTO TRANSACCION
+   c. PERDEDORES:
+      - UPDATE PUJA SET estado = 'PERDIDA'
+      - UPDATE PARTICIPANTE SET dinero_reservado -= monto (libera dinero)
+
+
+FLUJO: CREAR NEGOCIACIÓN
+------------------------
+1. Validar que dinero_disponible del comprador >= monto_acordado
+2. INSERT INTO NEGOCIACION (estado = 'PENDIENTE', ...)
+3. UPDATE PARTICIPANTE SET dinero_reservado += monto (del comprador)
+
+
+FLUJO: ACEPTAR NEGOCIACIÓN
+--------------------------
+1. UPDATE NEGOCIACION SET estado = 'ACEPTADA', fecha_publicacion = NOW(), fecha_efectiva = NOW() + 4h
+2. UPDATE PARTICIPANTE SET dinero_reservado -= monto (comprador)
+3. INSERT INTO TRANSACCION (fecha_efectiva = NOW() + 4h)
+4. El traspaso se ejecuta 4hs después
+
+
+FLUJO: RECHAZAR NEGOCIACIÓN
+---------------------------
+1. UPDATE NEGOCIACION SET estado = 'RECHAZADA', fecha_rechazo = NOW()
+2. UPDATE PARTICIPANTE SET dinero_reservado -= monto (comprador)
+3. El dinero queda disponible nuevamente
+
+
+================================================================================
+EJEMPLO PRÁCTICO
+================================================================================
+
+PARTICIPANTE A:
+- presupuesto_banco: 10,000,000
+- dinero_reservado: 0
+- dinero_disponible: 10,000,000
+
+ACCIÓN 1: Puja por Messi (2,000,000)
+→ dinero_reservado = 2,000,000
+→ dinero_disponible = 8,000,000
+
+ACCIÓN 2: Puja por Cristiano (3,000,000)
+→ dinero_reservado = 5,000,000
+→ dinero_disponible = 5,000,000
+
+ACCIÓN 3: Oferta a Participante B por Neymar (4,000,000)
+→ dinero_reservado = 9,000,000
+→ dinero_disponible = 1,000,000
+
+ACCIÓN 4: Intenta pujar por Mbappé (2,000,000)
+→ ❌ RECHAZADO: dinero_disponible (1M) < monto (2M)
+
+RESULTADO PUJAS:
+- Gana puja por Messi → dinero_reservado -= 2M, presupuesto_banco -= 2M
+- Pierde puja por Cristiano → dinero_reservado -= 3M (libera)
+
+RESULTADO NEGOCIACIÓN:
+- Participante B rechaza → dinero_reservado -= 4M (libera)
+
+ESTADO FINAL:
+- presupuesto_banco: 8,000,000 (pagó 2M por Messi)
+- dinero_reservado: 0
+- dinero_disponible: 8,000,000
+
+
+================================================================================
+FIN DEL MODELO CORREGIDO
+================================================================================

@@ -1,0 +1,18 @@
+# Fantasy-Argentina
+Este repositorio se utilizara para llevar el versionado de la creación de una página de Football Fantasy de la Liga Argentina.
+
+En este repositorio se va a llevar el versionado, tanto del backend (en SQL) como del frontend (con Angular), del desarrollo de una página web que se va a utilizar para crear un torneo Fantasy de la liga Argentina de futbol.
+
+Un torneo Fantasy consta de que uno crea un torneo con el nombre y liga a elección, y en la misma creación se le es asignado 11 jugadores al azar (mi idea es sacarlos de una api de estadísticas de futbol) los cuales podrá vender o comprar a los demas participantes del torneo. La idea de tener jugadores es que al equipo de uno se le vayan sumando los puntos que recibió el jugador por su desempeño en el partido de tal fecha, si no juega son 0 puntos. Obviamente debe haber un ranking de los participantes ordenado por la cantidad de puntos que tiene cada uno, un ranking general y uno por cada fecha.
+
+Además cuenta con un mercado de jugadores, el cual todas las fechas se resetea, para que los participantes puedan pujar (ofrecer cierta cantidad de dinero por el jugador, siempre y cuando no sea menor a su valor de mercado) sin saber cuanto han pujado los demás, unicamente sabrán la cantidad de pujas. Al final de la fecha, la página analiza las pujas, y el que haya ofertado más plata se le descuenta de su "banco" y se lleva el jugador, los jugadores que hayan perdido la puja se les es devuelto el dinero. Los participantes podrán vender sus jugadores de manera instantánea al 85% del valor del jugador (plata que irá al banco propio de cada uno) si no quieren esperar a que un participante se lo compre.
+
+A su vez, luego de 14 dias de iniciado el torneo, los jugadores pueden pagar la cláusula del jugador rival, metodo por el cual compran un jugador más caro de lo normal pero se lo llevan directamente. Cada uno puede "blindar" a sus jugadores poniéndole plata de su banco para aumentar su cláusula a una relación de por cada peso que se le pone, la cláusula aumenta al doble de dicha cantidad. De no ser así, los participantes pueden negociar entre sí para llegar a acuerdos de venta de jugadores.
+
+Para hacer la menor cantidad de consultas a la API, lo ideal es que pasadas 3hs del final de cada fecha se haga una sola consulta por los puntajes del partido de la fecha de los jugadores que estén en el mercado o en el equipo de algún participante. A su vez, en ese momento finalizan las pujas y se renuevan, que finalicen significa que se evalúa la oferta hecha por cada jugador y al que haya ofertado más plata se le entregue el jugador y se le descuente dicho monto de su presupuesto en el banco; si no gana la puja, ese monto se le es devuelto. En el momento en que se hacen las consultas a la API por los puntajes, tambien se harán consultas por una cantidad de 3 jugadores por cada participante, dichos jugadores tienen que ser al azar y crearse las nuevas pujas por éstos.
+
+En dicho punto de actualización tambien se calculan los puntajes de cada participante, empieza con 0 puntos y a medida que van pasando las fechas y sus jugadores obtengan puntajes, esos puntos se les irán sumando en un puntaje total. El traspaso de jugadores entre participantes debe hacerse 4hs despues del punto de actualización, asi da tiempo al sistema a sumar los puntajes obtenidos por la fecha que pasó y que no le sume a ambos.
+
+Funcionamiento:
+- Los request los haria una vez al final de cada fecha y al momento de crear un torneo para disminuir la cantidad de requests.
+- Cuando se crea el torneo se deberia poder elegir la liga del torneo.

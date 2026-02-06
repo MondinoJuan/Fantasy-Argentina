@@ -1,14 +1,140 @@
-# Fantasy-Argentina
-Este repositorio se utilizara para llevar el versionado de la creación de una página de Football Fantasy de la Liga Argentina.
+# Fantasy Argentina ⚽🇦🇷
 
-En este repositorio se va a llevar el versionado, tanto del backend (en SQL) como del frontend (con Angular), del desarrollo de una página web que se va a utilizar para crear un torneo Fantasy de la liga Argentina de futbol.
+Aplicación web para jugar un **Fantasy de fútbol** con amigos, basada en la **Liga Argentina**, con mercado de pujas “a sobre cerrado”, cláusulas, negociaciones y ranking por fecha.
 
-Un torneo Fantasy consta de que uno crea un torneo con el nombre y liga a elección, y en la misma creación se le es asignado 11 jugadores al azar (mi idea es sacarlos de una api de estadísticas de futbol) los cuales podra vender o comprar a los demas participantes del torneo. La idea de tener jugadores es que al equipo de uno se le vayan sumando los puntos que recibió el jugador por su desempeño en el partido de tal fecha, si no juega son 0 puntos. Obviamente debe haber un ranking de los participantes ordenado por la cantidad de puntos que tiene cada uno, un ranking general y uno por cada fecha.
+---
 
-Además cuenta con un mercado de jugadores, el cual todas las fechas se resetea, para que los participantes puedan pujar (ofrecer cierta cantidad de dinero por el jugador, siempre y cuando no sea menor a su valor de mercado) sin saber cuanto han pujado los demás, unicamente sabrán la cantidad de pujas. Al final de la fecha, la página analiza las pujas, y el que haya ofertado más plata se le descuenta de su "banco" y se lleva el jugador, los jugadores que hayan perdido la puja se les es devuelto el dinero.
+## Objetivo del proyecto
 
-A su vez, luego de 14 dias de iniciado el torneo, los jugadores pueden pagar la cláusula del jugador rival, metodo por el cual compran un jugador más caro de lo normal pero se lo llevan directamente. Cada uno puede "blindar" a sus jugadores poniéndole plata de su banco para aumentar su cláusula a una relación de por cada peso que se le pone, la cláusula aumenta al doble de dicha cantidad. De no ser así, los participantes pueden negociar entre sí para llegar a acuerdos de venta de jugadores.
+- Crear torneos Fantasy eligiendo **nombre** y **liga**.
+- Al crear un torneo, a cada participante se le asigna un **plantel inicial de 11 jugadores** al azar (obtenidos desde una API de estadísticas).
+- Cada fecha, los puntos de los jugadores se transforman en **puntos para su dueño**, generando:
+  - **Ranking general** (acumulado)
+  - **Ranking por fecha**
 
-Funcionamiento:
-- Los request los haria una vez al final de cada fecha y al momento de crear un torneo para disminuir la cantidad de requests.
-- Cuando se crea el torneo se deberia poder elegir la liga del torneo.
+---
+
+## Funcionalidades principales
+
+### 🏟️ Torneos y participantes
+- Creación de torneo con liga a elección.
+- Inscripción de participantes.
+- Cada participante cuenta con un **banco** (presupuesto).
+
+### 👥 Plantel (equipo del participante)
+- Plantel inicial de 11 jugadores asignados al azar.
+- Historial de tenencia de jugadores (cuándo se adquieren/liberan) para evitar inconsistencias de puntaje.
+
+### 📊 Puntajes y rankings
+- Los participantes suman puntos según el rendimiento real de sus jugadores en la fecha.
+- Si un jugador no juega, suma **0 puntos**.
+- Rankings disponibles:
+  - **General** (acumulado)
+  - **Por fecha**
+
+---
+
+## Mercado de jugadores (común por torneo)
+
+Cada fecha existe un **mercado compartido** para todos los participantes del torneo.
+
+- El mercado se compone de una cantidad de jugadores igual a:  
+  **3 × (cantidad de participantes del torneo)**
+- El mercado se **renueva** en cada fecha.
+
+### 🧾 Pujas “a sobre cerrado”
+- Los participantes pueden pujar por jugadores del mercado:
+  - No se ve el monto de las ofertas de otros.
+  - Solo se ve la **cantidad de pujas** recibidas por cada jugador.
+- Restricción: la puja debe ser **≥ valor mínimo del mercado** (relacionado al valor de mercado del jugador).
+
+### 💰 Reservas de dinero (bids/offers)
+Cuando un participante oferta:
+- El dinero **no se descuenta** del banco inmediatamente.
+- Se **reserva** (queda bloqueado) hasta que:
+  - se cancele la puja/oferta,
+  - se rechace (en negociaciones),
+  - o se procese el cierre de fecha.
+- Un participante puede realizar **todas las pujas/ofertas que quiera**, siempre que tenga **saldo disponible** (`saldo_total − saldo_reservado`).
+
+---
+
+## Traspasos, negociaciones y venta instantánea
+
+### 🔁 Negociaciones entre participantes
+- Los participantes pueden negociar compras/ventas de jugadores.
+- Las ofertas también generan **reserva de dinero** hasta ser aceptadas o rechazadas.
+
+### ⚡ Venta instantánea al sistema
+- Un participante puede vender un jugador de forma inmediata al **85% del valor de mercado**.
+- El dinero se acredita al banco del participante.
+
+### ⏱️ Regla de traspaso diferido (+4hs)
+Para evitar que un jugador “puntúe doble”:
+- Los traspasos entre participantes se vuelven efectivos **4 horas después** del punto de actualización de la fecha.
+
+---
+
+## Cláusulas y blindajes
+
+### 🧷 Compra por cláusula (habilitada a los 14 días)
+- A partir de **14 días desde el inicio del torneo**, se habilita la compra directa por cláusula.
+
+### 🛡️ Blindaje de jugadores
+- Un participante puede “blindar” un jugador invirtiendo dinero de su banco.
+- Regla: **por cada $1 invertido**, la cláusula aumenta en **$2**.
+- La cláusula del jugador se mantiene si el jugador cambia de dueño (se transfiere con el jugador).
+
+---
+
+## Cierre de fecha y optimización de requests a la API
+
+Para minimizar llamadas a la API:
+
+### 🧠 Punto de actualización (cierre)
+- **3 horas después** de finalizada la fecha:
+  1. Se consultan los puntajes de la API para:
+     - jugadores que están en el mercado, **o**
+     - jugadores que pertenecen a algún participante.
+  2. Finalizan las pujas:
+     - se determina ganador por jugador,
+     - al ganador se le descuenta el monto (antes estaba reservado),
+     - a los perdedores se les libera la reserva.
+  3. Se calcula el puntaje de la fecha por participante y se actualizan rankings.
+  4. Se genera el nuevo mercado:
+     - se agregan **3 jugadores aleatorios por participante**,
+     - se habilitan las nuevas pujas de la siguiente fecha.
+
+---
+
+## Arquitectura del repositorio
+
+- **Frontend:** Angular  
+- **Backend / Base de Datos:** SQL (modelo relacional normalizado)  
+- Integración con API de estadísticas (pendiente de definir/implementar)
+
+Sugerencia de estructura:
+
+```bash
+/
+├─ frontend/          # Angular
+├─ backend/           # API / servicios / lógica de negocio
+├─ database/          # scripts SQL, modelo, migraciones
+└─ docs/              # documentación funcional y técnica
+```
+
+---
+
+## Estado del proyecto
+En desarrollo. El objetivo es construir un MVP jugable y luego iterar con mejoras (seguridad, UX, performance, etc.).
+
+---
+
+## Roadmap (MVP sugerido)
+- [ ] Autenticación y gestión de usuarios
+- [ ] Crear torneo + unirse
+- [ ] Asignación inicial de 11 jugadores
+- [ ] Mercado por fecha + pujas con reservas
+- [ ] Cierre de fecha (3hs) + cálculo de puntos + rankings
+- [ ] Transferencias efectivas (4hs)
+- [ ] Cláusulas + blindajes (14 días)
