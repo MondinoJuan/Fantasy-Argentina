@@ -1,0 +1,38 @@
+### obtener todos los usuarios
+GET http://localhost:3000/api/users
+
+### obtener un usuario por id
+GET http://localhost:3000/api/users/550e8400-e29b-41d4-a716-446655440000
+
+### crear un nuevo usuario
+POST http://localhost:3000/api/users
+Content-Type: application/json
+
+{
+  "username": "Juan Perez",
+  "mail": "juanperez@gmail.com",
+  "password": "1Juanperez"
+}
+
+### actualizar un usuario por id
+PUT http://localhost:3000/api/users/550e8400-e29b-41d4-a716-446655440000
+Content-Type: application/json
+
+{
+  "username": "Juan Perez",
+  "mail": "jan@gmail.com",
+  "password": "1Jan"
+}
+
+### actualizar parcialmente un usuario por id
+PATCH http://localhost:3000/api/users/550e8400-e29b-41d4-a716-446655440000
+Content-Type: application/json
+
+{
+  "mail": "juan@gmail.com"
+}
+
+### eliminar un usuario por id
+DELETE http://localhost:3000/api/users/550e8400-e29b-41d4-a716-446655440000
+
+

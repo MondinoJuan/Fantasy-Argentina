@@ -12,9 +12,16 @@ Thumbs.db
 !.vscode/settings.json
 !.vscode/launch.json
 !.vscode/tasks.json
+!.vscode/*.code-snippets
 
 .idea/
 *.iml
+
+# local history for vscode
+.history/
+
+# built vscode extensions
+*.vsix
 
 ###############################################################################
 # Logs (general)
@@ -94,6 +101,13 @@ docker-data/
 **/pgdata/
 **/mysql-data/
 **/mariadb-data/
+
+###############################################################################
+# Backend (sumando lo de la imagen)
+###############################################################################
+Backend/coverage/
+Backend/node_modules/
+Backend/dist/
 
 ###############################################################################
 # Optional: backend placeholders (por si sumás runtime en Backend/)
