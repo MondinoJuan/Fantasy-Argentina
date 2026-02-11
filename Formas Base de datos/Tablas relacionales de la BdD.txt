@@ -47,6 +47,10 @@ PARTICIPANTE (
 UNIQUE (id_usuario, id_torneo)
 
 Notas importantes:
+- USUARIO representa la cuenta de la persona en el sistema (login, email, credenciales) y existe independientemente de los torneos, 
+mientras que PARTICIPANTE representa a ese usuario dentro de un torneo específico, guardando datos que cambian por torneo como 
+banco/presupuesto, puntos, fecha de unión y estado. Esta separación permite que un mismo usuario juegue varios torneos a la vez con 
+distintos puntajes y presupuestos, sin duplicar información ni mezclar datos entre torneos.
 - presupuesto_banco: Total de dinero que posee
 - dinero_reservado: Suma de todas las pujas ACTIVAS + ofertas PENDIENTES
 - dinero_disponible: presupuesto_banco - dinero_reservado (calculado o trigger)

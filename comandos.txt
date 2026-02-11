@@ -1,5 +1,7 @@
 # Backend
-cd Backend 
+cd backend
+pnpm start:dev
 
 # Frontend
 cd "Frontend/Fantasy-Argentina"
+ng 

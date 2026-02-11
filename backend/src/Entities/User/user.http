@@ -9,9 +9,10 @@ POST http://localhost:3000/api/users
 Content-Type: application/json
 
 {
-  "username": "Juan Perez",
+  "username": "JuanPerez",
   "mail": "juanperez@gmail.com",
-  "password": "1Juanperez"
+  "password": "1Juanperez",
+  "registrationDate": "2001-01-01T00:00:00.000Z"
 }
 
 ### actualizar un usuario por id
@@ -21,7 +22,8 @@ Content-Type: application/json
 {
   "username": "Juan Perez",
   "mail": "jan@gmail.com",
-  "password": "1Jan"
+  "password": "1Jan",
+  "registrationDate": "2021-01-01T00:00:00.000Z"
 }
 
 ### actualizar parcialmente un usuario por id
