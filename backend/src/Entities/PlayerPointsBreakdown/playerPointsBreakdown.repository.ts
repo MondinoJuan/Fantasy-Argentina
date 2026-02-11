@@ -9,7 +9,7 @@ type PlayerPointsBreakdownRow = RowDataPacket & {
 };
 
 export class PlayerPointsBreakdownRepository implements Repository<PlayerPointsBreakdown> {
-  private readonly tableName = 'PlayerPointsBreakdown';
+  private readonly tableName = 'playerpointsbreakdown';
 
   private mapRowToEntity(row: PlayerPointsBreakdownRow): PlayerPointsBreakdown {
     return {

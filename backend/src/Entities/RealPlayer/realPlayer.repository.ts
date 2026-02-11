@@ -9,7 +9,7 @@ type RealPlayerRow = RowDataPacket & {
 };
 
 export class RealPlayerRepository implements Repository<RealPlayer> {
-  private readonly tableName = 'RealPlayer';
+  private readonly tableName = 'realplayer';
 
   private mapRowToEntity(row: RealPlayerRow): RealPlayer {
     return {

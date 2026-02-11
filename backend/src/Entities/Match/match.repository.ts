@@ -9,7 +9,7 @@ type MatchRow = RowDataPacket & {
 };
 
 export class MatchRepository implements Repository<Match> {
-  private readonly tableName = '`Match`';
+  private readonly tableName = '`match`';
 
   private mapRowToEntity(row: MatchRow): Match {
     return {

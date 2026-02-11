@@ -45,6 +45,12 @@ app.use((_, res) => {
 });
 
 
-app.listen(3000, () => {
+app.listen(3000, '0.0.0.0', () => {
     console.log('Server is running on http://localhost:3000');
+});
+
+const PORT = Number(process.env.PORT ?? 3000);
+
+app.listen(PORT, '127.0.0.1', () => {
+  console.log(`Listening on http://127.0.0.1:${PORT}`);
 });

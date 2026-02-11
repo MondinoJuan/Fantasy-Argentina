@@ -9,7 +9,7 @@ type PlayerClauseRow = RowDataPacket & {
 };
 
 export class PlayerClauseRepository implements Repository<PlayerClause> {
-  private readonly tableName = 'PlayerClause';
+  private readonly tableName = 'playerclause';
 
   private mapRowToEntity(row: PlayerClauseRow): PlayerClause {
     return {
