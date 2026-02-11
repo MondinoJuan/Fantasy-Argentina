@@ -1,0 +1,24 @@
+### obtener todos los registros de League
+GET http://localhost:3000/api/leagues
+
+### obtener un registro de League por id
+GET http://localhost:3000/api/leagues/550e8400-e29b-41d4-a716-446655440000
+
+### crear un nuevo registro de League
+POST http://localhost:3000/api/leagues
+Content-Type: application/json
+
+{
+  "name": "sample"
+}
+
+### actualizar un registro de League por id
+PUT http://localhost:3000/api/leagues/550e8400-e29b-41d4-a716-446655440000
+Content-Type: application/json
+
+{
+  "name": "updated sample"
+}
+
+### eliminar un registro de League por id
+DELETE http://localhost:3000/api/leagues/550e8400-e29b-41d4-a716-446655440000

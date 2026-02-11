@@ -1,10 +1,44 @@
 import express, {Request, Response, NextFunction} from 'express';
 import { UserRouter } from './Entities/User/user.routes.js';
+import { TournamentRouter } from './Entities/Tournament/tournament.routes.js';
+import { LeagueRouter } from './Entities/League/league.routes.js';
+import { ParticipantRouter } from './Entities/Participant/participant.routes.js';
+import { RealPlayerRouter } from './Entities/RealPlayer/realPlayer.routes.js';
+import { RealTeamRouter } from './Entities/RealTeam/realTeam.routes.js';
+import { ParticipantSquadRouter } from './Entities/ParticipantSquad/participantSquad.routes.js';
+import { MatchdayRouter } from './Entities/Matchday/matchday.routes.js';
+import { MatchRouter } from './Entities/Match/match.routes.js';
+import { MatchdayMarketRouter } from './Entities/MatchdayMarket/matchdayMarket.routes.js';
+import { BidRouter } from './Entities/Bid/bid.routes.js';
+import { PlayerPerformanceRouter } from './Entities/PlayerPerformance/playerPerformance.routes.js';
+import { ParticipantMatchdayPointsRouter } from './Entities/ParticipantMatchdayPoints/participantMatchdayPoints.routes.js';
+import { PlayerPointsBreakdownRouter } from './Entities/PlayerPointsBreakdown/playerPointsBreakdown.routes.js';
+import { PlayerClauseRouter } from './Entities/PlayerClause/playerClause.routes.js';
+import { ShieldingRouter } from './Entities/Shielding/shielding.routes.js';
+import { TransactionRouter } from './Entities/Transaction/transaction.routes.js';
+import { NegotiationRouter } from './Entities/Negotiation/negotiation.routes.js';
 
 const app = express();
 app.use(express.json());
 
 app.use('/api/users', UserRouter)
+app.use('/api/tournaments', TournamentRouter)
+app.use('/api/leagues', LeagueRouter)
+app.use('/api/participants', ParticipantRouter)
+app.use('/api/real-players', RealPlayerRouter)
+app.use('/api/real-teams', RealTeamRouter)
+app.use('/api/participant-squads', ParticipantSquadRouter)
+app.use('/api/matchdays', MatchdayRouter)
+app.use('/api/matches', MatchRouter)
+app.use('/api/matchday-markets', MatchdayMarketRouter)
+app.use('/api/bids', BidRouter)
+app.use('/api/player-performances', PlayerPerformanceRouter)
+app.use('/api/participant-matchday-points', ParticipantMatchdayPointsRouter)
+app.use('/api/player-points-breakdowns', PlayerPointsBreakdownRouter)
+app.use('/api/player-clauses', PlayerClauseRouter)
+app.use('/api/shieldings', ShieldingRouter)
+app.use('/api/transactions', TransactionRouter)
+app.use('/api/negotiations', NegotiationRouter)
 
 app.use((_, res) => {
     return res.status(404).send({ error: 'Resource not found' });

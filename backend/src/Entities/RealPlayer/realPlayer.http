@@ -1,0 +1,24 @@
+### obtener todos los registros de RealPlayer
+GET http://localhost:3000/api/real-players
+
+### obtener un registro de RealPlayer por id
+GET http://localhost:3000/api/real-players/550e8400-e29b-41d4-a716-446655440000
+
+### crear un nuevo registro de RealPlayer
+POST http://localhost:3000/api/real-players
+Content-Type: application/json
+
+{
+  "name": "sample"
+}
+
+### actualizar un registro de RealPlayer por id
+PUT http://localhost:3000/api/real-players/550e8400-e29b-41d4-a716-446655440000
+Content-Type: application/json
+
+{
+  "name": "updated sample"
+}
+
+### eliminar un registro de RealPlayer por id
+DELETE http://localhost:3000/api/real-players/550e8400-e29b-41d4-a716-446655440000
