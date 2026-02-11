@@ -12,7 +12,6 @@ function sanitizeMatchdayMarketInput(req: Request, res: Response, next: NextFunc
     minimumPrice: req.body.minimumPrice,
     origin: req.body.origin,
     sellerParticipantId: req.body.sellerParticipantId,
-    creationDate: req.body.creationDate,
     };
 
     Object.keys(req.body.sanitizeMatchdayMarketInput).forEach(key => {

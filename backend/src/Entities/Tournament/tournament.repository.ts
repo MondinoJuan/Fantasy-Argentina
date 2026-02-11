@@ -1,5 +1,6 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../../shared/db/conn.mysql.js';
+import { toNullableMysqlDateTime, toMysqlDateTime } from '../../shared/db/datetime.js';
 import { Repository } from '../../shared/repository.js';
 import { Tournament } from './tournament.entity.js';
 
@@ -46,11 +47,11 @@ export class TournamentRepository implements Repository<Tournament> {
     const rowData = {
       name: item.name,
       id_league: item.leagueId,
-      creation_date: item.creationDate,
+      creation_date: toMysqlDateTime(new Date()),
       initial_budget: item.initialBudget,
       squad_size: item.squadSize,
       status: item.status,
-      clause_enable_date: item.clauseEnableDate,
+      clause_enable_date: toNullableMysqlDateTime(item.clauseEnableDate),
     };
 
     const [result] = await pool.query<ResultSetHeader>(
@@ -65,11 +66,10 @@ export class TournamentRepository implements Repository<Tournament> {
     const rowData = {
       name: item.name,
       id_league: item.leagueId,
-      creation_date: item.creationDate,
       initial_budget: item.initialBudget,
       squad_size: item.squadSize,
       status: item.status,
-      clause_enable_date: item.clauseEnableDate,
+      clause_enable_date: toNullableMysqlDateTime(item.clauseEnableDate),
     };
 
     await pool.query(

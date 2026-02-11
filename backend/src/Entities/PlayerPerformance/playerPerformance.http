@@ -12,8 +12,7 @@ Content-Type: application/json
   "realPlayerId": "550e8400-e29b-41d4-a716-446655440000",
   "matchdayId": "550e8400-e29b-41d4-a716-446655440000",
   "pointsObtained": 12,
-  "played": true,
-  "updateDate": "2026-02-10T12:00:00.000Z"
+  "played": true
 }
 
 ### actualizar un registro de PlayerPerformance por id
@@ -24,8 +23,7 @@ Content-Type: application/json
   "realPlayerId": "550e8400-e29b-41d4-a716-446655440000",
   "matchdayId": "550e8400-e29b-41d4-a716-446655440000",
   "pointsObtained": 112,
-  "played": true,
-  "updateDate": "2026-02-10T12:00:00.000Z"
+  "played": true
 }
 
 ### actualizar parcialmente un registro de PlayerPerformance por id

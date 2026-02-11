@@ -12,7 +12,6 @@ function sanitizeRealPlayerInput(req: Request, res: Response, next: NextFunction
     realTeamId: req.body.realTeamId,
     marketValue: req.body.marketValue,
     active: req.body.active,
-    lastUpdate: req.body.lastUpdate,
     };
 
     Object.keys(req.body.sanitizeRealPlayerInput).forEach(key => {

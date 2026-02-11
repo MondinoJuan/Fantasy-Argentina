@@ -12,8 +12,7 @@ Content-Type: application/json
   "playerClauseId": "550e8400-e29b-41d4-a716-446655440000",
   "participantId": "550e8400-e29b-41d4-a716-446655440000",
   "investedAmount": 800000,
-  "clauseIncrease": 1000000,
-  "shieldingDate": "2026-02-10T12:00:00.000Z"
+  "clauseIncrease": 1000000
 }
 
 ### actualizar un registro de Shielding por id
@@ -24,8 +23,7 @@ Content-Type: application/json
   "playerClauseId": "550e8400-e29b-41d4-a716-446655440000",
   "participantId": "550e8400-e29b-41d4-a716-446655440000",
   "investedAmount": 800100,
-  "clauseIncrease": 1000100,
-  "shieldingDate": "2026-02-10T12:00:00.000Z"
+  "clauseIncrease": 1000100
 }
 
 ### actualizar parcialmente un registro de Shielding por id

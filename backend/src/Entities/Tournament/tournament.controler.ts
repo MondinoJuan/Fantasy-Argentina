@@ -8,7 +8,6 @@ function sanitizeTournamentInput(req: Request, res: Response, next: NextFunction
     req.body.sanitizeTournamentInput = {
         name: req.body.name,
     leagueId: req.body.leagueId,
-    creationDate: req.body.creationDate,
     initialBudget: req.body.initialBudget,
     squadSize: req.body.squadSize,
     status: req.body.status,

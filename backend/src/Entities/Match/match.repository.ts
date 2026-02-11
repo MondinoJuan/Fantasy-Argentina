@@ -1,5 +1,6 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../../shared/db/conn.mysql.js';
+import { toMysqlDateTime } from '../../shared/db/datetime.js';
 import { Repository } from '../../shared/repository.js';
 import { Match } from './match.entity.js';
 
@@ -47,7 +48,7 @@ export class MatchRepository implements Repository<Match> {
       external_api_id: item.externalApiId,
       home_team: item.homeTeam,
       away_team: item.awayTeam,
-      start_datetime: item.startDateTime,
+      start_datetime: toMysqlDateTime(item.startDateTime),
       status: item.status,
     };
 
@@ -65,7 +66,7 @@ export class MatchRepository implements Repository<Match> {
       external_api_id: item.externalApiId,
       home_team: item.homeTeam,
       away_team: item.awayTeam,
-      start_datetime: item.startDateTime,
+      start_datetime: toMysqlDateTime(item.startDateTime),
       status: item.status,
     };
 

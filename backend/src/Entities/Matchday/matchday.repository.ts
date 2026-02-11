@@ -1,5 +1,6 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../../shared/db/conn.mysql.js';
+import { toMysqlDate } from '../../shared/db/datetime.js';
 import { Repository } from '../../shared/repository.js';
 import { Matchday } from './matchday.entity.js';
 
@@ -46,8 +47,8 @@ export class MatchdayRepository implements Repository<Matchday> {
       id_league: item.leagueId,
       season: item.season,
       matchday_number: item.matchdayNumber,
-      start_date: item.startDate,
-      end_date: item.endDate,
+      start_date: toMysqlDate(item.startDate),
+      end_date: toMysqlDate(item.endDate),
       status: item.status,
     };
 
@@ -64,8 +65,8 @@ export class MatchdayRepository implements Repository<Matchday> {
       id_league: item.leagueId,
       season: item.season,
       matchday_number: item.matchdayNumber,
-      start_date: item.startDate,
-      end_date: item.endDate,
+      start_date: toMysqlDate(item.startDate),
+      end_date: toMysqlDate(item.endDate),
       status: item.status,
     };
 

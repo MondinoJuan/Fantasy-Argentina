@@ -1,5 +1,6 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../../shared/db/conn.mysql.js';
+import { toMysqlDateTime } from '../../shared/db/datetime.js';
 import { Repository } from '../../shared/repository.js';
 import { Participant } from './participant.entity.js';
 
@@ -49,7 +50,7 @@ export class ParticipantRepository implements Repository<Participant> {
       bank_budget: item.bankBudget,
       reserved_money: item.reservedMoney,
       total_points: item.totalScore,
-      join_date: item.joinDate,
+      join_date: toMysqlDateTime(new Date()),
     };
 
     const [result] = await pool.query<ResultSetHeader>(
@@ -67,7 +68,6 @@ export class ParticipantRepository implements Repository<Participant> {
       bank_budget: item.bankBudget,
       reserved_money: item.reservedMoney,
       total_points: item.totalScore,
-      join_date: item.joinDate,
     };
 
     await pool.query(

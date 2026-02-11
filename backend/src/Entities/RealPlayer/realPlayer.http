@@ -14,8 +14,7 @@ Content-Type: application/json
   "position": "DEL",
   "realTeamId": "550e8400-e29b-41d4-a716-446655440000",
   "marketValue": 4500000,
-  "active": true,
-  "lastUpdate": "2026-02-10T12:00:00.000Z"
+  "active": true
 }
 
 ### actualizar un registro de RealPlayer por id
@@ -28,8 +27,7 @@ Content-Type: application/json
   "position": "DEL actualizado",
   "realTeamId": "550e8400-e29b-41d4-a716-446655440000",
   "marketValue": 4500100,
-  "active": true,
-  "lastUpdate": "2026-02-10T12:00:00.000Z"
+  "active": true
 }
 
 ### actualizar parcialmente un registro de RealPlayer por id

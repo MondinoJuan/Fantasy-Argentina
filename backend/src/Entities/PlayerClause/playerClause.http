@@ -14,8 +14,7 @@ Content-Type: application/json
   "ownerParticipantId": "550e8400-e29b-41d4-a716-446655440000",
   "baseClause": 5000000,
   "additionalShieldingClause": 1500000,
-  "totalClause": 6500000,
-  "updateDate": "2026-02-10T12:00:00.000Z"
+  "totalClause": 6500000
 }
 
 ### actualizar un registro de PlayerClause por id
@@ -28,8 +27,7 @@ Content-Type: application/json
   "ownerParticipantId": "550e8400-e29b-41d4-a716-446655440000",
   "baseClause": 5000100,
   "additionalShieldingClause": 1500100,
-  "totalClause": 6500100,
-  "updateDate": "2026-02-10T12:00:00.000Z"
+  "totalClause": 6500100
 }
 
 ### actualizar parcialmente un registro de PlayerClause por id

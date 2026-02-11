@@ -1,5 +1,6 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../../shared/db/conn.mysql.js';
+import { toNullableMysqlDateTime, toMysqlDateTime } from '../../shared/db/datetime.js';
 import { Repository } from '../../shared/repository.js';
 import { Bid } from './bid.entity.js';
 
@@ -47,8 +48,8 @@ export class BidRepository implements Repository<Bid> {
       id_participant: item.participantId,
       offered_amount: item.offeredAmount,
       status: item.status,
-      bid_date: item.bidDate,
-      cancel_date: item.cancellationDate,
+      bid_date: toMysqlDateTime(new Date()),
+      cancel_date: toNullableMysqlDateTime(item.cancellationDate),
     };
 
     const [result] = await pool.query<ResultSetHeader>(
@@ -65,8 +66,7 @@ export class BidRepository implements Repository<Bid> {
       id_participant: item.participantId,
       offered_amount: item.offeredAmount,
       status: item.status,
-      bid_date: item.bidDate,
-      cancel_date: item.cancellationDate,
+      cancel_date: toNullableMysqlDateTime(item.cancellationDate),
     };
 
     await pool.query(

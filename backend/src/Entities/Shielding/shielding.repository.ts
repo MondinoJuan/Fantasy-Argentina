@@ -1,5 +1,6 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../../shared/db/conn.mysql.js';
+import { toMysqlDateTime } from '../../shared/db/datetime.js';
 import { Repository } from '../../shared/repository.js';
 import { Shielding } from './shielding.entity.js';
 
@@ -46,7 +47,7 @@ export class ShieldingRepository implements Repository<Shielding> {
       id_participant: item.participantId,
       invested_amount: item.investedAmount,
       clause_increase: item.clauseIncrease,
-      shielding_date: item.shieldingDate,
+      shielding_date: toMysqlDateTime(new Date()),
     };
 
     const [result] = await pool.query<ResultSetHeader>(
@@ -63,7 +64,6 @@ export class ShieldingRepository implements Repository<Shielding> {
       id_participant: item.participantId,
       invested_amount: item.investedAmount,
       clause_increase: item.clauseIncrease,
-      shielding_date: item.shieldingDate,
     };
 
     await pool.query(

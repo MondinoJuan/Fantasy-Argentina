@@ -10,7 +10,6 @@ function sanitizeShieldingInput(req: Request, res: Response, next: NextFunction)
     participantId: req.body.participantId,
     investedAmount: req.body.investedAmount,
     clauseIncrease: req.body.clauseIncrease,
-    shieldingDate: req.body.shieldingDate,
     };
 
     Object.keys(req.body.sanitizeShieldingInput).forEach(key => {

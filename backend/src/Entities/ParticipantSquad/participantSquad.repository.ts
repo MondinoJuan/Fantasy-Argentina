@@ -1,5 +1,6 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../../shared/db/conn.mysql.js';
+import { toNullableMysqlDateTime, toMysqlDateTime } from '../../shared/db/datetime.js';
 import { Repository } from '../../shared/repository.js';
 import { ParticipantSquad } from './participantSquad.entity.js';
 
@@ -45,8 +46,8 @@ export class ParticipantSquadRepository implements Repository<ParticipantSquad> 
     const rowData = {
       id_participant: item.participantId,
       id_real_player: item.realPlayerId,
-      acquisition_date: item.acquisitionDate,
-      release_date: item.releaseDate,
+      acquisition_date: toMysqlDateTime(new Date()),
+      release_date: toNullableMysqlDateTime(item.releaseDate),
       buy_price: item.purchasePrice,
       acquisition_type: item.acquisitionType,
     };
@@ -63,8 +64,7 @@ export class ParticipantSquadRepository implements Repository<ParticipantSquad> 
     const rowData = {
       id_participant: item.participantId,
       id_real_player: item.realPlayerId,
-      acquisition_date: item.acquisitionDate,
-      release_date: item.releaseDate,
+      release_date: toNullableMysqlDateTime(item.releaseDate),
       buy_price: item.purchasePrice,
       acquisition_type: item.acquisitionType,
     };

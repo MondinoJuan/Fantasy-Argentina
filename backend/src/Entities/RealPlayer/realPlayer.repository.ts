@@ -1,5 +1,6 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../../shared/db/conn.mysql.js';
+import { toMysqlDateTime } from '../../shared/db/datetime.js';
 import { Repository } from '../../shared/repository.js';
 import { RealPlayer } from './realPlayer.entity.js';
 
@@ -50,7 +51,7 @@ export class RealPlayerRepository implements Repository<RealPlayer> {
       id_real_team: item.realTeamId,
       market_value: item.marketValue,
       active: item.active,
-      last_update: item.lastUpdate,
+      last_update: toMysqlDateTime(new Date()),
     };
 
     const [result] = await pool.query<ResultSetHeader>(
@@ -69,7 +70,7 @@ export class RealPlayerRepository implements Repository<RealPlayer> {
       id_real_team: item.realTeamId,
       market_value: item.marketValue,
       active: item.active,
-      last_update: item.lastUpdate,
+      last_update: toMysqlDateTime(new Date()),
     };
 
     await pool.query(

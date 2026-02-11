@@ -12,7 +12,6 @@ function sanitizeParticipantInput(req: Request, res: Response, next: NextFunctio
     reservedMoney: req.body.reservedMoney,
     availableMoney: req.body.availableMoney,
     totalScore: req.body.totalScore,
-    joinDate: req.body.joinDate,
     };
 
     Object.keys(req.body.sanitizeParticipantInput).forEach(key => {

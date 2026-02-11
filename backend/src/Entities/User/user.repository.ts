@@ -2,6 +2,7 @@ import { Repository } from '../../shared/repository.js'
 import { User } from './user.entity.js'
 import { pool } from '../../shared/db/conn.mysql.js'
 import { ResultSetHeader, RowDataPacket } from 'mysql2'
+import { toMysqlDateTime } from '../../shared/db/datetime.js'
 
 export class UserRepository implements Repository<User> {
   public async findAll(): Promise<User[] | undefined> {
@@ -19,15 +20,19 @@ export class UserRepository implements Repository<User> {
   }
 
   public async add(userInput: User): Promise<User | undefined> {
-    const { id, ...userRow } = userInput
-    const [result] = await pool.query<ResultSetHeader>('insert into users set ?', [userRow])
+    const { id, registrationDate: _registrationDate, ...userRow } = userInput
+    const userRecord = {
+      ...userRow,
+      registrationDate: toMysqlDateTime(new Date()),
+    }
+    const [result] = await pool.query<ResultSetHeader>('insert into users set ?', [userRecord])
     userInput.id = result.insertId
     return userInput
   }
 
   public async update(id: string, userInput: User): Promise<User | undefined> {
     const userId = Number.parseInt(id)
-    const { id: _ignored, ...userRow } = userInput
+    const { id: _ignored, registrationDate: _registrationDate, ...userRow } = userInput
     await pool.query('update users set ? where id = ?', [userRow, userId])
     return await this.findOne({ id })
   }

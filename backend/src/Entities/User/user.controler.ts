@@ -9,7 +9,6 @@ function sanitizeUserInput(req: Request, res: Response, next: NextFunction) {
         username: req.body.username,
         password: req.body.password,
         mail: req.body.mail,
-        registrationDate: req.body.registrationDate
     };
     // more checks
     // ----------------------------------------------------------------------------------------------------------------------------------------

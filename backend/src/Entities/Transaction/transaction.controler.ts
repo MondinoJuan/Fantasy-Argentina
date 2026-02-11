@@ -13,7 +13,6 @@ function sanitizeTransactionInput(req: Request, res: Response, next: NextFunctio
     amount: req.body.amount,
     referenceTable: req.body.referenceTable,
     referenceId: req.body.referenceId,
-    creationDate: req.body.creationDate,
     publicationDate: req.body.publicationDate,
     effectiveDate: req.body.effectiveDate,
     };
