@@ -51,7 +51,7 @@ function add(req: Request, res: Response) {
 
 function update(req: Request, res: Response) {
     req.body.sanitizeBidInput.id = req.params.id;
-    const item = repository.update(req.body.sanitizeBidInput);
+    const item = repository.update(String(req.params.id), req.body.sanitizeBidInput);
     if (!item) {
         return res.status(404).send({ error: 'Bid not found' });
     } else {

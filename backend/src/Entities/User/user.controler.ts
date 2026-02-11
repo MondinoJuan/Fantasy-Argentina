@@ -51,7 +51,7 @@ function add (req:Request, res:Response) {
 
 function update(req:Request, res:Response) {
     req.body.sanitizeUserInput.id = req.params.id;
-    const user = repository.update(req.body.sanitizeUserInput);
+    const user = repository.update(String(req.params.id), req.body.sanitizeUserInput);
     if (!user) {
         return res.status(404).send({ error: 'User not found' });
     } else {

@@ -53,7 +53,7 @@ function add(req: Request, res: Response) {
 
 function update(req: Request, res: Response) {
     req.body.sanitizeParticipantInput.id = req.params.id;
-    const item = repository.update(req.body.sanitizeParticipantInput);
+    const item = repository.update(String(req.params.id), req.body.sanitizeParticipantInput);
     if (!item) {
         return res.status(404).send({ error: 'Participant not found' });
     } else {
