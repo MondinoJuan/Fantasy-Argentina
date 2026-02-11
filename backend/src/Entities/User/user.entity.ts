@@ -6,6 +6,6 @@ export class User {
         public password: string, 
         public mail: string,
         public registrationDate: Date = new Date(),
-        public id: string = crypt.randomUUID()
+        public id?: number
     ) { }
 }
