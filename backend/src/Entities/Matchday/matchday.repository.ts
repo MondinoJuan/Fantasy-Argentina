@@ -1,48 +1,93 @@
+import { ResultSetHeader, RowDataPacket } from 'mysql2';
+import { pool } from '../../shared/db/conn.mysql.js';
 import { Repository } from '../../shared/repository.js';
 import { Matchday } from './matchday.entity.js';
 
-const matchdays = [
-    new Matchday(
-    "sample",
-    "sample",
-    0,
-    new Date("2024-01-01T00:00:00.000Z"),
-    new Date("2024-01-01T00:00:00.000Z"),
-    "sample",
-    '550e8400-e29b-41d4-a716-446655440000'
-    )
-];
+type MatchdayRow = RowDataPacket & {
+  id_matchday: number;
+  id_league: any; season: any; matchday_number: any; start_date: any; end_date: any; status: any; 
+};
 
 export class MatchdayRepository implements Repository<Matchday> {
+  private readonly tableName = 'Matchday';
 
-    public findAll(): Matchday[] | undefined {
-        return matchdays;
+  private mapRowToEntity(row: MatchdayRow): Matchday {
+    return {
+      id: String(row.id_matchday),
+      leagueId: row.id_league,
+      season: row.season,
+      matchdayNumber: row.matchday_number,
+      startDate: row.start_date ? new Date(row.start_date) : (null as unknown as Date),
+      endDate: row.end_date ? new Date(row.end_date) : (null as unknown as Date),
+      status: row.status,
+    } as Matchday;
+  }
+
+  public async findAll(): Promise<Matchday[] | undefined> {
+    const [rows] = await pool.query<MatchdayRow[]>(`SELECT * FROM ${this.tableName}`);
+    return rows.map((row) => this.mapRowToEntity(row));
+  }
+
+  public async findOne(item: { id: string }): Promise<Matchday | undefined> {
+    const [rows] = await pool.query<MatchdayRow[]>(
+      `SELECT * FROM ${this.tableName} WHERE id_matchday = ? LIMIT 1`,
+      [Number.parseInt(item.id, 10)],
+    );
+
+    if (rows.length === 0) {
+      return undefined;
     }
 
-    public findOne(item: { id: string; }): Matchday | undefined {
-        return matchdays.find(i => i.id === item.id);
+    return this.mapRowToEntity(rows[0]);
+  }
+
+  public async add(item: Matchday): Promise<Matchday | undefined> {
+    const rowData = {
+      id_league: item.leagueId,
+      season: item.season,
+      matchday_number: item.matchdayNumber,
+      start_date: item.startDate,
+      end_date: item.endDate,
+      status: item.status,
+    };
+
+    const [result] = await pool.query<ResultSetHeader>(
+      `INSERT INTO ${this.tableName} SET ?`,
+      [rowData],
+    );
+
+    return this.findOne({ id: String(result.insertId) });
+  }
+
+  public async update(id: string, item: Matchday): Promise<Matchday | undefined> {
+    const rowData = {
+      id_league: item.leagueId,
+      season: item.season,
+      matchday_number: item.matchdayNumber,
+      start_date: item.startDate,
+      end_date: item.endDate,
+      status: item.status,
+    };
+
+    await pool.query(
+      `UPDATE ${this.tableName} SET ? WHERE id_matchday = ?`,
+      [rowData, Number.parseInt(id, 10)],
+    );
+
+    return this.findOne({ id });
+  }
+
+  public async delete(item: { id: string }): Promise<Matchday | undefined> {
+    const record = await this.findOne(item);
+    if (!record) {
+      return undefined;
     }
 
-    public add(item: Matchday): Matchday | undefined {
-        matchdays.push(item);
-        return item;
-    }
+    await pool.query(
+      `DELETE FROM ${this.tableName} WHERE id_matchday = ?`,
+      [Number.parseInt(item.id, 10)],
+    );
 
-    public update(item: Matchday): Matchday | undefined {
-        const index = matchdays.findIndex(i => i.id === item.id);
-        if (index !== -1) {
-            matchdays[index] = {...matchdays[index], ...item};
-        }
-        return matchdays[index];
-    }
-
-    public delete(item: { id: string; }): Matchday | undefined {
-        const index = matchdays.findIndex(i => i.id === item.id);
-        if (index !== -1) {
-            const deletedItem = matchdays[index];
-            matchdays.splice(index, 1);
-            return deletedItem;
-        }
-        return undefined;
-    }
+    return record;
+  }
 }

@@ -1,49 +1,96 @@
+import { ResultSetHeader, RowDataPacket } from 'mysql2';
+import { pool } from '../../shared/db/conn.mysql.js';
 import { Repository } from '../../shared/repository.js';
 import { RealPlayer } from './realPlayer.entity.js';
 
-const realPlayers = [
-    new RealPlayer(
-    "sample",
-    "sample",
-    "sample",
-    "sample",
-    0,
-    true,
-    new Date("2024-01-01T00:00:00.000Z"),
-    '550e8400-e29b-41d4-a716-446655440000'
-    )
-];
+type RealPlayerRow = RowDataPacket & {
+  id_real_player: number;
+  external_api_id: any; name: any; position: any; id_real_team: any; market_value: any; active: any; last_update: any; 
+};
 
 export class RealPlayerRepository implements Repository<RealPlayer> {
+  private readonly tableName = 'RealPlayer';
 
-    public findAll(): RealPlayer[] | undefined {
-        return realPlayers;
+  private mapRowToEntity(row: RealPlayerRow): RealPlayer {
+    return {
+      id: String(row.id_real_player),
+      externalApiId: row.external_api_id,
+      name: row.name,
+      position: row.position,
+      realTeamId: row.id_real_team,
+      marketValue: row.market_value,
+      active: Boolean(row.active),
+      lastUpdate: row.last_update ? new Date(row.last_update) : (null as unknown as Date),
+    } as RealPlayer;
+  }
+
+  public async findAll(): Promise<RealPlayer[] | undefined> {
+    const [rows] = await pool.query<RealPlayerRow[]>(`SELECT * FROM ${this.tableName}`);
+    return rows.map((row) => this.mapRowToEntity(row));
+  }
+
+  public async findOne(item: { id: string }): Promise<RealPlayer | undefined> {
+    const [rows] = await pool.query<RealPlayerRow[]>(
+      `SELECT * FROM ${this.tableName} WHERE id_real_player = ? LIMIT 1`,
+      [Number.parseInt(item.id, 10)],
+    );
+
+    if (rows.length === 0) {
+      return undefined;
     }
 
-    public findOne(item: { id: string; }): RealPlayer | undefined {
-        return realPlayers.find(i => i.id === item.id);
+    return this.mapRowToEntity(rows[0]);
+  }
+
+  public async add(item: RealPlayer): Promise<RealPlayer | undefined> {
+    const rowData = {
+      external_api_id: item.externalApiId,
+      name: item.name,
+      position: item.position,
+      id_real_team: item.realTeamId,
+      market_value: item.marketValue,
+      active: item.active,
+      last_update: item.lastUpdate,
+    };
+
+    const [result] = await pool.query<ResultSetHeader>(
+      `INSERT INTO ${this.tableName} SET ?`,
+      [rowData],
+    );
+
+    return this.findOne({ id: String(result.insertId) });
+  }
+
+  public async update(id: string, item: RealPlayer): Promise<RealPlayer | undefined> {
+    const rowData = {
+      external_api_id: item.externalApiId,
+      name: item.name,
+      position: item.position,
+      id_real_team: item.realTeamId,
+      market_value: item.marketValue,
+      active: item.active,
+      last_update: item.lastUpdate,
+    };
+
+    await pool.query(
+      `UPDATE ${this.tableName} SET ? WHERE id_real_player = ?`,
+      [rowData, Number.parseInt(id, 10)],
+    );
+
+    return this.findOne({ id });
+  }
+
+  public async delete(item: { id: string }): Promise<RealPlayer | undefined> {
+    const record = await this.findOne(item);
+    if (!record) {
+      return undefined;
     }
 
-    public add(item: RealPlayer): RealPlayer | undefined {
-        realPlayers.push(item);
-        return item;
-    }
+    await pool.query(
+      `DELETE FROM ${this.tableName} WHERE id_real_player = ?`,
+      [Number.parseInt(item.id, 10)],
+    );
 
-    public update(item: RealPlayer): RealPlayer | undefined {
-        const index = realPlayers.findIndex(i => i.id === item.id);
-        if (index !== -1) {
-            realPlayers[index] = {...realPlayers[index], ...item};
-        }
-        return realPlayers[index];
-    }
-
-    public delete(item: { id: string; }): RealPlayer | undefined {
-        const index = realPlayers.findIndex(i => i.id === item.id);
-        if (index !== -1) {
-            const deletedItem = realPlayers[index];
-            realPlayers.splice(index, 1);
-            return deletedItem;
-        }
-        return undefined;
-    }
+    return record;
+  }
 }

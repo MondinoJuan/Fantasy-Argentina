@@ -53,7 +53,7 @@ function add(req: Request, res: Response) {
 
 function update(req: Request, res: Response) {
     req.body.sanitizeMatchdayMarketInput.id = req.params.id;
-    const item = repository.update(req.body.sanitizeMatchdayMarketInput);
+    const item = repository.update(String(req.params.id), req.body.sanitizeMatchdayMarketInput);
     if (!item) {
         return res.status(404).send({ error: 'MatchdayMarket not found' });
     } else {

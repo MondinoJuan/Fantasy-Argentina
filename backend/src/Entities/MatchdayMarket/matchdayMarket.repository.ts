@@ -1,49 +1,96 @@
+import { ResultSetHeader, RowDataPacket } from 'mysql2';
+import { pool } from '../../shared/db/conn.mysql.js';
 import { Repository } from '../../shared/repository.js';
 import { MatchdayMarket } from './matchdayMarket.entity.js';
 
-const matchdayMarkets = [
-    new MatchdayMarket(
-    "sample",
-    "sample",
-    "sample",
-    0,
-    "sample",
-    "sample",
-    new Date("2024-01-01T00:00:00.000Z"),
-    '550e8400-e29b-41d4-a716-446655440000'
-    )
-];
+type MatchdayMarketRow = RowDataPacket & {
+  id_market: number;
+  id_tournament: any; id_matchday: any; id_real_player: any; min_price: any; origin: any; id_seller_participant: any; creation_date: any; 
+};
 
 export class MatchdayMarketRepository implements Repository<MatchdayMarket> {
+  private readonly tableName = 'MatchdayMarket';
 
-    public findAll(): MatchdayMarket[] | undefined {
-        return matchdayMarkets;
+  private mapRowToEntity(row: MatchdayMarketRow): MatchdayMarket {
+    return {
+      id: String(row.id_market),
+      tournamentId: row.id_tournament,
+      matchdayId: row.id_matchday,
+      realPlayerId: row.id_real_player,
+      minimumPrice: row.min_price,
+      origin: row.origin,
+      sellerParticipantId: row.id_seller_participant,
+      creationDate: row.creation_date ? new Date(row.creation_date) : (null as unknown as Date),
+    } as MatchdayMarket;
+  }
+
+  public async findAll(): Promise<MatchdayMarket[] | undefined> {
+    const [rows] = await pool.query<MatchdayMarketRow[]>(`SELECT * FROM ${this.tableName}`);
+    return rows.map((row) => this.mapRowToEntity(row));
+  }
+
+  public async findOne(item: { id: string }): Promise<MatchdayMarket | undefined> {
+    const [rows] = await pool.query<MatchdayMarketRow[]>(
+      `SELECT * FROM ${this.tableName} WHERE id_market = ? LIMIT 1`,
+      [Number.parseInt(item.id, 10)],
+    );
+
+    if (rows.length === 0) {
+      return undefined;
     }
 
-    public findOne(item: { id: string; }): MatchdayMarket | undefined {
-        return matchdayMarkets.find(i => i.id === item.id);
+    return this.mapRowToEntity(rows[0]);
+  }
+
+  public async add(item: MatchdayMarket): Promise<MatchdayMarket | undefined> {
+    const rowData = {
+      id_tournament: item.tournamentId,
+      id_matchday: item.matchdayId,
+      id_real_player: item.realPlayerId,
+      min_price: item.minimumPrice,
+      origin: item.origin,
+      id_seller_participant: item.sellerParticipantId,
+      creation_date: item.creationDate,
+    };
+
+    const [result] = await pool.query<ResultSetHeader>(
+      `INSERT INTO ${this.tableName} SET ?`,
+      [rowData],
+    );
+
+    return this.findOne({ id: String(result.insertId) });
+  }
+
+  public async update(id: string, item: MatchdayMarket): Promise<MatchdayMarket | undefined> {
+    const rowData = {
+      id_tournament: item.tournamentId,
+      id_matchday: item.matchdayId,
+      id_real_player: item.realPlayerId,
+      min_price: item.minimumPrice,
+      origin: item.origin,
+      id_seller_participant: item.sellerParticipantId,
+      creation_date: item.creationDate,
+    };
+
+    await pool.query(
+      `UPDATE ${this.tableName} SET ? WHERE id_market = ?`,
+      [rowData, Number.parseInt(id, 10)],
+    );
+
+    return this.findOne({ id });
+  }
+
+  public async delete(item: { id: string }): Promise<MatchdayMarket | undefined> {
+    const record = await this.findOne(item);
+    if (!record) {
+      return undefined;
     }
 
-    public add(item: MatchdayMarket): MatchdayMarket | undefined {
-        matchdayMarkets.push(item);
-        return item;
-    }
+    await pool.query(
+      `DELETE FROM ${this.tableName} WHERE id_market = ?`,
+      [Number.parseInt(item.id, 10)],
+    );
 
-    public update(item: MatchdayMarket): MatchdayMarket | undefined {
-        const index = matchdayMarkets.findIndex(i => i.id === item.id);
-        if (index !== -1) {
-            matchdayMarkets[index] = {...matchdayMarkets[index], ...item};
-        }
-        return matchdayMarkets[index];
-    }
-
-    public delete(item: { id: string; }): MatchdayMarket | undefined {
-        const index = matchdayMarkets.findIndex(i => i.id === item.id);
-        if (index !== -1) {
-            const deletedItem = matchdayMarkets[index];
-            matchdayMarkets.splice(index, 1);
-            return deletedItem;
-        }
-        return undefined;
-    }
+    return record;
+  }
 }

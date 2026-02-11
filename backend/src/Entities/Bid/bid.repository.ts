@@ -1,48 +1,93 @@
+import { ResultSetHeader, RowDataPacket } from 'mysql2';
+import { pool } from '../../shared/db/conn.mysql.js';
 import { Repository } from '../../shared/repository.js';
 import { Bid } from './bid.entity.js';
 
-const bids = [
-    new Bid(
-    "sample",
-    "sample",
-    0,
-    "sample",
-    new Date("2024-01-01T00:00:00.000Z"),
-    new Date("2024-01-01T00:00:00.000Z"),
-    '550e8400-e29b-41d4-a716-446655440000'
-    )
-];
+type BidRow = RowDataPacket & {
+  id_bid: number;
+  id_market: any; id_participant: any; offered_amount: any; status: any; bid_date: any; cancel_date: any; 
+};
 
 export class BidRepository implements Repository<Bid> {
+  private readonly tableName = 'Bid';
 
-    public findAll(): Bid[] | undefined {
-        return bids;
+  private mapRowToEntity(row: BidRow): Bid {
+    return {
+      id: String(row.id_bid),
+      matchdayMarketId: row.id_market,
+      participantId: row.id_participant,
+      offeredAmount: row.offered_amount,
+      status: row.status,
+      bidDate: row.bid_date ? new Date(row.bid_date) : (null as unknown as Date),
+      cancellationDate: row.cancel_date ? new Date(row.cancel_date) : (null as unknown as Date),
+    } as Bid;
+  }
+
+  public async findAll(): Promise<Bid[] | undefined> {
+    const [rows] = await pool.query<BidRow[]>(`SELECT * FROM ${this.tableName}`);
+    return rows.map((row) => this.mapRowToEntity(row));
+  }
+
+  public async findOne(item: { id: string }): Promise<Bid | undefined> {
+    const [rows] = await pool.query<BidRow[]>(
+      `SELECT * FROM ${this.tableName} WHERE id_bid = ? LIMIT 1`,
+      [Number.parseInt(item.id, 10)],
+    );
+
+    if (rows.length === 0) {
+      return undefined;
     }
 
-    public findOne(item: { id: string; }): Bid | undefined {
-        return bids.find(i => i.id === item.id);
+    return this.mapRowToEntity(rows[0]);
+  }
+
+  public async add(item: Bid): Promise<Bid | undefined> {
+    const rowData = {
+      id_market: item.matchdayMarketId,
+      id_participant: item.participantId,
+      offered_amount: item.offeredAmount,
+      status: item.status,
+      bid_date: item.bidDate,
+      cancel_date: item.cancellationDate,
+    };
+
+    const [result] = await pool.query<ResultSetHeader>(
+      `INSERT INTO ${this.tableName} SET ?`,
+      [rowData],
+    );
+
+    return this.findOne({ id: String(result.insertId) });
+  }
+
+  public async update(id: string, item: Bid): Promise<Bid | undefined> {
+    const rowData = {
+      id_market: item.matchdayMarketId,
+      id_participant: item.participantId,
+      offered_amount: item.offeredAmount,
+      status: item.status,
+      bid_date: item.bidDate,
+      cancel_date: item.cancellationDate,
+    };
+
+    await pool.query(
+      `UPDATE ${this.tableName} SET ? WHERE id_bid = ?`,
+      [rowData, Number.parseInt(id, 10)],
+    );
+
+    return this.findOne({ id });
+  }
+
+  public async delete(item: { id: string }): Promise<Bid | undefined> {
+    const record = await this.findOne(item);
+    if (!record) {
+      return undefined;
     }
 
-    public add(item: Bid): Bid | undefined {
-        bids.push(item);
-        return item;
-    }
+    await pool.query(
+      `DELETE FROM ${this.tableName} WHERE id_bid = ?`,
+      [Number.parseInt(item.id, 10)],
+    );
 
-    public update(item: Bid): Bid | undefined {
-        const index = bids.findIndex(i => i.id === item.id);
-        if (index !== -1) {
-            bids[index] = {...bids[index], ...item};
-        }
-        return bids[index];
-    }
-
-    public delete(item: { id: string; }): Bid | undefined {
-        const index = bids.findIndex(i => i.id === item.id);
-        if (index !== -1) {
-            const deletedItem = bids[index];
-            bids.splice(index, 1);
-            return deletedItem;
-        }
-        return undefined;
-    }
+    return record;
+  }
 }

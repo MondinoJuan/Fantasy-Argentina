@@ -51,7 +51,7 @@ function add(req: Request, res: Response) {
 
 function update(req: Request, res: Response) {
     req.body.sanitizeMatchdayInput.id = req.params.id;
-    const item = repository.update(req.body.sanitizeMatchdayInput);
+    const item = repository.update(String(req.params.id), req.body.sanitizeMatchdayInput);
     if (!item) {
         return res.status(404).send({ error: 'Matchday not found' });
     } else {
