@@ -59,7 +59,7 @@ function add(req: Request, res: Response) {
 
 function update(req: Request, res: Response) {
     req.body.sanitizeNegotiationInput.id = req.params.id;
-    const item = repository.update(req.body.sanitizeNegotiationInput);
+    const item = repository.update(String(req.params.id), req.body.sanitizeNegotiationInput);
     if (!item) {
         return res.status(404).send({ error: 'Negotiation not found' });
     } else {

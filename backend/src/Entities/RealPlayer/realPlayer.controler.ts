@@ -53,7 +53,7 @@ function add(req: Request, res: Response) {
 
 function update(req: Request, res: Response) {
     req.body.sanitizeRealPlayerInput.id = req.params.id;
-    const item = repository.update(req.body.sanitizeRealPlayerInput);
+    const item = repository.update(String(req.params.id), req.body.sanitizeRealPlayerInput);
     if (!item) {
         return res.status(404).send({ error: 'RealPlayer not found' });
     } else {

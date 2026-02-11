@@ -45,7 +45,7 @@ function add(req: Request, res: Response) {
 
 function update(req: Request, res: Response) {
     req.body.sanitizeRealTeamInput.id = req.params.id;
-    const item = repository.update(req.body.sanitizeRealTeamInput);
+    const item = repository.update(String(req.params.id), req.body.sanitizeRealTeamInput);
     if (!item) {
         return res.status(404).send({ error: 'RealTeam not found' });
     } else {

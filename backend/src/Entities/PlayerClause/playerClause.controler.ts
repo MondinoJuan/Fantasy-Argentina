@@ -53,7 +53,7 @@ function add(req: Request, res: Response) {
 
 function update(req: Request, res: Response) {
     req.body.sanitizePlayerClauseInput.id = req.params.id;
-    const item = repository.update(req.body.sanitizePlayerClauseInput);
+    const item = repository.update(String(req.params.id), req.body.sanitizePlayerClauseInput);
     if (!item) {
         return res.status(404).send({ error: 'PlayerClause not found' });
     } else {
