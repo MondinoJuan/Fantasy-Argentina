@@ -1,24 +1,47 @@
 ### obtener todos los registros de RealPlayer
-GET http://localhost:3000/api/real-players
+GET http://127.0.0.1:3000/api/real-players
 
 ### obtener un registro de RealPlayer por id
-GET http://localhost:3000/api/real-players/550e8400-e29b-41d4-a716-446655440000
+GET http://127.0.0.1:3000/api/real-players/550e8400-e29b-41d4-a716-446655440000
 
 ### crear un nuevo registro de RealPlayer
-POST http://localhost:3000/api/real-players
+POST http://127.0.0.1:3000/api/real-players
 Content-Type: application/json
 
 {
-  "name": "sample"
+  "externalApiId": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Liga Profesional",
+  "position": "DEL",
+  "realTeamId": "550e8400-e29b-41d4-a716-446655440000",
+  "marketValue": 4500000,
+  "active": true,
+  "lastUpdate": "2026-02-10T12:00:00.000Z"
 }
 
 ### actualizar un registro de RealPlayer por id
-PUT http://localhost:3000/api/real-players/550e8400-e29b-41d4-a716-446655440000
+PUT http://127.0.0.1:3000/api/real-players/550e8400-e29b-41d4-a716-446655440000
 Content-Type: application/json
 
 {
-  "name": "updated sample"
+  "externalApiId": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Liga Profesional actualizado",
+  "position": "DEL actualizado",
+  "realTeamId": "550e8400-e29b-41d4-a716-446655440000",
+  "marketValue": 4500100,
+  "active": true,
+  "lastUpdate": "2026-02-10T12:00:00.000Z"
+}
+
+### actualizar parcialmente un registro de RealPlayer por id
+PATCH http://127.0.0.1:3000/api/real-players/550e8400-e29b-41d4-a716-446655440000
+Content-Type: application/json
+
+{
+  "externalApiId": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Liga Profesional actualizado",
+  "position": "DEL actualizado",
+  "marketValue": 4500100
 }
 
 ### eliminar un registro de RealPlayer por id
-DELETE http://localhost:3000/api/real-players/550e8400-e29b-41d4-a716-446655440000
+DELETE http://127.0.0.1:3000/api/real-players/550e8400-e29b-41d4-a716-446655440000
