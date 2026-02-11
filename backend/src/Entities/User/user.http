@@ -1,4 +1,4 @@
-### obtener todos los registros de User
+### obtener todos los usuarios
 GET http://127.0.0.1:3000/api/users
 
 ### obtener un registro de User por id

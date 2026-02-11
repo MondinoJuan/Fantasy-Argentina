@@ -9,7 +9,7 @@ type ParticipantSquadRow = RowDataPacket & {
 };
 
 export class ParticipantSquadRepository implements Repository<ParticipantSquad> {
-  private readonly tableName = 'ParticipantSquad';
+  private readonly tableName = 'participantsquad';
 
   private mapRowToEntity(row: ParticipantSquadRow): ParticipantSquad {
     return {

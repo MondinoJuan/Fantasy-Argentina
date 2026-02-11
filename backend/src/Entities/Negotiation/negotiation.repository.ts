@@ -9,7 +9,7 @@ type NegotiationRow = RowDataPacket & {
 };
 
 export class NegotiationRepository implements Repository<Negotiation> {
-  private readonly tableName = 'Negotiation';
+  private readonly tableName = 'negotiation';
 
   private mapRowToEntity(row: NegotiationRow): Negotiation {
     return {

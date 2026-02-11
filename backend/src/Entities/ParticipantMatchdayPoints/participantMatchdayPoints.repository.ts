@@ -9,7 +9,7 @@ type ParticipantMatchdayPointsRow = RowDataPacket & {
 };
 
 export class ParticipantMatchdayPointsRepository implements Repository<ParticipantMatchdayPoints> {
-  private readonly tableName = 'ParticipantMatchdayPoints';
+  private readonly tableName = 'participantmatchdaypoints';
 
   private mapRowToEntity(row: ParticipantMatchdayPointsRow): ParticipantMatchdayPoints {
     return {

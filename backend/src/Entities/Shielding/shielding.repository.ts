@@ -9,7 +9,7 @@ type ShieldingRow = RowDataPacket & {
 };
 
 export class ShieldingRepository implements Repository<Shielding> {
-  private readonly tableName = 'Shielding';
+  private readonly tableName = 'shielding';
 
   private mapRowToEntity(row: ShieldingRow): Shielding {
     return {

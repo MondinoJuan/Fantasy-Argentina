@@ -9,7 +9,7 @@ type BidRow = RowDataPacket & {
 };
 
 export class BidRepository implements Repository<Bid> {
-  private readonly tableName = 'Bid';
+  private readonly tableName = 'bid';
 
   private mapRowToEntity(row: BidRow): Bid {
     return {
