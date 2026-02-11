@@ -1,24 +1,46 @@
 ### obtener todos los registros de PlayerClause
-GET http://localhost:3000/api/player-clauses
+GET http://127.0.0.1:3000/api/player-clauses
 
 ### obtener un registro de PlayerClause por id
-GET http://localhost:3000/api/player-clauses/550e8400-e29b-41d4-a716-446655440000
+GET http://127.0.0.1:3000/api/player-clauses/550e8400-e29b-41d4-a716-446655440000
 
 ### crear un nuevo registro de PlayerClause
-POST http://localhost:3000/api/player-clauses
+POST http://127.0.0.1:3000/api/player-clauses
 Content-Type: application/json
 
 {
-  "name": "sample"
+  "tournamentId": "550e8400-e29b-41d4-a716-446655440000",
+  "realPlayerId": "550e8400-e29b-41d4-a716-446655440000",
+  "ownerParticipantId": "550e8400-e29b-41d4-a716-446655440000",
+  "baseClause": 5000000,
+  "additionalShieldingClause": 1500000,
+  "totalClause": 6500000,
+  "updateDate": "2026-02-10T12:00:00.000Z"
 }
 
 ### actualizar un registro de PlayerClause por id
-PUT http://localhost:3000/api/player-clauses/550e8400-e29b-41d4-a716-446655440000
+PUT http://127.0.0.1:3000/api/player-clauses/550e8400-e29b-41d4-a716-446655440000
 Content-Type: application/json
 
 {
-  "name": "updated sample"
+  "tournamentId": "550e8400-e29b-41d4-a716-446655440000",
+  "realPlayerId": "550e8400-e29b-41d4-a716-446655440000",
+  "ownerParticipantId": "550e8400-e29b-41d4-a716-446655440000",
+  "baseClause": 5000100,
+  "additionalShieldingClause": 1500100,
+  "totalClause": 6500100,
+  "updateDate": "2026-02-10T12:00:00.000Z"
+}
+
+### actualizar parcialmente un registro de PlayerClause por id
+PATCH http://127.0.0.1:3000/api/player-clauses/550e8400-e29b-41d4-a716-446655440000
+Content-Type: application/json
+
+{
+  "tournamentId": "550e8400-e29b-41d4-a716-446655440000",
+  "realPlayerId": "550e8400-e29b-41d4-a716-446655440000",
+  "ownerParticipantId": "550e8400-e29b-41d4-a716-446655440000"
 }
 
 ### eliminar un registro de PlayerClause por id
-DELETE http://localhost:3000/api/player-clauses/550e8400-e29b-41d4-a716-446655440000
+DELETE http://127.0.0.1:3000/api/player-clauses/550e8400-e29b-41d4-a716-446655440000

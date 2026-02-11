@@ -1,40 +1,40 @@
-### obtener todos los usuarios
-GET http://localhost:3000/api/users
+### obtener todos los registros de User
+GET http://127.0.0.1:3000/api/users
 
-### obtener un usuario por id
-GET http://localhost:3000/api/users/550e8400-e29b-41d4-a716-446655440000
+### obtener un registro de User por id
+GET http://127.0.0.1:3000/api/users/550e8400-e29b-41d4-a716-446655440000
 
-### crear un nuevo usuario
-POST http://localhost:3000/api/users
+### crear un nuevo registro de User
+POST http://127.0.0.1:3000/api/users
 Content-Type: application/json
 
 {
-  "username": "JuanPerez",
-  "mail": "juanperez@gmail.com",
-  "password": "1Juanperez",
-  "registrationDate": "2001-01-01T00:00:00.000Z"
+  "username": "juanperez",
+  "password": "ClaveSegura123!",
+  "mail": "juan.perez@example.com",
+  "registrationDate": "2026-02-10T12:00:00.000Z"
 }
 
-### actualizar un usuario por id
-PUT http://localhost:3000/api/users/550e8400-e29b-41d4-a716-446655440000
+### actualizar un registro de User por id
+PUT http://127.0.0.1:3000/api/users/550e8400-e29b-41d4-a716-446655440000
 Content-Type: application/json
 
 {
-  "username": "Juan Perez",
-  "mail": "jan@gmail.com",
-  "password": "1Jan",
-  "registrationDate": "2021-01-01T00:00:00.000Z"
+  "username": "juanperez",
+  "password": "ClaveSegura123!",
+  "mail": "juan.perez@example.com",
+  "registrationDate": "2026-02-10T12:00:00.000Z"
 }
 
-### actualizar parcialmente un usuario por id
-PATCH http://localhost:3000/api/users/550e8400-e29b-41d4-a716-446655440000
+### actualizar parcialmente un registro de User por id
+PATCH http://127.0.0.1:3000/api/users/550e8400-e29b-41d4-a716-446655440000
 Content-Type: application/json
 
 {
-  "mail": "juan@gmail.com"
+  "username": "juanperez",
+  "password": "ClaveSegura123!",
+  "mail": "juan.perez@example.com"
 }
 
-### eliminar un usuario por id
-DELETE http://localhost:3000/api/users/550e8400-e29b-41d4-a716-446655440000
-
-
+### eliminar un registro de User por id
+DELETE http://127.0.0.1:3000/api/users/550e8400-e29b-41d4-a716-446655440000

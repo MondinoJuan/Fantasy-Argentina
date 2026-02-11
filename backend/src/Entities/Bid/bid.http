@@ -1,24 +1,45 @@
 ### obtener todos los registros de Bid
-GET http://localhost:3000/api/bids
+GET http://127.0.0.1:3000/api/bids
 
 ### obtener un registro de Bid por id
-GET http://localhost:3000/api/bids/550e8400-e29b-41d4-a716-446655440000
+GET http://127.0.0.1:3000/api/bids/550e8400-e29b-41d4-a716-446655440000
 
 ### crear un nuevo registro de Bid
-POST http://localhost:3000/api/bids
+POST http://127.0.0.1:3000/api/bids
 Content-Type: application/json
 
 {
-  "name": "sample"
+  "matchdayMarketId": "550e8400-e29b-41d4-a716-446655440000",
+  "participantId": "550e8400-e29b-41d4-a716-446655440000",
+  "offeredAmount": 2500000,
+  "status": "active",
+  "bidDate": "2026-02-10T12:00:00.000Z",
+  "cancellationDate": "2026-02-10T12:00:00.000Z"
 }
 
 ### actualizar un registro de Bid por id
-PUT http://localhost:3000/api/bids/550e8400-e29b-41d4-a716-446655440000
+PUT http://127.0.0.1:3000/api/bids/550e8400-e29b-41d4-a716-446655440000
 Content-Type: application/json
 
 {
-  "name": "updated sample"
+  "matchdayMarketId": "550e8400-e29b-41d4-a716-446655440000",
+  "participantId": "550e8400-e29b-41d4-a716-446655440000",
+  "offeredAmount": 2500100,
+  "status": "active actualizado",
+  "bidDate": "2026-02-10T12:00:00.000Z",
+  "cancellationDate": "2026-02-10T12:00:00.000Z"
+}
+
+### actualizar parcialmente un registro de Bid por id
+PATCH http://127.0.0.1:3000/api/bids/550e8400-e29b-41d4-a716-446655440000
+Content-Type: application/json
+
+{
+  "matchdayMarketId": "550e8400-e29b-41d4-a716-446655440000",
+  "participantId": "550e8400-e29b-41d4-a716-446655440000",
+  "offeredAmount": 2500100,
+  "status": "active actualizado"
 }
 
 ### eliminar un registro de Bid por id
-DELETE http://localhost:3000/api/bids/550e8400-e29b-41d4-a716-446655440000
+DELETE http://127.0.0.1:3000/api/bids/550e8400-e29b-41d4-a716-446655440000
