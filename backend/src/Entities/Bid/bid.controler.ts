@@ -10,7 +10,6 @@ function sanitizeBidInput(req: Request, res: Response, next: NextFunction) {
     participantId: req.body.participantId,
     offeredAmount: req.body.offeredAmount,
     status: req.body.status,
-    bidDate: req.body.bidDate,
     cancellationDate: req.body.cancellationDate,
     };
 

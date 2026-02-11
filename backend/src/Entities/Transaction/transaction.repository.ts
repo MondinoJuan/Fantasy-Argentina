@@ -1,5 +1,6 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../../shared/db/conn.mysql.js';
+import { toNullableMysqlDateTime, toMysqlDateTime } from '../../shared/db/datetime.js';
 import { Repository } from '../../shared/repository.js';
 import { Transaction } from './transaction.entity.js';
 
@@ -54,9 +55,9 @@ export class TransactionRepository implements Repository<Transaction> {
       amount: item.amount,
       ref_table: item.referenceTable,
       ref_id: item.referenceId,
-      creation_date: item.creationDate,
-      publish_date: item.publicationDate,
-      effective_date: item.effectiveDate,
+      creation_date: toMysqlDateTime(new Date()),
+      publish_date: toNullableMysqlDateTime(item.publicationDate),
+      effective_date: toNullableMysqlDateTime(item.effectiveDate),
     };
 
     const [result] = await pool.query<ResultSetHeader>(
@@ -76,9 +77,8 @@ export class TransactionRepository implements Repository<Transaction> {
       amount: item.amount,
       ref_table: item.referenceTable,
       ref_id: item.referenceId,
-      creation_date: item.creationDate,
-      publish_date: item.publicationDate,
-      effective_date: item.effectiveDate,
+      publish_date: toNullableMysqlDateTime(item.publicationDate),
+      effective_date: toNullableMysqlDateTime(item.effectiveDate),
     };
 
     await pool.query(

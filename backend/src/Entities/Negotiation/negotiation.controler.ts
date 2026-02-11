@@ -12,7 +12,6 @@ function sanitizeNegotiationInput(req: Request, res: Response, next: NextFunctio
     realPlayerId: req.body.realPlayerId,
     agreedAmount: req.body.agreedAmount,
     status: req.body.status,
-    creationDate: req.body.creationDate,
     publicationDate: req.body.publicationDate,
     effectiveDate: req.body.effectiveDate,
     rejectionDate: req.body.rejectionDate,

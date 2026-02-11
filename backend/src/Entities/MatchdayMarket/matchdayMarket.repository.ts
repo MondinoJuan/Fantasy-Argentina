@@ -1,5 +1,6 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../../shared/db/conn.mysql.js';
+import { toMysqlDateTime } from '../../shared/db/datetime.js';
 import { Repository } from '../../shared/repository.js';
 import { MatchdayMarket } from './matchdayMarket.entity.js';
 
@@ -50,7 +51,7 @@ export class MatchdayMarketRepository implements Repository<MatchdayMarket> {
       min_price: item.minimumPrice,
       origin: item.origin,
       id_seller_participant: item.sellerParticipantId,
-      creation_date: item.creationDate,
+      creation_date: toMysqlDateTime(new Date()),
     };
 
     const [result] = await pool.query<ResultSetHeader>(
@@ -69,7 +70,6 @@ export class MatchdayMarketRepository implements Repository<MatchdayMarket> {
       min_price: item.minimumPrice,
       origin: item.origin,
       id_seller_participant: item.sellerParticipantId,
-      creation_date: item.creationDate,
     };
 
     await pool.query(

@@ -14,8 +14,7 @@ Content-Type: application/json
   "bankBudget": 50000000,
   "reservedMoney": 7000000,
   "availableMoney": 43000000,
-  "totalScore": 124,
-  "joinDate": "2026-02-10T12:00:00.000Z"
+  "totalScore": 124
 }
 
 ### actualizar un registro de Participant por id
@@ -28,8 +27,7 @@ Content-Type: application/json
   "bankBudget": 50000100,
   "reservedMoney": 7000100,
   "availableMoney": 43000100,
-  "totalScore": 224,
-  "joinDate": "2026-02-10T12:00:00.000Z"
+  "totalScore": 224
 }
 
 ### actualizar parcialmente un registro de Participant por id

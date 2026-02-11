@@ -13,7 +13,6 @@ Content-Type: application/json
   "participantId": "550e8400-e29b-41d4-a716-446655440000",
   "offeredAmount": 2500000,
   "status": "active",
-  "bidDate": "2026-02-10T12:00:00.000Z",
   "cancellationDate": "2026-02-10T12:00:00.000Z"
 }
 
@@ -26,7 +25,6 @@ Content-Type: application/json
   "participantId": "550e8400-e29b-41d4-a716-446655440000",
   "offeredAmount": 2500100,
   "status": "active actualizado",
-  "bidDate": "2026-02-10T12:00:00.000Z",
   "cancellationDate": "2026-02-10T12:00:00.000Z"
 }
 

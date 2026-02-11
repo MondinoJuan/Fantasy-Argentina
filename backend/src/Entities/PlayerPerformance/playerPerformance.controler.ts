@@ -10,7 +10,6 @@ function sanitizePlayerPerformanceInput(req: Request, res: Response, next: NextF
     matchdayId: req.body.matchdayId,
     pointsObtained: req.body.pointsObtained,
     played: req.body.played,
-    updateDate: req.body.updateDate,
     };
 
     Object.keys(req.body.sanitizePlayerPerformanceInput).forEach(key => {

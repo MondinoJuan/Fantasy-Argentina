@@ -1,5 +1,6 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../../shared/db/conn.mysql.js';
+import { toMysqlDateTime } from '../../shared/db/datetime.js';
 import { Repository } from '../../shared/repository.js';
 import { PlayerClause } from './playerClause.entity.js';
 
@@ -50,7 +51,7 @@ export class PlayerClauseRepository implements Repository<PlayerClause> {
       base_clause: item.baseClause,
       additional_clause_shielding: item.additionalShieldingClause,
       total_clause: item.totalClause,
-      update_date: item.updateDate,
+      update_date: toMysqlDateTime(new Date()),
     };
 
     const [result] = await pool.query<ResultSetHeader>(
@@ -69,7 +70,7 @@ export class PlayerClauseRepository implements Repository<PlayerClause> {
       base_clause: item.baseClause,
       additional_clause_shielding: item.additionalShieldingClause,
       total_clause: item.totalClause,
-      update_date: item.updateDate,
+      update_date: toMysqlDateTime(new Date()),
     };
 
     await pool.query(

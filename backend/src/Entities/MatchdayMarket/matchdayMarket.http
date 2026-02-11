@@ -14,8 +14,7 @@ Content-Type: application/json
   "realPlayerId": "550e8400-e29b-41d4-a716-446655440000",
   "minimumPrice": 1800000,
   "origin": "market",
-  "sellerParticipantId": "550e8400-e29b-41d4-a716-446655440000",
-  "creationDate": "2026-02-10T12:00:00.000Z"
+  "sellerParticipantId": "550e8400-e29b-41d4-a716-446655440000"
 }
 
 ### actualizar un registro de MatchdayMarket por id
@@ -28,8 +27,7 @@ Content-Type: application/json
   "realPlayerId": "550e8400-e29b-41d4-a716-446655440000",
   "minimumPrice": 1800100,
   "origin": "market actualizado",
-  "sellerParticipantId": "550e8400-e29b-41d4-a716-446655440000",
-  "creationDate": "2026-02-10T12:00:00.000Z"
+  "sellerParticipantId": "550e8400-e29b-41d4-a716-446655440000"
 }
 
 ### actualizar parcialmente un registro de MatchdayMarket por id

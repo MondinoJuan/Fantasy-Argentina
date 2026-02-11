@@ -1,5 +1,6 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../../shared/db/conn.mysql.js';
+import { toNullableMysqlDateTime, toMysqlDateTime } from '../../shared/db/datetime.js';
 import { Repository } from '../../shared/repository.js';
 import { Negotiation } from './negotiation.entity.js';
 
@@ -53,10 +54,10 @@ export class NegotiationRepository implements Repository<Negotiation> {
       id_real_player: item.realPlayerId,
       agreed_amount: item.agreedAmount,
       status: item.status,
-      creation_date: item.creationDate,
-      publish_date: item.publicationDate,
-      effective_date: item.effectiveDate,
-      reject_date: item.rejectionDate,
+      creation_date: toMysqlDateTime(new Date()),
+      publish_date: toNullableMysqlDateTime(item.publicationDate),
+      effective_date: toNullableMysqlDateTime(item.effectiveDate),
+      reject_date: toNullableMysqlDateTime(item.rejectionDate),
     };
 
     const [result] = await pool.query<ResultSetHeader>(
@@ -75,10 +76,9 @@ export class NegotiationRepository implements Repository<Negotiation> {
       id_real_player: item.realPlayerId,
       agreed_amount: item.agreedAmount,
       status: item.status,
-      creation_date: item.creationDate,
-      publish_date: item.publicationDate,
-      effective_date: item.effectiveDate,
-      reject_date: item.rejectionDate,
+      publish_date: toNullableMysqlDateTime(item.publicationDate),
+      effective_date: toNullableMysqlDateTime(item.effectiveDate),
+      reject_date: toNullableMysqlDateTime(item.rejectionDate),
     };
 
     await pool.query(

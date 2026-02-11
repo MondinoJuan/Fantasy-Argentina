@@ -11,8 +11,7 @@ Content-Type: application/json
 {
   "username": "juanperez",
   "password": "ClaveSegura123!",
-  "mail": "juan.perez@example.com",
-  "registrationDate": "2026-02-10T12:00:00.000Z"
+  "mail": "juan.perez@example.com"
 }
 
 ### actualizar un registro de User por id
@@ -22,8 +21,7 @@ Content-Type: application/json
 {
   "username": "juanperez",
   "password": "ClaveSegura123!",
-  "mail": "juan.perez@example.com",
-  "registrationDate": "2026-02-10T12:00:00.000Z"
+  "mail": "juan.perez@example.com"
 }
 
 ### actualizar parcialmente un registro de User por id

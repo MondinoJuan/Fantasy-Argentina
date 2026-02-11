@@ -11,7 +11,6 @@ Content-Type: application/json
 {
   "name": "Liga Profesional",
   "leagueId": "550e8400-e29b-41d4-a716-446655440000",
-  "creationDate": "2026-02-10T12:00:00.000Z",
   "initialBudget": 60000000,
   "squadSize": 25,
   "status": "active",
@@ -25,7 +24,6 @@ Content-Type: application/json
 {
   "name": "Liga Profesional actualizado",
   "leagueId": "550e8400-e29b-41d4-a716-446655440000",
-  "creationDate": "2026-02-10T12:00:00.000Z",
   "initialBudget": 60000100,
   "squadSize": 125,
   "status": "active actualizado",
@@ -39,7 +37,6 @@ Content-Type: application/json
 {
   "name": "Liga Profesional actualizado",
   "leagueId": "550e8400-e29b-41d4-a716-446655440000",
-  "creationDate": "2026-02-10T12:00:00.000Z",
   "status": "active actualizado"
 }
 

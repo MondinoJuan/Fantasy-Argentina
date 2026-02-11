@@ -12,7 +12,6 @@ function sanitizePlayerClauseInput(req: Request, res: Response, next: NextFuncti
     baseClause: req.body.baseClause,
     additionalShieldingClause: req.body.additionalShieldingClause,
     totalClause: req.body.totalClause,
-    updateDate: req.body.updateDate,
     };
 
     Object.keys(req.body.sanitizePlayerClauseInput).forEach(key => {

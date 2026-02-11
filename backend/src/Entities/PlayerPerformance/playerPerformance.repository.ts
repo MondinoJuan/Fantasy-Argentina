@@ -1,5 +1,6 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../../shared/db/conn.mysql.js';
+import { toMysqlDateTime } from '../../shared/db/datetime.js';
 import { Repository } from '../../shared/repository.js';
 import { PlayerPerformance } from './playerPerformance.entity.js';
 
@@ -46,7 +47,7 @@ export class PlayerPerformanceRepository implements Repository<PlayerPerformance
       id_matchday: item.matchdayId,
       points_obtained: item.pointsObtained,
       played: item.played,
-      update_date: item.updateDate,
+      update_date: toMysqlDateTime(new Date()),
     };
 
     const [result] = await pool.query<ResultSetHeader>(
@@ -63,7 +64,7 @@ export class PlayerPerformanceRepository implements Repository<PlayerPerformance
       id_matchday: item.matchdayId,
       points_obtained: item.pointsObtained,
       played: item.played,
-      update_date: item.updateDate,
+      update_date: toMysqlDateTime(new Date()),
     };
 
     await pool.query(
