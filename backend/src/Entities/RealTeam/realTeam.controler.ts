@@ -1,66 +1,79 @@
 import { Request, Response, NextFunction } from 'express';
-import { RealTeamRepository } from './realTeam.repository.js';
 import { RealTeam } from './realTeam.entity.js';
+import { orm } from '../../shared/db/orm.js';
 
-const repository = new RealTeamRepository();
+const em = orm.em;
+
+function parseId(idParam: string | string[] | undefined) {
+  const rawId = Array.isArray(idParam) ? idParam[0] : idParam;
+  return Number.parseInt(rawId ?? '', 10);
+}
 
 function sanitizeRealTeamInput(req: Request, res: Response, next: NextFunction) {
-    req.body.sanitizeRealTeamInput = {
+  req.body.sanitizeRealTeamInput = {
         name: req.body.name,
     leagueId: req.body.leagueId,
     externalApiId: req.body.externalApiId,
     };
 
-    Object.keys(req.body.sanitizeRealTeamInput).forEach(key => {
-        if (req.body.sanitizeRealTeamInput[key] === undefined) {
-            delete req.body.sanitizeRealTeamInput[key];
-        }
-    });
-    next();
+  Object.keys(req.body.sanitizeRealTeamInput).forEach((key) => {
+    if (req.body.sanitizeRealTeamInput[key] === undefined) {
+      delete req.body.sanitizeRealTeamInput[key];
+    }
+  });
+  next();
 }
 
 async function findAll(req: Request, res: Response) {
-    return res.json({ data: await repository.findAll() });
+  try {
+    const items = await em.find(RealTeam, {});
+    res.status(200).json({ message: 'found all real teams', data: items });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
-async function findOne(req: Request<{id: string}>, res: Response) {
-    const id = req.params.id;
-    const item = await repository.findOne({ id });
-    if (!item) {
-        return res.status(404).send({ error: 'RealTeam not found' });
-    }
-    return res.json({ data: item });
+async function findOne(req: Request, res: Response) {
+  try {
+    const id = parseId(req.params.id);
+    const item = await em.findOneOrFail(RealTeam, { id });
+    res.status(200).json({ message: 'found real team', data: item });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 async function add(req: Request, res: Response) {
-    const input = req.body.sanitizeRealTeamInput;
-    const newItem = new RealTeam(
-        input.name,
-    input.leagueId,
-    input.externalApiId,
-    );
-    const item = await repository.add(newItem);
-    return res.status(201).send({ message: 'RealTeam created', data: item });
+  try {
+    const item = em.create(RealTeam, req.body.sanitizeRealTeamInput);
+    await em.flush();
+    res.status(201).json({ message: 'real team created', data: item });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 async function update(req: Request, res: Response) {
-    req.body.sanitizeRealTeamInput.id = req.params.id;
-    const item = await repository.update(String(req.params.id), req.body.sanitizeRealTeamInput);
-    if (!item) {
-        return res.status(404).send({ error: 'RealTeam not found' });
-    } else {
-        return res.status(200).json({ message: 'RealTeam updated', data: item });
-    }
+  try {
+    const id = parseId(req.params.id);
+    const itemToUpdate = await em.findOneOrFail(RealTeam, { id });
+    em.assign(itemToUpdate, req.body.sanitizeRealTeamInput);
+    await em.flush();
+    res.status(200).json({ message: 'real team updated', data: itemToUpdate });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
-async function remove(req: Request<{id: string}>, res: Response) {
-    const id = req.params.id;
-    const item = await repository.delete({ id });
-    if (!item) {
-        return res.status(404).send({ error: 'RealTeam not found' });
-    } else {
-        return res.status(200).send({ message: 'RealTeam deleted successfully' });
-    }
+async function remove(req: Request, res: Response) {
+  try {
+    const id = parseId(req.params.id);
+    const item = em.getReference(RealTeam, id);
+    await em.removeAndFlush(item);
+    res.status(200).json({ message: 'real team deleted' });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 export { sanitizeRealTeamInput, findAll, findOne, add, update, remove };
