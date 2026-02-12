@@ -56,7 +56,7 @@ async function add(req: Request, res: Response) {
 async function update(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const itemToUpdate = await em.findOneOrFail(RealTeam, { id });
+    const itemToUpdate = await em.getReference(RealTeam, id);
     em.assign(itemToUpdate, req.body.sanitizeRealTeamInput);
     await em.flush();
     res.status(200).json({ message: 'real team updated', data: itemToUpdate });
@@ -69,7 +69,8 @@ async function remove(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
     const item = em.getReference(RealTeam, id);
-    await em.removeAndFlush(item);
+    em.remove(item);
+    await em.flush();
     res.status(200).json({ message: 'real team deleted' });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

@@ -59,7 +59,7 @@ async function add(req: Request, res: Response) {
 async function update(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const itemToUpdate = await em.findOneOrFail(MatchdayMarket, { id });
+    const itemToUpdate = await em.getReference(MatchdayMarket, id);
     em.assign(itemToUpdate, req.body.sanitizeMatchdayMarketInput);
     await em.flush();
     res.status(200).json({ message: 'matchday market updated', data: itemToUpdate });
@@ -72,7 +72,8 @@ async function remove(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
     const item = em.getReference(MatchdayMarket, id);
-    await em.removeAndFlush(item);
+    em.remove(item);
+    await em.flush();
     res.status(200).json({ message: 'matchday market deleted' });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

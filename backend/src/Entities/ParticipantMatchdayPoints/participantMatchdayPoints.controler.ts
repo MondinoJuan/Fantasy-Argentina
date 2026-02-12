@@ -59,7 +59,7 @@ async function add(req: Request, res: Response) {
 async function update(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const itemToUpdate = await em.findOneOrFail(ParticipantMatchdayPoints, { id });
+    const itemToUpdate = await em.getReference(ParticipantMatchdayPoints, id);
     em.assign(itemToUpdate, req.body.sanitizeParticipantMatchdayPointsInput);
     await em.flush();
     res.status(200).json({ message: 'participant matchday points updated', data: itemToUpdate });
@@ -72,7 +72,8 @@ async function remove(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
     const item = em.getReference(ParticipantMatchdayPoints, id);
-    await em.removeAndFlush(item);
+    em.remove(item);
+    await em.flush();
     res.status(200).json({ message: 'participant matchday points deleted' });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

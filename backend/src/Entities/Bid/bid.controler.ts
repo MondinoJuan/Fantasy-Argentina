@@ -58,7 +58,7 @@ async function add(req: Request, res: Response) {
 async function update(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const itemToUpdate = await em.findOneOrFail(Bid, { id });
+    const itemToUpdate = await em.getReference(Bid, id);
     em.assign(itemToUpdate, req.body.sanitizeBidInput);
     await em.flush();
     res.status(200).json({ message: 'bid updated', data: itemToUpdate });
@@ -71,7 +71,8 @@ async function remove(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
     const item = em.getReference(Bid, id);
-    await em.removeAndFlush(item);
+    em.remove(item);
+    await em.flush();
     res.status(200).json({ message: 'bid deleted' });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
