@@ -2,50 +2,50 @@
 GET http://127.0.0.1:3000/api/transactions
 
 ### obtener un registro de Transaction por id
-GET http://127.0.0.1:3000/api/transactions/550e8400-e29b-41d4-a716-446655440000
+GET http://127.0.0.1:3000/api/transactions/1
 
 ### crear un nuevo registro de Transaction
 POST http://127.0.0.1:3000/api/transactions
 Content-Type: application/json
 
 {
-  "originParticipantId": "550e8400-e29b-41d4-a716-446655440000",
-  "destinationParticipantId": "550e8400-e29b-41d4-a716-446655440000",
-  "tournamentId": "550e8400-e29b-41d4-a716-446655440000",
+  "originParticipantId": "1",
+  "destinationParticipantId": "1",
+  "tournamentId": "1",
   "type": "transfer",
   "amount": 3200000,
   "referenceTable": "negotiations",
-  "referenceId": "550e8400-e29b-41d4-a716-446655440000",
+  "referenceId": "1",
   "publicationDate": "2026-02-10T12:00:00.000Z",
   "effectiveDate": "2026-02-11T12:00:00.000Z"
 }
 
 ### actualizar un registro de Transaction por id
-PUT http://127.0.0.1:3000/api/transactions/550e8400-e29b-41d4-a716-446655440000
+PUT http://127.0.0.1:3000/api/transactions/1
 Content-Type: application/json
 
 {
-  "originParticipantId": "550e8400-e29b-41d4-a716-446655440000",
-  "destinationParticipantId": "550e8400-e29b-41d4-a716-446655440000",
-  "tournamentId": "550e8400-e29b-41d4-a716-446655440000",
+  "originParticipantId": "1",
+  "destinationParticipantId": "1",
+  "tournamentId": "1",
   "type": "transfer actualizado",
   "amount": 3200100,
   "referenceTable": "negotiations actualizado",
-  "referenceId": "550e8400-e29b-41d4-a716-446655440000",
+  "referenceId": "1",
   "publicationDate": "2026-02-10T12:00:00.000Z",
   "effectiveDate": "2026-02-11T12:00:00.000Z"
 }
 
 ### actualizar parcialmente un registro de Transaction por id
-PATCH http://127.0.0.1:3000/api/transactions/550e8400-e29b-41d4-a716-446655440000
+PATCH http://127.0.0.1:3000/api/transactions/1
 Content-Type: application/json
 
 {
-  "originParticipantId": "550e8400-e29b-41d4-a716-446655440000",
-  "destinationParticipantId": "550e8400-e29b-41d4-a716-446655440000",
-  "tournamentId": "550e8400-e29b-41d4-a716-446655440000",
+  "originParticipantId": "1",
+  "destinationParticipantId": "1",
+  "tournamentId": "1",
   "amount": 3200100
 }
 
 ### eliminar un registro de Transaction por id
-DELETE http://127.0.0.1:3000/api/transactions/550e8400-e29b-41d4-a716-446655440000
+DELETE http://127.0.0.1:3000/api/transactions/1

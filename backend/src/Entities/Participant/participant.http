@@ -2,15 +2,15 @@
 GET http://127.0.0.1:3000/api/participants
 
 ### obtener un registro de Participant por id
-GET http://127.0.0.1:3000/api/participants/550e8400-e29b-41d4-a716-446655440000
+GET http://127.0.0.1:3000/api/participants/1
 
 ### crear un nuevo registro de Participant
 POST http://127.0.0.1:3000/api/participants
 Content-Type: application/json
 
 {
-  "userId": "550e8400-e29b-41d4-a716-446655440000",
-  "tournamentId": "550e8400-e29b-41d4-a716-446655440000",
+  "userId": "1",
+  "tournamentId": "1",
   "bankBudget": 50000000,
   "reservedMoney": 7000000,
   "availableMoney": 43000000,
@@ -18,12 +18,12 @@ Content-Type: application/json
 }
 
 ### actualizar un registro de Participant por id
-PUT http://127.0.0.1:3000/api/participants/550e8400-e29b-41d4-a716-446655440000
+PUT http://127.0.0.1:3000/api/participants/1
 Content-Type: application/json
 
 {
-  "userId": "550e8400-e29b-41d4-a716-446655440000",
-  "tournamentId": "550e8400-e29b-41d4-a716-446655440000",
+  "userId": "1",
+  "tournamentId": "1",
   "bankBudget": 50000100,
   "reservedMoney": 7000100,
   "availableMoney": 43000100,
@@ -31,14 +31,14 @@ Content-Type: application/json
 }
 
 ### actualizar parcialmente un registro de Participant por id
-PATCH http://127.0.0.1:3000/api/participants/550e8400-e29b-41d4-a716-446655440000
+PATCH http://127.0.0.1:3000/api/participants/1
 Content-Type: application/json
 
 {
-  "userId": "550e8400-e29b-41d4-a716-446655440000",
-  "tournamentId": "550e8400-e29b-41d4-a716-446655440000",
+  "userId": "1",
+  "tournamentId": "1",
   "bankBudget": 50000100
 }
 
 ### eliminar un registro de Participant por id
-DELETE http://127.0.0.1:3000/api/participants/550e8400-e29b-41d4-a716-446655440000
+DELETE http://127.0.0.1:3000/api/participants/1

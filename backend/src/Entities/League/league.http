@@ -2,7 +2,7 @@
 GET http://127.0.0.1:3000/api/leagues
 
 ### obtener un registro de League por id
-GET http://127.0.0.1:3000/api/leagues/550e8400-e29b-41d4-a716-446655440000
+GET http://127.0.0.1:3000/api/leagues/1
 
 ### crear un nuevo registro de League
 POST http://127.0.0.1:3000/api/leagues
@@ -11,28 +11,28 @@ Content-Type: application/json
 {
   "name": "Liga Profesional",
   "country": "Argentina",
-  "externalApiId": "550e8400-e29b-41d4-a716-446655440000"
+  "externalApiId": "1"
 }
 
 ### actualizar un registro de League por id
-PUT http://127.0.0.1:3000/api/leagues/550e8400-e29b-41d4-a716-446655440000
+PUT http://127.0.0.1:3000/api/leagues/1
 Content-Type: application/json
 
 {
   "name": "Liga Profesional actualizado",
   "country": "Argentina",
-  "externalApiId": "550e8400-e29b-41d4-a716-446655440000"
+  "externalApiId": "1"
 }
 
 ### actualizar parcialmente un registro de League por id
-PATCH http://127.0.0.1:3000/api/leagues/550e8400-e29b-41d4-a716-446655440000
+PATCH http://127.0.0.1:3000/api/leagues/1
 Content-Type: application/json
 
 {
   "name": "Liga Profesional actualizado",
   "country": "Argentina",
-  "externalApiId": "550e8400-e29b-41d4-a716-446655440000"
+  "externalApiId": "1"
 }
 
 ### eliminar un registro de League por id
-DELETE http://127.0.0.1:3000/api/leagues/550e8400-e29b-41d4-a716-446655440000
+DELETE http://127.0.0.1:3000/api/leagues/1
