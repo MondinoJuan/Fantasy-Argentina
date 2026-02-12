@@ -1,13 +1,26 @@
-import crypt from 'node:crypto';
+import { Entity, ManyToOne, Property, Unique } from '@mikro-orm/core';
+import { BaseEntity } from '../../shared/db/base.entity.js';
+import { Participant } from '../Participant/participant.entity.js';
+import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
 
-export class ParticipantSquad {
-    constructor(
-        public participantId: string,
-        public realPlayerId: string,
-        public acquisitionDate: Date = new Date(),
-        public releaseDate: Date,
-        public purchasePrice: number,
-        public acquisitionType: string,
-        public id: string = crypt.randomUUID()
-    ) { }
+@Entity()
+@Unique({ properties: ['participant', 'realPlayer', 'acquisitionDate'] })
+export class ParticipantSquad extends BaseEntity {
+  @ManyToOne(() => Participant, { nullable: false })
+  participant!: Participant;
+
+  @ManyToOne(() => RealPlayer, { nullable: false })
+  realPlayer!: RealPlayer;
+
+  @Property({ nullable: false })
+  acquisitionDate: Date = new Date();
+
+  @Property({ nullable: true })
+  releaseDate?: Date;
+
+  @Property({ nullable: false })
+  purchasePrice!: number;
+
+  @Property({ nullable: false })
+  acquisitionType!: string;
 }

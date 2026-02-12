@@ -1,14 +1,35 @@
-import crypt from 'node:crypto';
+import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property, Unique } from '@mikro-orm/core';
+import { BaseEntity } from '../../shared/db/base.entity.js';
+import { Tournament } from '../Tournament/tournament.entity.js';
+import { Matchday } from '../Matchday/matchday.entity.js';
+import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
+import { Participant } from '../Participant/participant.entity.js';
+import { Bid } from '../Bid/bid.entity.js';
 
-export class MatchdayMarket {
-    constructor(
-        public tournamentId: string,
-        public matchdayId: string,
-        public realPlayerId: string,
-        public minimumPrice: number,
-        public origin: string,
-        public sellerParticipantId: string,
-        public creationDate: Date = new Date(),
-        public id: string = crypt.randomUUID()
-    ) { }
+@Entity()
+@Unique({ properties: ['tournament', 'matchday', 'realPlayer'] })
+export class MatchdayMarket extends BaseEntity {
+  @ManyToOne(() => Tournament, { nullable: false })
+  tournament!: Tournament;
+
+  @ManyToOne(() => Matchday, { nullable: false })
+  matchday!: Matchday;
+
+  @ManyToOne(() => RealPlayer, { nullable: false })
+  realPlayer!: RealPlayer;
+
+  @Property({ nullable: false })
+  minimumPrice!: number;
+
+  @Property({ nullable: false })
+  origin!: string;
+
+  @ManyToOne(() => Participant, { nullable: true })
+  sellerParticipant?: Participant;
+
+  @Property({ nullable: false })
+  creationDate: Date = new Date();
+
+  @OneToMany(() => Bid, (bid) => bid.matchdayMarket, { cascade: [Cascade.ALL] })
+  bids = new Collection<Bid>(this);
 }

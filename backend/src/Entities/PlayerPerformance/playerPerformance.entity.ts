@@ -1,12 +1,29 @@
-import crypt from 'node:crypto';
+import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property, Unique } from '@mikro-orm/core';
+import { BaseEntity } from '../../shared/db/base.entity.js';
+import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
+import { Matchday } from '../Matchday/matchday.entity.js';
+import { PlayerPointsBreakdown } from '../PlayerPointsBreakdown/playerPointsBreakdown.entity.js';
 
-export class PlayerPerformance {
-    constructor(
-        public realPlayerId: string,
-        public matchdayId: string,
-        public pointsObtained: number,
-        public played: boolean,
-        public updateDate: Date = new Date(),
-        public id: string = crypt.randomUUID()
-    ) { }
+@Entity()
+@Unique({ properties: ['realPlayer', 'matchday'] })
+export class PlayerPerformance extends BaseEntity {
+  @ManyToOne(() => RealPlayer, { nullable: false })
+  realPlayer!: RealPlayer;
+
+  @ManyToOne(() => Matchday, { nullable: false })
+  matchday!: Matchday;
+
+  @Property({ nullable: false })
+  pointsObtained!: number;
+
+  @Property({ nullable: false })
+  played!: boolean;
+
+  @Property({ nullable: false })
+  updateDate: Date = new Date();
+
+  @OneToMany(() => PlayerPointsBreakdown, (playerPointsBreakdown) => playerPointsBreakdown.playerPerformance, {
+    cascade: [Cascade.ALL],
+  })
+  pointsBreakdown = new Collection<PlayerPointsBreakdown>(this);
 }

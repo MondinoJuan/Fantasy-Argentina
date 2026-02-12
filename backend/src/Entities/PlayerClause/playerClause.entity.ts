@@ -1,14 +1,36 @@
-import crypt from 'node:crypto';
+import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property, Unique } from '@mikro-orm/core';
+import { BaseEntity } from '../../shared/db/base.entity.js';
+import { Tournament } from '../Tournament/tournament.entity.js';
+import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
+import { Participant } from '../Participant/participant.entity.js';
+import { Shielding } from '../Shielding/shielding.entity.js';
 
-export class PlayerClause {
-    constructor(
-        public tournamentId: string,
-        public realPlayerId: string,
-        public ownerParticipantId: string,
-        public baseClause: number,
-        public additionalShieldingClause: number,
-        public totalClause: number,
-        public updateDate: Date = new Date(),
-        public id: string = crypt.randomUUID()
-    ) { }
+@Entity()
+@Unique({ properties: ['tournament', 'realPlayer'] })
+export class PlayerClause extends BaseEntity {
+  @ManyToOne(() => Tournament, { nullable: false })
+  tournament!: Tournament;
+
+  @ManyToOne(() => RealPlayer, { nullable: false })
+  realPlayer!: RealPlayer;
+
+  @ManyToOne(() => Participant, { nullable: false })
+  ownerParticipant!: Participant;
+
+  @Property({ nullable: false })
+  baseClause!: number;
+
+  @Property({ nullable: false, default: 0 })
+  additionalShieldingClause: number = 0;
+
+  @Property({ nullable: false })
+  totalClause!: number;
+
+  @Property({ nullable: false })
+  updateDate: Date = new Date();
+
+  @OneToMany(() => Shielding, (shielding) => shielding.playerClause, {
+    cascade: [Cascade.ALL],
+  })
+  shieldings = new Collection<Shielding>(this);
 }
