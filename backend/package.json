@@ -12,8 +12,11 @@
   "license": "ISC",
   "packageManager": "pnpm@10.28.1",
   "dependencies": {
+    "@mikro-orm/core": "6.6.6",
+    "@mikro-orm/mysql": "6.6.6",
+    "@mikro-orm/sql-highlighter": "1.0.1",
     "express": "5.2.1",
-    "mysql2": "3.17.0"
+    "reflect-metadata": "0.2.2"
   },
   "devDependencies": {
     "@types/express": "5.0.6",

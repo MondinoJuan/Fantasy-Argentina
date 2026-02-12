@@ -1,11 +1,20 @@
+import { PrimaryKey, Entity, Property, DateTimeType } from '@mikro-orm/core';
 import crypt from 'node:crypto';
 
+@Entity()
 export class User {
-    constructor(
-        public username: string, 
-        public password: string, 
-        public mail: string,
-        public registrationDate: Date = new Date(),
-        public id?: number
-    ) { }
+    @PrimaryKey()
+    id?: number
+
+    @Property({nullable: false, unique: true})
+    username!: string
+
+    @Property()
+    password!: string
+
+    @Property({nullable: true, unique: true})
+    mail!: string
+
+    @Property({type: DateTimeType})
+    registrationDate: Date = new Date()
 }
