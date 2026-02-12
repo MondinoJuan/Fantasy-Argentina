@@ -10,6 +10,8 @@ Content-Type: application/json
 
 {
   "matchdayId": "1",
+  "externalApiId": "1",
+  "matchdayId": "1",
   "externalApiId": "2",
   "homeTeam": "River Plate",
   "awayTeam": "Boca Juniors",
@@ -18,10 +20,13 @@ Content-Type: application/json
 }
 
 ### actualizar un registro de Match por id
+PUT http://127.0.0.1:3000/api/matches/1
 PUT http://127.0.0.1:3000/api/matches/3
 Content-Type: application/json
 
 {
+  "matchdayId": "1",
+  "externalApiId": "1",
   "matchdayId": "3",
   "externalApiId": "2",
   "homeTeam": "River Plate actualizado",
@@ -31,15 +36,15 @@ Content-Type: application/json
 }
 
 ### actualizar parcialmente un registro de Match por id
-PATCH http://127.0.0.1:3000/api/matches/550e8400-e29b-41d4-a716-446655440000
+PATCH http://127.0.0.1:3000/api/matches/1
 Content-Type: application/json
 
 {
-  "matchdayId": "550e8400-e29b-41d4-a716-446655440000",
-  "externalApiId": "550e8400-e29b-41d4-a716-446655440000",
+  "matchdayId": "1",
+  "externalApiId": "1",
   "homeTeam": "River Plate actualizado",
   "status": "active actualizado"
 }
 
 ### eliminar un registro de Match por id
-DELETE http://127.0.0.1:3000/api/matches/550e8400-e29b-41d4-a716-446655440000
+DELETE http://127.0.0.1:3000/api/matches/1

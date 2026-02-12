@@ -2,39 +2,39 @@
 GET http://127.0.0.1:3000/api/shieldings
 
 ### obtener un registro de Shielding por id
-GET http://127.0.0.1:3000/api/shieldings/550e8400-e29b-41d4-a716-446655440000
+GET http://127.0.0.1:3000/api/shieldings/1
 
 ### crear un nuevo registro de Shielding
 POST http://127.0.0.1:3000/api/shieldings
 Content-Type: application/json
 
 {
-  "playerClauseId": "550e8400-e29b-41d4-a716-446655440000",
-  "participantId": "550e8400-e29b-41d4-a716-446655440000",
+  "playerClauseId": "1",
+  "participantId": "1",
   "investedAmount": 800000,
   "clauseIncrease": 1000000
 }
 
 ### actualizar un registro de Shielding por id
-PUT http://127.0.0.1:3000/api/shieldings/550e8400-e29b-41d4-a716-446655440000
+PUT http://127.0.0.1:3000/api/shieldings/1
 Content-Type: application/json
 
 {
-  "playerClauseId": "550e8400-e29b-41d4-a716-446655440000",
-  "participantId": "550e8400-e29b-41d4-a716-446655440000",
+  "playerClauseId": "1",
+  "participantId": "1",
   "investedAmount": 800100,
   "clauseIncrease": 1000100
 }
 
 ### actualizar parcialmente un registro de Shielding por id
-PATCH http://127.0.0.1:3000/api/shieldings/550e8400-e29b-41d4-a716-446655440000
+PATCH http://127.0.0.1:3000/api/shieldings/1
 Content-Type: application/json
 
 {
-  "playerClauseId": "550e8400-e29b-41d4-a716-446655440000",
-  "participantId": "550e8400-e29b-41d4-a716-446655440000",
+  "playerClauseId": "1",
+  "participantId": "1",
   "investedAmount": 800100
 }
 
 ### eliminar un registro de Shielding por id
-DELETE http://127.0.0.1:3000/api/shieldings/550e8400-e29b-41d4-a716-446655440000
+DELETE http://127.0.0.1:3000/api/shieldings/1

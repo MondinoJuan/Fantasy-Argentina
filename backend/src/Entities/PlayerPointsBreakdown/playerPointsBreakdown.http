@@ -2,41 +2,41 @@
 GET http://127.0.0.1:3000/api/player-points-breakdowns
 
 ### obtener un registro de PlayerPointsBreakdown por id
-GET http://127.0.0.1:3000/api/player-points-breakdowns/550e8400-e29b-41d4-a716-446655440000
+GET http://127.0.0.1:3000/api/player-points-breakdowns/1
 
 ### crear un nuevo registro de PlayerPointsBreakdown
 POST http://127.0.0.1:3000/api/player-points-breakdowns
 Content-Type: application/json
 
 {
-  "participantId": "550e8400-e29b-41d4-a716-446655440000",
-  "matchdayId": "550e8400-e29b-41d4-a716-446655440000",
-  "realPlayerId": "550e8400-e29b-41d4-a716-446655440000",
+  "participantId": "1",
+  "matchdayId": "1",
+  "realPlayerId": "1",
   "contributedPoints": 9,
-  "playerPerformanceId": "550e8400-e29b-41d4-a716-446655440000"
+  "playerPerformanceId": "1"
 }
 
 ### actualizar un registro de PlayerPointsBreakdown por id
-PUT http://127.0.0.1:3000/api/player-points-breakdowns/550e8400-e29b-41d4-a716-446655440000
+PUT http://127.0.0.1:3000/api/player-points-breakdowns/1
 Content-Type: application/json
 
 {
-  "participantId": "550e8400-e29b-41d4-a716-446655440000",
-  "matchdayId": "550e8400-e29b-41d4-a716-446655440000",
-  "realPlayerId": "550e8400-e29b-41d4-a716-446655440000",
+  "participantId": "1",
+  "matchdayId": "1",
+  "realPlayerId": "1",
   "contributedPoints": 109,
-  "playerPerformanceId": "550e8400-e29b-41d4-a716-446655440000"
+  "playerPerformanceId": "1"
 }
 
 ### actualizar parcialmente un registro de PlayerPointsBreakdown por id
-PATCH http://127.0.0.1:3000/api/player-points-breakdowns/550e8400-e29b-41d4-a716-446655440000
+PATCH http://127.0.0.1:3000/api/player-points-breakdowns/1
 Content-Type: application/json
 
 {
-  "participantId": "550e8400-e29b-41d4-a716-446655440000",
-  "matchdayId": "550e8400-e29b-41d4-a716-446655440000",
-  "realPlayerId": "550e8400-e29b-41d4-a716-446655440000"
+  "participantId": "1",
+  "matchdayId": "1",
+  "realPlayerId": "1"
 }
 
 ### eliminar un registro de PlayerPointsBreakdown por id
-DELETE http://127.0.0.1:3000/api/player-points-breakdowns/550e8400-e29b-41d4-a716-446655440000
+DELETE http://127.0.0.1:3000/api/player-points-breakdowns/1

@@ -2,17 +2,17 @@
 GET http://127.0.0.1:3000/api/negotiations
 
 ### obtener un registro de Negotiation por id
-GET http://127.0.0.1:3000/api/negotiations/550e8400-e29b-41d4-a716-446655440000
+GET http://127.0.0.1:3000/api/negotiations/1
 
 ### crear un nuevo registro de Negotiation
 POST http://127.0.0.1:3000/api/negotiations
 Content-Type: application/json
 
 {
-  "tournamentId": "550e8400-e29b-41d4-a716-446655440000",
-  "sellerParticipantId": "550e8400-e29b-41d4-a716-446655440000",
-  "buyerParticipantId": "550e8400-e29b-41d4-a716-446655440000",
-  "realPlayerId": "550e8400-e29b-41d4-a716-446655440000",
+  "tournamentId": "1",
+  "sellerParticipantId": "1",
+  "buyerParticipantId": "1",
+  "realPlayerId": "1",
   "agreedAmount": 3200000,
   "status": "active",
   "publicationDate": "2026-02-10T12:00:00.000Z",
@@ -21,14 +21,14 @@ Content-Type: application/json
 }
 
 ### actualizar un registro de Negotiation por id
-PUT http://127.0.0.1:3000/api/negotiations/550e8400-e29b-41d4-a716-446655440000
+PUT http://127.0.0.1:3000/api/negotiations/1
 Content-Type: application/json
 
 {
-  "tournamentId": "550e8400-e29b-41d4-a716-446655440000",
-  "sellerParticipantId": "550e8400-e29b-41d4-a716-446655440000",
-  "buyerParticipantId": "550e8400-e29b-41d4-a716-446655440000",
-  "realPlayerId": "550e8400-e29b-41d4-a716-446655440000",
+  "tournamentId": "1",
+  "sellerParticipantId": "1",
+  "buyerParticipantId": "1",
+  "realPlayerId": "1",
   "agreedAmount": 3200100,
   "status": "active actualizado",
   "publicationDate": "2026-02-10T12:00:00.000Z",
@@ -37,15 +37,15 @@ Content-Type: application/json
 }
 
 ### actualizar parcialmente un registro de Negotiation por id
-PATCH http://127.0.0.1:3000/api/negotiations/550e8400-e29b-41d4-a716-446655440000
+PATCH http://127.0.0.1:3000/api/negotiations/1
 Content-Type: application/json
 
 {
-  "tournamentId": "550e8400-e29b-41d4-a716-446655440000",
-  "sellerParticipantId": "550e8400-e29b-41d4-a716-446655440000",
-  "buyerParticipantId": "550e8400-e29b-41d4-a716-446655440000",
+  "tournamentId": "1",
+  "sellerParticipantId": "1",
+  "buyerParticipantId": "1",
   "status": "active actualizado"
 }
 
 ### eliminar un registro de Negotiation por id
-DELETE http://127.0.0.1:3000/api/negotiations/550e8400-e29b-41d4-a716-446655440000
+DELETE http://127.0.0.1:3000/api/negotiations/1

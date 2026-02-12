@@ -2,7 +2,7 @@
 GET http://127.0.0.1:3000/api/tournaments
 
 ### obtener un registro de Tournament por id
-GET http://127.0.0.1:3000/api/tournaments/550e8400-e29b-41d4-a716-446655440000
+GET http://127.0.0.1:3000/api/tournaments/1
 
 ### crear un nuevo registro de Tournament
 POST http://127.0.0.1:3000/api/tournaments
@@ -10,7 +10,7 @@ Content-Type: application/json
 
 {
   "name": "Liga Profesional",
-  "leagueId": "550e8400-e29b-41d4-a716-446655440000",
+  "leagueId": "1",
   "initialBudget": 60000000,
   "squadSize": 25,
   "status": "active",
@@ -18,12 +18,12 @@ Content-Type: application/json
 }
 
 ### actualizar un registro de Tournament por id
-PUT http://127.0.0.1:3000/api/tournaments/550e8400-e29b-41d4-a716-446655440000
+PUT http://127.0.0.1:3000/api/tournaments/1
 Content-Type: application/json
 
 {
   "name": "Liga Profesional actualizado",
-  "leagueId": "550e8400-e29b-41d4-a716-446655440000",
+  "leagueId": "1",
   "initialBudget": 60000100,
   "squadSize": 125,
   "status": "active actualizado",
@@ -31,14 +31,14 @@ Content-Type: application/json
 }
 
 ### actualizar parcialmente un registro de Tournament por id
-PATCH http://127.0.0.1:3000/api/tournaments/550e8400-e29b-41d4-a716-446655440000
+PATCH http://127.0.0.1:3000/api/tournaments/1
 Content-Type: application/json
 
 {
   "name": "Liga Profesional actualizado",
-  "leagueId": "550e8400-e29b-41d4-a716-446655440000",
+  "leagueId": "1",
   "status": "active actualizado"
 }
 
 ### eliminar un registro de Tournament por id
-DELETE http://127.0.0.1:3000/api/tournaments/550e8400-e29b-41d4-a716-446655440000
+DELETE http://127.0.0.1:3000/api/tournaments/1
