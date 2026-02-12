@@ -1,4 +1,4 @@
-import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property } from '@mikro-orm/core';
+import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property, Rel } from '@mikro-orm/core';
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { League } from '../League/league.entity.js';
 import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
@@ -9,7 +9,7 @@ export class RealTeam extends BaseEntity {
   name!: string;
 
   @ManyToOne(() => League, { nullable: false })
-  league!: League;
+  league!: Rel<League>;
 
   @Property({ nullable: false })
   externalApiId!: string;

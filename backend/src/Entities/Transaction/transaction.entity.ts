@@ -1,4 +1,4 @@
-import { Entity, ManyToOne, Property } from '@mikro-orm/core';
+import { Entity, ManyToOne, Property, Rel } from '@mikro-orm/core';
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { Participant } from '../Participant/participant.entity.js';
 import { Tournament } from '../Tournament/tournament.entity.js';
@@ -6,13 +6,13 @@ import { Tournament } from '../Tournament/tournament.entity.js';
 @Entity()
 export class Transaction extends BaseEntity {
   @ManyToOne(() => Participant, { nullable: true })
-  originParticipant?: Participant;
+  originParticipant?: Rel<Participant>;
 
   @ManyToOne(() => Participant, { nullable: true })
-  destinationParticipant?: Participant;
+  destinationParticipant?: Rel<Participant>;
 
   @ManyToOne(() => Tournament, { nullable: false })
-  tournament!: Tournament;
+  tournament!: Rel<Tournament>;
 
   @Property({ nullable: false })
   type!: string;

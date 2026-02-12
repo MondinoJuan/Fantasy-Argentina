@@ -1,4 +1,4 @@
-import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property } from '@mikro-orm/core';
+import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property, Rel } from '@mikro-orm/core';
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { League } from '../League/league.entity.js';
 import { Participant } from '../Participant/participant.entity.js';
@@ -13,7 +13,7 @@ export class Tournament extends BaseEntity {
   name!: string;
 
   @ManyToOne(() => League, { nullable: false })
-  league!: League;
+  league!: Rel<League>;
 
   @Property({ nullable: false })
   creationDate: Date = new Date();

@@ -1,4 +1,4 @@
-import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property, Unique } from '@mikro-orm/core';
+import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property, Unique, Rel } from '@mikro-orm/core';
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { Tournament } from '../Tournament/tournament.entity.js';
 import { Matchday } from '../Matchday/matchday.entity.js';
@@ -10,13 +10,13 @@ import { Bid } from '../Bid/bid.entity.js';
 @Unique({ properties: ['tournament', 'matchday', 'realPlayer'] })
 export class MatchdayMarket extends BaseEntity {
   @ManyToOne(() => Tournament, { nullable: false })
-  tournament!: Tournament;
+  tournament!: Rel<Tournament>;
 
   @ManyToOne(() => Matchday, { nullable: false })
-  matchday!: Matchday;
+  matchday!: Rel<Matchday>;
 
   @ManyToOne(() => RealPlayer, { nullable: false })
-  realPlayer!: RealPlayer;
+  realPlayer!: Rel<RealPlayer>;
 
   @Property({ nullable: false })
   minimumPrice!: number;
@@ -25,7 +25,7 @@ export class MatchdayMarket extends BaseEntity {
   origin!: string;
 
   @ManyToOne(() => Participant, { nullable: true })
-  sellerParticipant?: Participant;
+  sellerParticipant?: Rel<Participant>;
 
   @Property({ nullable: false })
   creationDate: Date = new Date();

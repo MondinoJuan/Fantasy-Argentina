@@ -1,4 +1,4 @@
-import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property, Unique } from '@mikro-orm/core';
+import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property, Unique, Rel } from '@mikro-orm/core';
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { Tournament } from '../Tournament/tournament.entity.js';
 import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
@@ -9,13 +9,13 @@ import { Shielding } from '../Shielding/shielding.entity.js';
 @Unique({ properties: ['tournament', 'realPlayer'] })
 export class PlayerClause extends BaseEntity {
   @ManyToOne(() => Tournament, { nullable: false })
-  tournament!: Tournament;
+  tournament!: Rel<Tournament>;
 
   @ManyToOne(() => RealPlayer, { nullable: false })
-  realPlayer!: RealPlayer;
+  realPlayer!: Rel<RealPlayer>;
 
   @ManyToOne(() => Participant, { nullable: false })
-  ownerParticipant!: Participant;
+  ownerParticipant!: Rel<Participant>;
 
   @Property({ nullable: false })
   baseClause!: number;
