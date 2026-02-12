@@ -23,49 +23,41 @@ function sanitizeUserInput(req: Request, res: Response, next: NextFunction) {
     next();
 }
 
-function findAll(req:Request, res:Response) {
-    return res.json({data: repository.findAll()});
+async function findAll(req: Request, res: Response) {
+  const users = await repository.findAll()
+  return res.json({ data: users ?? [] })
 }
 
-function findOne(req:Request<{id: string}>, res:Response) {
-    const id = req.params.id;
-    const user = repository.findOne({id});
-    if (!user) {
-        return res.status(404).send({ error: 'User not found' });
-    }
-    return res.json({data: user});
+async function findOne(req: Request<{ id: string }>, res: Response) {
+  const user = await repository.findOne({ id: req.params.id })
+  if (!user) return res.status(404).send({ error: 'User not found' })
+  return res.json({ data: user })
 }
 
-function add (req:Request, res:Response) {
-    const input = req.body.sanitizeUserInput;
-    const newUser = new User(
-        input.username, 
-        input.password, 
-        input.mail,
-        input.registrationDate
-    );
-    const user = repository.add(newUser);
-    return res.status(201).send({message: 'User created', data: user});
+async function add(req: Request, res: Response) {
+  const input = req.body.sanitizeUserInput
+
+  const newUser = new User(
+    input.username,
+    input.password,
+    input.mail,
+    input.registrationDate
+  )
+
+  const created = await repository.add(newUser)
+  return res.status(201).send({ message: 'User created', data: created })
 }
 
-function update(req:Request, res:Response) {
-    req.body.sanitizeUserInput.id = req.params.id;
-    const user = repository.update(String(req.params.id), req.body.sanitizeUserInput);
-    if (!user) {
-        return res.status(404).send({ error: 'User not found' });
-    } else {
-        return res.status(200).json({message: 'User updated', data: user});
-    }
+async function update(req: Request<{ id: string }>, res: Response) {
+  const updated = await repository.update(req.params.id, req.body.sanitizeUserInput)
+  if (!updated) return res.status(404).send({ error: 'User not found' })
+  return res.status(200).json({ message: 'User updated', data: updated })
 }
 
-function remove(req:Request<{id: string}>, res:Response) {
-    const id = req.params.id;
-    const user = repository.delete({id});
-    if (!user) {
-        return res.status(404).send({ error: 'User not found' });
-    } else {
-        return res.status(200).send({message: 'User deleted successfully'});
-    }
+async function remove(req: Request<{ id: string }>, res: Response) {
+  const deleted = await repository.delete({ id: req.params.id })
+  if (!deleted) return res.status(404).send({ error: 'User not found' })
+  return res.status(200).send({ message: 'User deleted successfully', data: deleted })
 }
 
 

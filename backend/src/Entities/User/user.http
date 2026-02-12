@@ -2,7 +2,7 @@
 GET http://127.0.0.1:3000/api/users
 
 ### obtener un registro de User por id
-GET http://127.0.0.1:3000/api/users/550e8400-e29b-41d4-a716-446655440000
+GET http://127.0.0.1:3000/api/users/1
 
 ### crear un nuevo registro de User
 POST http://127.0.0.1:3000/api/users
@@ -15,23 +15,21 @@ Content-Type: application/json
 }
 
 ### actualizar un registro de User por id
-PUT http://127.0.0.1:3000/api/users/550e8400-e29b-41d4-a716-446655440000
+PUT http://127.0.0.1:3000/api/users/1
 Content-Type: application/json
 
 {
-  "username": "juanperez",
+  "username": "nperez",
   "password": "ClaveSegura123!",
   "mail": "juan.perez@example.com"
 }
 
 ### actualizar parcialmente un registro de User por id
-PATCH http://127.0.0.1:3000/api/users/550e8400-e29b-41d4-a716-446655440000
+PATCH http://127.0.0.1:3000/api/users/4
 Content-Type: application/json
 
 {
-  "username": "juanperez",
-  "password": "ClaveSegura123!",
-  "mail": "juan.perez@example.com"
+  "mail": "juan.ez@example.com"
 }
 
 ### eliminar un registro de User por id
