@@ -2,40 +2,40 @@
 GET http://127.0.0.1:3000/api/participant-squads
 
 ### obtener un registro de ParticipantSquad por id
-GET http://127.0.0.1:3000/api/participant-squads/550e8400-e29b-41d4-a716-446655440000
+GET http://127.0.0.1:3000/api/participant-squads/1
 
 ### crear un nuevo registro de ParticipantSquad
 POST http://127.0.0.1:3000/api/participant-squads
 Content-Type: application/json
 
 {
-  "participantId": "550e8400-e29b-41d4-a716-446655440000",
-  "realPlayerId": "550e8400-e29b-41d4-a716-446655440000",
+  "participantId": "1",
+  "realPlayerId": "1",
   "releaseDate": "2026-02-20T12:00:00.000Z",
   "purchasePrice": 2100000,
   "acquisitionType": "market"
 }
 
 ### actualizar un registro de ParticipantSquad por id
-PUT http://127.0.0.1:3000/api/participant-squads/550e8400-e29b-41d4-a716-446655440000
+PUT http://127.0.0.1:3000/api/participant-squads/1
 Content-Type: application/json
 
 {
-  "participantId": "550e8400-e29b-41d4-a716-446655440000",
-  "realPlayerId": "550e8400-e29b-41d4-a716-446655440000",
+  "participantId": "1",
+  "realPlayerId": "1",
   "releaseDate": "2026-02-20T12:00:00.000Z",
   "purchasePrice": 2100100,
   "acquisitionType": "market actualizado"
 }
 
 ### actualizar parcialmente un registro de ParticipantSquad por id
-PATCH http://127.0.0.1:3000/api/participant-squads/550e8400-e29b-41d4-a716-446655440000
+PATCH http://127.0.0.1:3000/api/participant-squads/1
 Content-Type: application/json
 
 {
-  "participantId": "550e8400-e29b-41d4-a716-446655440000",
-  "realPlayerId": "550e8400-e29b-41d4-a716-446655440000"
+  "participantId": "1",
+  "realPlayerId": "1"
 }
 
 ### eliminar un registro de ParticipantSquad por id
-DELETE http://127.0.0.1:3000/api/participant-squads/550e8400-e29b-41d4-a716-446655440000
+DELETE http://127.0.0.1:3000/api/participant-squads/1

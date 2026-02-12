@@ -2,39 +2,39 @@
 GET http://127.0.0.1:3000/api/player-performances
 
 ### obtener un registro de PlayerPerformance por id
-GET http://127.0.0.1:3000/api/player-performances/550e8400-e29b-41d4-a716-446655440000
+GET http://127.0.0.1:3000/api/player-performances/1
 
 ### crear un nuevo registro de PlayerPerformance
 POST http://127.0.0.1:3000/api/player-performances
 Content-Type: application/json
 
 {
-  "realPlayerId": "550e8400-e29b-41d4-a716-446655440000",
-  "matchdayId": "550e8400-e29b-41d4-a716-446655440000",
+  "realPlayerId": "1",
+  "matchdayId": "1",
   "pointsObtained": 12,
   "played": true
 }
 
 ### actualizar un registro de PlayerPerformance por id
-PUT http://127.0.0.1:3000/api/player-performances/550e8400-e29b-41d4-a716-446655440000
+PUT http://127.0.0.1:3000/api/player-performances/1
 Content-Type: application/json
 
 {
-  "realPlayerId": "550e8400-e29b-41d4-a716-446655440000",
-  "matchdayId": "550e8400-e29b-41d4-a716-446655440000",
+  "realPlayerId": "1",
+  "matchdayId": "1",
   "pointsObtained": 112,
   "played": true
 }
 
 ### actualizar parcialmente un registro de PlayerPerformance por id
-PATCH http://127.0.0.1:3000/api/player-performances/550e8400-e29b-41d4-a716-446655440000
+PATCH http://127.0.0.1:3000/api/player-performances/1
 Content-Type: application/json
 
 {
-  "realPlayerId": "550e8400-e29b-41d4-a716-446655440000",
-  "matchdayId": "550e8400-e29b-41d4-a716-446655440000",
+  "realPlayerId": "1",
+  "matchdayId": "1",
   "pointsObtained": 112
 }
 
 ### eliminar un registro de PlayerPerformance por id
-DELETE http://127.0.0.1:3000/api/player-performances/550e8400-e29b-41d4-a716-446655440000
+DELETE http://127.0.0.1:3000/api/player-performances/1

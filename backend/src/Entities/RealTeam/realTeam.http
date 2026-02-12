@@ -2,7 +2,7 @@
 GET http://127.0.0.1:3000/api/real-teams
 
 ### obtener un registro de RealTeam por id
-GET http://127.0.0.1:3000/api/real-teams/550e8400-e29b-41d4-a716-446655440000
+GET http://127.0.0.1:3000/api/real-teams/1
 
 ### crear un nuevo registro de RealTeam
 POST http://127.0.0.1:3000/api/real-teams
@@ -10,29 +10,29 @@ Content-Type: application/json
 
 {
   "name": "Liga Profesional",
-  "leagueId": "550e8400-e29b-41d4-a716-446655440000",
-  "externalApiId": "550e8400-e29b-41d4-a716-446655440000"
+  "leagueId": "1",
+  "externalApiId": "1"
 }
 
 ### actualizar un registro de RealTeam por id
-PUT http://127.0.0.1:3000/api/real-teams/550e8400-e29b-41d4-a716-446655440000
+PUT http://127.0.0.1:3000/api/real-teams/1
 Content-Type: application/json
 
 {
   "name": "Liga Profesional actualizado",
-  "leagueId": "550e8400-e29b-41d4-a716-446655440000",
-  "externalApiId": "550e8400-e29b-41d4-a716-446655440000"
+  "leagueId": "1",
+  "externalApiId": "1"
 }
 
 ### actualizar parcialmente un registro de RealTeam por id
-PATCH http://127.0.0.1:3000/api/real-teams/550e8400-e29b-41d4-a716-446655440000
+PATCH http://127.0.0.1:3000/api/real-teams/1
 Content-Type: application/json
 
 {
   "name": "Liga Profesional actualizado",
-  "leagueId": "550e8400-e29b-41d4-a716-446655440000",
-  "externalApiId": "550e8400-e29b-41d4-a716-446655440000"
+  "leagueId": "1",
+  "externalApiId": "1"
 }
 
 ### eliminar un registro de RealTeam por id
-DELETE http://127.0.0.1:3000/api/real-teams/550e8400-e29b-41d4-a716-446655440000
+DELETE http://127.0.0.1:3000/api/real-teams/1

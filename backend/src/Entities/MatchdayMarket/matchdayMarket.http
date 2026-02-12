@@ -2,43 +2,43 @@
 GET http://127.0.0.1:3000/api/matchday-markets
 
 ### obtener un registro de MatchdayMarket por id
-GET http://127.0.0.1:3000/api/matchday-markets/550e8400-e29b-41d4-a716-446655440000
+GET http://127.0.0.1:3000/api/matchday-markets/1
 
 ### crear un nuevo registro de MatchdayMarket
 POST http://127.0.0.1:3000/api/matchday-markets
 Content-Type: application/json
 
 {
-  "tournamentId": "550e8400-e29b-41d4-a716-446655440000",
-  "matchdayId": "550e8400-e29b-41d4-a716-446655440000",
-  "realPlayerId": "550e8400-e29b-41d4-a716-446655440000",
+  "tournamentId": "1",
+  "matchdayId": "1",
+  "realPlayerId": "1",
   "minimumPrice": 1800000,
   "origin": "market",
-  "sellerParticipantId": "550e8400-e29b-41d4-a716-446655440000"
+  "sellerParticipantId": "1"
 }
 
 ### actualizar un registro de MatchdayMarket por id
-PUT http://127.0.0.1:3000/api/matchday-markets/550e8400-e29b-41d4-a716-446655440000
+PUT http://127.0.0.1:3000/api/matchday-markets/1
 Content-Type: application/json
 
 {
-  "tournamentId": "550e8400-e29b-41d4-a716-446655440000",
-  "matchdayId": "550e8400-e29b-41d4-a716-446655440000",
-  "realPlayerId": "550e8400-e29b-41d4-a716-446655440000",
+  "tournamentId": "1",
+  "matchdayId": "1",
+  "realPlayerId": "1",
   "minimumPrice": 1800100,
   "origin": "market actualizado",
-  "sellerParticipantId": "550e8400-e29b-41d4-a716-446655440000"
+  "sellerParticipantId": "1"
 }
 
 ### actualizar parcialmente un registro de MatchdayMarket por id
-PATCH http://127.0.0.1:3000/api/matchday-markets/550e8400-e29b-41d4-a716-446655440000
+PATCH http://127.0.0.1:3000/api/matchday-markets/1
 Content-Type: application/json
 
 {
-  "tournamentId": "550e8400-e29b-41d4-a716-446655440000",
-  "matchdayId": "550e8400-e29b-41d4-a716-446655440000",
-  "realPlayerId": "550e8400-e29b-41d4-a716-446655440000"
+  "tournamentId": "1",
+  "matchdayId": "1",
+  "realPlayerId": "1"
 }
 
 ### eliminar un registro de MatchdayMarket por id
-DELETE http://127.0.0.1:3000/api/matchday-markets/550e8400-e29b-41d4-a716-446655440000
+DELETE http://127.0.0.1:3000/api/matchday-markets/1
