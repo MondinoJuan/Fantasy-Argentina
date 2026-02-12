@@ -16,10 +16,10 @@ import { Negotiation } from '../Negotiation/negotiation.entity.js';
 @Unique({ properties: ['user', 'tournament'] })
 export class Participant extends BaseEntity {
   @ManyToOne(() => User, { nullable: false })
-  user!: User;
+  user!: Rel<User>;
 
   @ManyToOne(() => Tournament, { nullable: false })
-  tournament!: Tournament;
+  tournament!: Rel<Tournament>;
 
   @Property({ nullable: false })
   bankBudget!: number;

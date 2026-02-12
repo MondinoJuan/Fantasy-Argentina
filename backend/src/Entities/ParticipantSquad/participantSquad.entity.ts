@@ -1,4 +1,4 @@
-import { Entity, ManyToOne, Property, Unique} from '@mikro-orm/core';
+import { Entity, ManyToOne, Property, Unique, Rel } from '@mikro-orm/core';
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { Participant } from '../Participant/participant.entity.js';
 import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
@@ -7,10 +7,10 @@ import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
 @Unique({ properties: ['participant', 'realPlayer', 'acquisitionDate'] })
 export class ParticipantSquad extends BaseEntity {
   @ManyToOne(() => Participant, { nullable: false })
-  participant!: Participant;
+  participant!: Rel<Participant>;
 
   @ManyToOne(() => RealPlayer, { nullable: false })
-  realPlayer!: RealPlayer;
+  realPlayer!: Rel<RealPlayer>;
 
   @Property({ nullable: false })
   acquisitionDate: Date = new Date();

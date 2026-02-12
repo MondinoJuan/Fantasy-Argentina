@@ -1,4 +1,4 @@
-import { Entity, ManyToOne, Property, Unique } from '@mikro-orm/core';
+import { Entity, ManyToOne, Property, Unique, Rel } from '@mikro-orm/core';
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { Matchday } from '../Matchday/matchday.entity.js';
 
@@ -6,7 +6,7 @@ import { Matchday } from '../Matchday/matchday.entity.js';
 @Unique({ properties: ['externalApiId'] })
 export class Match extends BaseEntity {
   @ManyToOne(() => Matchday, { nullable: false })
-  matchday!: Matchday;
+  matchday!: Rel<Matchday>;
 
   @Property({ nullable: false })
   externalApiId!: string;
