@@ -1,11 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
-import { ParticipantSquadRepository } from './participantSquad.repository.js';
 import { ParticipantSquad } from './participantSquad.entity.js';
+import { orm } from '../../shared/db/orm.js';
 
-const repository = new ParticipantSquadRepository();
+const em = orm.em;
+
+function parseId(idParam: string | string[] | undefined) {
+  const rawId = Array.isArray(idParam) ? idParam[0] : idParam;
+  return Number.parseInt(rawId ?? '', 10);
+}
 
 function sanitizeParticipantSquadInput(req: Request, res: Response, next: NextFunction) {
-    req.body.sanitizeParticipantSquadInput = {
+  req.body.sanitizeParticipantSquadInput = {
         participantId: req.body.participantId,
     realPlayerId: req.body.realPlayerId,
     releaseDate: req.body.releaseDate,
@@ -13,59 +18,64 @@ function sanitizeParticipantSquadInput(req: Request, res: Response, next: NextFu
     acquisitionType: req.body.acquisitionType,
     };
 
-    Object.keys(req.body.sanitizeParticipantSquadInput).forEach(key => {
-        if (req.body.sanitizeParticipantSquadInput[key] === undefined) {
-            delete req.body.sanitizeParticipantSquadInput[key];
-        }
-    });
-    next();
+  Object.keys(req.body.sanitizeParticipantSquadInput).forEach((key) => {
+    if (req.body.sanitizeParticipantSquadInput[key] === undefined) {
+      delete req.body.sanitizeParticipantSquadInput[key];
+    }
+  });
+  next();
 }
 
 async function findAll(req: Request, res: Response) {
-    return res.json({ data: await repository.findAll() });
+  try {
+    const items = await em.find(ParticipantSquad, {});
+    res.status(200).json({ message: 'found all participant squads', data: items });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
-async function findOne(req: Request<{id: string}>, res: Response) {
-    const id = req.params.id;
-    const item = await repository.findOne({ id });
-    if (!item) {
-        return res.status(404).send({ error: 'ParticipantSquad not found' });
-    }
-    return res.json({ data: item });
+async function findOne(req: Request, res: Response) {
+  try {
+    const id = parseId(req.params.id);
+    const item = await em.findOneOrFail(ParticipantSquad, { id });
+    res.status(200).json({ message: 'found participant squad', data: item });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 async function add(req: Request, res: Response) {
-    const input = req.body.sanitizeParticipantSquadInput;
-    const newItem = new ParticipantSquad(
-        input.participantId,
-    input.realPlayerId,
-    input.acquisitionDate,
-    input.releaseDate,
-    input.purchasePrice,
-    input.acquisitionType,
-    );
-    const item = await repository.add(newItem);
-    return res.status(201).send({ message: 'ParticipantSquad created', data: item });
+  try {
+    const item = em.create(ParticipantSquad, req.body.sanitizeParticipantSquadInput);
+    await em.flush();
+    res.status(201).json({ message: 'participant squad created', data: item });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 async function update(req: Request, res: Response) {
-    req.body.sanitizeParticipantSquadInput.id = req.params.id;
-    const item = await repository.update(String(req.params.id), req.body.sanitizeParticipantSquadInput);
-    if (!item) {
-        return res.status(404).send({ error: 'ParticipantSquad not found' });
-    } else {
-        return res.status(200).json({ message: 'ParticipantSquad updated', data: item });
-    }
+  try {
+    const id = parseId(req.params.id);
+    const itemToUpdate = await em.findOneOrFail(ParticipantSquad, { id });
+    em.assign(itemToUpdate, req.body.sanitizeParticipantSquadInput);
+    await em.flush();
+    res.status(200).json({ message: 'participant squad updated', data: itemToUpdate });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
-async function remove(req: Request<{id: string}>, res: Response) {
-    const id = req.params.id;
-    const item = await repository.delete({ id });
-    if (!item) {
-        return res.status(404).send({ error: 'ParticipantSquad not found' });
-    } else {
-        return res.status(200).send({ message: 'ParticipantSquad deleted successfully' });
-    }
+async function remove(req: Request, res: Response) {
+  try {
+    const id = parseId(req.params.id);
+    const item = em.getReference(ParticipantSquad, id);
+    await em.removeAndFlush(item);
+    res.status(200).json({ message: 'participant squad deleted' });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 export { sanitizeParticipantSquadInput, findAll, findOne, add, update, remove };

@@ -1,11 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
-import { ParticipantRepository } from './participant.repository.js';
 import { Participant } from './participant.entity.js';
+import { orm } from '../../shared/db/orm.js';
 
-const repository = new ParticipantRepository();
+const em = orm.em;
+
+function parseId(idParam: string | string[] | undefined) {
+  const rawId = Array.isArray(idParam) ? idParam[0] : idParam;
+  return Number.parseInt(rawId ?? '', 10);
+}
 
 function sanitizeParticipantInput(req: Request, res: Response, next: NextFunction) {
-    req.body.sanitizeParticipantInput = {
+  req.body.sanitizeParticipantInput = {
         userId: req.body.userId,
     tournamentId: req.body.tournamentId,
     bankBudget: req.body.bankBudget,
@@ -14,60 +19,64 @@ function sanitizeParticipantInput(req: Request, res: Response, next: NextFunctio
     totalScore: req.body.totalScore,
     };
 
-    Object.keys(req.body.sanitizeParticipantInput).forEach(key => {
-        if (req.body.sanitizeParticipantInput[key] === undefined) {
-            delete req.body.sanitizeParticipantInput[key];
-        }
-    });
-    next();
+  Object.keys(req.body.sanitizeParticipantInput).forEach((key) => {
+    if (req.body.sanitizeParticipantInput[key] === undefined) {
+      delete req.body.sanitizeParticipantInput[key];
+    }
+  });
+  next();
 }
 
 async function findAll(req: Request, res: Response) {
-    return res.json({ data: await repository.findAll() });
+  try {
+    const items = await em.find(Participant, {});
+    res.status(200).json({ message: 'found all participants', data: items });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
-async function findOne(req: Request<{id: string}>, res: Response) {
-    const id = req.params.id;
-    const item = await repository.findOne({ id });
-    if (!item) {
-        return res.status(404).send({ error: 'Participant not found' });
-    }
-    return res.json({ data: item });
+async function findOne(req: Request, res: Response) {
+  try {
+    const id = parseId(req.params.id);
+    const item = await em.findOneOrFail(Participant, { id });
+    res.status(200).json({ message: 'found participant', data: item });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 async function add(req: Request, res: Response) {
-    const input = req.body.sanitizeParticipantInput;
-    const newItem = new Participant(
-        input.userId,
-    input.tournamentId,
-    input.bankBudget,
-    input.reservedMoney,
-    input.availableMoney,
-    input.totalScore,
-    input.joinDate,
-    );
-    const item = await repository.add(newItem);
-    return res.status(201).send({ message: 'Participant created', data: item });
+  try {
+    const item = em.create(Participant, req.body.sanitizeParticipantInput);
+    await em.flush();
+    res.status(201).json({ message: 'participant created', data: item });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 async function update(req: Request, res: Response) {
-    req.body.sanitizeParticipantInput.id = req.params.id;
-    const item = await repository.update(String(req.params.id), req.body.sanitizeParticipantInput);
-    if (!item) {
-        return res.status(404).send({ error: 'Participant not found' });
-    } else {
-        return res.status(200).json({ message: 'Participant updated', data: item });
-    }
+  try {
+    const id = parseId(req.params.id);
+    const itemToUpdate = await em.findOneOrFail(Participant, { id });
+    em.assign(itemToUpdate, req.body.sanitizeParticipantInput);
+    await em.flush();
+    res.status(200).json({ message: 'participant updated', data: itemToUpdate });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
-async function remove(req: Request<{id: string}>, res: Response) {
-    const id = req.params.id;
-    const item = await repository.delete({ id });
-    if (!item) {
-        return res.status(404).send({ error: 'Participant not found' });
-    } else {
-        return res.status(200).send({ message: 'Participant deleted successfully' });
-    }
+async function remove(req: Request, res: Response) {
+  try {
+    const id = parseId(req.params.id);
+    const item = em.getReference(Participant, id);
+    await em.removeAndFlush(item);
+    res.status(200).json({ message: 'participant deleted' });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 export { sanitizeParticipantInput, findAll, findOne, add, update, remove };

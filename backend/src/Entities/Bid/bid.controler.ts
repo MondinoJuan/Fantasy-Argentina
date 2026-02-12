@@ -1,11 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
-import { BidRepository } from './bid.repository.js';
 import { Bid } from './bid.entity.js';
+import { orm } from '../../shared/db/orm.js';
 
-const repository = new BidRepository();
+const em = orm.em;
+
+function parseId(idParam: string | string[] | undefined) {
+  const rawId = Array.isArray(idParam) ? idParam[0] : idParam;
+  return Number.parseInt(rawId ?? '', 10);
+}
 
 function sanitizeBidInput(req: Request, res: Response, next: NextFunction) {
-    req.body.sanitizeBidInput = {
+  req.body.sanitizeBidInput = {
         matchdayMarketId: req.body.matchdayMarketId,
     participantId: req.body.participantId,
     offeredAmount: req.body.offeredAmount,
@@ -13,59 +18,64 @@ function sanitizeBidInput(req: Request, res: Response, next: NextFunction) {
     cancellationDate: req.body.cancellationDate,
     };
 
-    Object.keys(req.body.sanitizeBidInput).forEach(key => {
-        if (req.body.sanitizeBidInput[key] === undefined) {
-            delete req.body.sanitizeBidInput[key];
-        }
-    });
-    next();
+  Object.keys(req.body.sanitizeBidInput).forEach((key) => {
+    if (req.body.sanitizeBidInput[key] === undefined) {
+      delete req.body.sanitizeBidInput[key];
+    }
+  });
+  next();
 }
 
 async function findAll(req: Request, res: Response) {
-    return res.json({ data: await repository.findAll() });
+  try {
+    const items = await em.find(Bid, {});
+    res.status(200).json({ message: 'found all bids', data: items });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
-async function findOne(req: Request<{id: string}>, res: Response) {
-    const id = req.params.id;
-    const item = await repository.findOne({ id });
-    if (!item) {
-        return res.status(404).send({ error: 'Bid not found' });
-    }
-    return res.json({ data: item });
+async function findOne(req: Request, res: Response) {
+  try {
+    const id = parseId(req.params.id);
+    const item = await em.findOneOrFail(Bid, { id });
+    res.status(200).json({ message: 'found bid', data: item });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 async function add(req: Request, res: Response) {
-    const input = req.body.sanitizeBidInput;
-    const newItem = new Bid(
-        input.matchdayMarketId,
-    input.participantId,
-    input.offeredAmount,
-    input.status,
-    input.bidDate,
-    input.cancellationDate,
-    );
-    const item = await repository.add(newItem);
-    return res.status(201).send({ message: 'Bid created', data: item });
+  try {
+    const item = em.create(Bid, req.body.sanitizeBidInput);
+    await em.flush();
+    res.status(201).json({ message: 'bid created', data: item });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 async function update(req: Request, res: Response) {
-    req.body.sanitizeBidInput.id = req.params.id;
-    const item = await repository.update(String(req.params.id), req.body.sanitizeBidInput);
-    if (!item) {
-        return res.status(404).send({ error: 'Bid not found' });
-    } else {
-        return res.status(200).json({ message: 'Bid updated', data: item });
-    }
+  try {
+    const id = parseId(req.params.id);
+    const itemToUpdate = await em.findOneOrFail(Bid, { id });
+    em.assign(itemToUpdate, req.body.sanitizeBidInput);
+    await em.flush();
+    res.status(200).json({ message: 'bid updated', data: itemToUpdate });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
-async function remove(req: Request<{id: string}>, res: Response) {
-    const id = req.params.id;
-    const item = await repository.delete({ id });
-    if (!item) {
-        return res.status(404).send({ error: 'Bid not found' });
-    } else {
-        return res.status(200).send({ message: 'Bid deleted successfully' });
-    }
+async function remove(req: Request, res: Response) {
+  try {
+    const id = parseId(req.params.id);
+    const item = em.getReference(Bid, id);
+    await em.removeAndFlush(item);
+    res.status(200).json({ message: 'bid deleted' });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 export { sanitizeBidInput, findAll, findOne, add, update, remove };

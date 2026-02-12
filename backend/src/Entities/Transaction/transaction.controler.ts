@@ -1,11 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
-import { TransactionRepository } from './transaction.repository.js';
 import { Transaction } from './transaction.entity.js';
+import { orm } from '../../shared/db/orm.js';
 
-const repository = new TransactionRepository();
+const em = orm.em;
+
+function parseId(idParam: string | string[] | undefined) {
+  const rawId = Array.isArray(idParam) ? idParam[0] : idParam;
+  return Number.parseInt(rawId ?? '', 10);
+}
 
 function sanitizeTransactionInput(req: Request, res: Response, next: NextFunction) {
-    req.body.sanitizeTransactionInput = {
+  req.body.sanitizeTransactionInput = {
         originParticipantId: req.body.originParticipantId,
     destinationParticipantId: req.body.destinationParticipantId,
     tournamentId: req.body.tournamentId,
@@ -17,63 +22,64 @@ function sanitizeTransactionInput(req: Request, res: Response, next: NextFunctio
     effectiveDate: req.body.effectiveDate,
     };
 
-    Object.keys(req.body.sanitizeTransactionInput).forEach(key => {
-        if (req.body.sanitizeTransactionInput[key] === undefined) {
-            delete req.body.sanitizeTransactionInput[key];
-        }
-    });
-    next();
+  Object.keys(req.body.sanitizeTransactionInput).forEach((key) => {
+    if (req.body.sanitizeTransactionInput[key] === undefined) {
+      delete req.body.sanitizeTransactionInput[key];
+    }
+  });
+  next();
 }
 
 async function findAll(req: Request, res: Response) {
-    return res.json({ data: await repository.findAll() });
+  try {
+    const items = await em.find(Transaction, {});
+    res.status(200).json({ message: 'found all transactions', data: items });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
-async function findOne(req: Request<{id: string}>, res: Response) {
-    const id = req.params.id;
-    const item = await repository.findOne({ id });
-    if (!item) {
-        return res.status(404).send({ error: 'Transaction not found' });
-    }
-    return res.json({ data: item });
+async function findOne(req: Request, res: Response) {
+  try {
+    const id = parseId(req.params.id);
+    const item = await em.findOneOrFail(Transaction, { id });
+    res.status(200).json({ message: 'found transaction', data: item });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 async function add(req: Request, res: Response) {
-    const input = req.body.sanitizeTransactionInput;
-    const newItem = new Transaction(
-        input.originParticipantId,
-    input.destinationParticipantId,
-    input.tournamentId,
-    input.type,
-    input.amount,
-    input.referenceTable,
-    input.referenceId,
-    input.creationDate,
-    input.publicationDate,
-    input.effectiveDate,
-    );
-    const item = await repository.add(newItem);
-    return res.status(201).send({ message: 'Transaction created', data: item });
+  try {
+    const item = em.create(Transaction, req.body.sanitizeTransactionInput);
+    await em.flush();
+    res.status(201).json({ message: 'transaction created', data: item });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 async function update(req: Request, res: Response) {
-    req.body.sanitizeTransactionInput.id = req.params.id;
-    const item = await repository.update(String(req.params.id), req.body.sanitizeTransactionInput);
-    if (!item) {
-        return res.status(404).send({ error: 'Transaction not found' });
-    } else {
-        return res.status(200).json({ message: 'Transaction updated', data: item });
-    }
+  try {
+    const id = parseId(req.params.id);
+    const itemToUpdate = await em.findOneOrFail(Transaction, { id });
+    em.assign(itemToUpdate, req.body.sanitizeTransactionInput);
+    await em.flush();
+    res.status(200).json({ message: 'transaction updated', data: itemToUpdate });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
-async function remove(req: Request<{id: string}>, res: Response) {
-    const id = req.params.id;
-    const item = await repository.delete({ id });
-    if (!item) {
-        return res.status(404).send({ error: 'Transaction not found' });
-    } else {
-        return res.status(200).send({ message: 'Transaction deleted successfully' });
-    }
+async function remove(req: Request, res: Response) {
+  try {
+    const id = parseId(req.params.id);
+    const item = em.getReference(Transaction, id);
+    await em.removeAndFlush(item);
+    res.status(200).json({ message: 'transaction deleted' });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 export { sanitizeTransactionInput, findAll, findOne, add, update, remove };
