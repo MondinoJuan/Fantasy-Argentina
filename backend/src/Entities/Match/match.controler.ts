@@ -22,20 +22,20 @@ function sanitizeMatchInput(req: Request, res: Response, next: NextFunction) {
     next();
 }
 
-function findAll(req: Request, res: Response) {
-    return res.json({ data: repository.findAll() });
+async function findAll(req: Request, res: Response) {
+    return res.json({ data: await repository.findAll() });
 }
 
-function findOne(req: Request<{id: string}>, res: Response) {
+async function findOne(req: Request<{id: string}>, res: Response) {
     const id = req.params.id;
-    const item = repository.findOne({ id });
+    const item = await repository.findOne({ id });
     if (!item) {
         return res.status(404).send({ error: 'Match not found' });
     }
     return res.json({ data: item });
 }
 
-function add(req: Request, res: Response) {
+async function add(req: Request, res: Response) {
     const input = req.body.sanitizeMatchInput;
     const newItem = new Match(
         input.matchdayId,
@@ -45,13 +45,13 @@ function add(req: Request, res: Response) {
     input.startDateTime,
     input.status,
     );
-    const item = repository.add(newItem);
+    const item = await repository.add(newItem);
     return res.status(201).send({ message: 'Match created', data: item });
 }
 
-function update(req: Request, res: Response) {
+async function update(req: Request, res: Response) {
     req.body.sanitizeMatchInput.id = req.params.id;
-    const item = repository.update(String(req.params.id), req.body.sanitizeMatchInput);
+    const item = await repository.update(String(req.params.id), req.body.sanitizeMatchInput);
     if (!item) {
         return res.status(404).send({ error: 'Match not found' });
     } else {
@@ -59,9 +59,9 @@ function update(req: Request, res: Response) {
     }
 }
 
-function remove(req: Request<{id: string}>, res: Response) {
+async function remove(req: Request<{id: string}>, res: Response) {
     const id = req.params.id;
-    const item = repository.delete({ id });
+    const item = await repository.delete({ id });
     if (!item) {
         return res.status(404).send({ error: 'Match not found' });
     } else {
