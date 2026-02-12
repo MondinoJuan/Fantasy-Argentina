@@ -1,13 +1,25 @@
-import crypt from 'node:crypto';
+import { Entity, ManyToOne, Property, Unique } from '@mikro-orm/core';
+import { BaseEntity } from '../../shared/db/base.entity.js';
+import { Matchday } from '../Matchday/matchday.entity.js';
 
-export class Match {
-    constructor(
-        public matchdayId: string,
-        public externalApiId: string,
-        public homeTeam: string,
-        public awayTeam: string,
-        public startDateTime: Date,
-        public status: string,
-        public id: string = crypt.randomUUID()
-    ) { }
+@Entity()
+@Unique({ properties: ['externalApiId'] })
+export class Match extends BaseEntity {
+  @ManyToOne(() => Matchday, { nullable: false })
+  matchday!: Matchday;
+
+  @Property({ nullable: false })
+  externalApiId!: string;
+
+  @Property({ nullable: false })
+  homeTeam!: string;
+
+  @Property({ nullable: false })
+  awayTeam!: string;
+
+  @Property({ nullable: false })
+  startDateTime!: Date;
+
+  @Property({ nullable: false })
+  status!: string;
 }

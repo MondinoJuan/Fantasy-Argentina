@@ -1,12 +1,22 @@
-import crypt from 'node:crypto';
+import { Entity, ManyToOne, Property } from '@mikro-orm/core';
+import { BaseEntity } from '../../shared/db/base.entity.js';
+import { PlayerClause } from '../PlayerClause/playerClause.entity.js';
+import { Participant } from '../Participant/participant.entity.js';
 
-export class Shielding {
-    constructor(
-        public playerClauseId: string,
-        public participantId: string,
-        public investedAmount: number,
-        public clauseIncrease: number,
-        public shieldingDate: Date = new Date(),
-        public id: string = crypt.randomUUID()
-    ) { }
+@Entity()
+export class Shielding extends BaseEntity {
+  @ManyToOne(() => PlayerClause, { nullable: false })
+  playerClause!: PlayerClause;
+
+  @ManyToOne(() => Participant, { nullable: false })
+  participant!: Participant;
+
+  @Property({ nullable: false })
+  investedAmount!: number;
+
+  @Property({ nullable: false })
+  clauseIncrease!: number;
+
+  @Property({ nullable: false })
+  shieldingDate: Date = new Date();
 }
