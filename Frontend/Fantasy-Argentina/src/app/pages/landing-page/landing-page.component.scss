@@ -1,12 +1,14 @@
 :host {
-  --ripe-olive: #4d6a4f;
-  --clary-sage: #a2af95;
-  --alabaster: #efede3;
-  --accessible-beige: #cdc7b8;
+  --deep-plum: #190019;
+  --royal-violet: #2b124c;
+  --dusty-purple: #522b5b;
+  --mauve: #854f6c;
+  --rose-beige: #dfb6b2;
+  --soft-blush: #fbe4d8;
 
   display: block;
   min-height: 100vh;
-  background: linear-gradient(160deg, #e4eadf 0%, var(--alabaster) 42%, #d9dfd1 100%);
+  background: radial-gradient(circle at 15% 5%, #854f6c 0%, #522b5b 36%, #2b124c 65%, #190019 100%);
   padding: clamp(1rem, 2.5vw, 2rem);
 }
 
@@ -18,13 +20,12 @@
 }
 
 .landing-header {
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(77, 106, 79, 0.22);
+  background: rgba(251, 228, 216, 0.9);
+  border: 1px solid rgba(82, 43, 91, 0.35);
   border-radius: 1.2rem;
   padding: 1.25rem 1.4rem;
   animation: rise-in 0.45s ease;
 }
-
 
 .header-top {
   display: flex;
@@ -34,51 +35,52 @@
 }
 
 .logout-btn {
-  background: rgba(77, 106, 79, 0.15);
-  color: #2f4230;
-  border: 1px solid rgba(77, 106, 79, 0.35);
+  background: rgba(82, 43, 91, 0.18);
+  color: #2b124c;
+  border: 1px solid rgba(82, 43, 91, 0.35);
   border-radius: 0.75rem;
   padding: 0.55rem 0.9rem;
 }
 
 .logout-btn:hover {
-  background: rgba(77, 106, 79, 0.25);
+  background: rgba(82, 43, 91, 0.28);
 }
+
 .eyebrow {
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-size: 0.75rem;
-  color: #4c614d;
+  color: #522b5b;
   margin: 0;
 }
 
 h1 {
   margin: 0.2rem 0 0.35rem;
-  color: #2f4230;
+  color: #2b124c;
   font-size: clamp(2rem, 4vw, 3rem);
   line-height: 1.05;
 }
 
-h2, h3 { margin: 0; color: #344935; }
-p { margin: 0.2rem 0; color: #4f5f4e; }
+h2, h3 { margin: 0; color: #2f174f; }
+p { margin: 0.2rem 0; color: #4c2757; }
 
 .search-wrap input {
   width: 100%;
-  border: 1px solid rgba(77, 106, 79, 0.32);
+  border: 1px solid rgba(82, 43, 91, 0.35);
   border-radius: 0.85rem;
   padding: 0.75rem 0.9rem;
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(251, 228, 216, 0.9);
 }
 .search-wrap input:focus {
   outline: none;
-  border-color: var(--ripe-olive);
-  box-shadow: 0 0 0 3px rgba(77, 106, 79, 0.16);
+  border-color: var(--mauve);
+  box-shadow: 0 0 0 3px rgba(133, 79, 108, 0.22);
 }
 
 .create-card,
 .state-card {
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(162, 175, 149, 0.42);
+  background: rgba(251, 228, 216, 0.9);
+  border: 1px solid rgba(82, 43, 91, 0.35);
   border-radius: 1rem;
   padding: 1rem;
   animation: rise-in 0.45s ease;
@@ -89,27 +91,27 @@ form {
   display: grid;
   gap: 0.7rem;
 }
-label { display: grid; gap: 0.28rem; font-weight: 600; color: #405240; }
+label { display: grid; gap: 0.28rem; font-weight: 600; color: #3a1f4a; }
 input {
-  border: 1px solid rgba(77, 106, 79, 0.32);
+  border: 1px solid rgba(82, 43, 91, 0.35);
   border-radius: 0.65rem;
   padding: 0.62rem 0.74rem;
-  background: rgba(255, 255, 255, 0.94);
+  background: #fff8f4;
 }
-input:focus { outline: none; border-color: var(--ripe-olive); box-shadow: 0 0 0 3px rgba(77, 106, 79, 0.16); }
+input:focus { outline: none; border-color: var(--mauve); box-shadow: 0 0 0 3px rgba(133, 79, 108, 0.2); }
 .grid-2 { display: grid; gap: 0.7rem; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
 
 button {
   border: 0;
   border-radius: 0.8rem;
-  background: linear-gradient(120deg, var(--ripe-olive), #6f8066);
+  background: linear-gradient(120deg, var(--dusty-purple), var(--mauve));
   color: #fff;
   padding: 0.68rem 1rem;
   font-weight: 700;
   cursor: pointer;
 }
 
-.error { color: #873a2c; }
+.error { color: #9a1f4f; }
 
 .tournament-grid {
   display: grid;
@@ -119,8 +121,8 @@ button {
 
 .add-card {
   min-height: 12.8rem;
-  background: rgba(255, 255, 255, 0.28);
-  border: 2px dashed rgba(77, 106, 79, 0.42);
+  background: rgba(223, 182, 178, 0.22);
+  border: 2px dashed rgba(251, 228, 216, 0.7);
   border-radius: 1rem;
   display: grid;
   place-items: center;
@@ -131,18 +133,18 @@ button {
 .add-card span {
   font-size: 3.2rem;
   line-height: 1;
-  color: #3b553d;
+  color: #fbe4d8;
 }
 
 .add-card:hover {
   transform: translateY(-2px);
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(223, 182, 178, 0.36);
 }
 
 .tournament-card {
   min-height: 12.8rem;
-  background: linear-gradient(170deg, rgba(255, 255, 255, 0.93), rgba(205, 199, 184, 0.45));
-  border: 1px solid rgba(77, 106, 79, 0.2);
+  background: linear-gradient(170deg, rgba(251, 228, 216, 0.95), rgba(223, 182, 178, 0.55));
+  border: 1px solid rgba(82, 43, 91, 0.25);
   border-radius: 1rem;
   padding: 1rem;
   animation: fade-up 0.4s ease;
