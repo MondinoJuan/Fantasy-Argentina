@@ -12,7 +12,7 @@ function parseId(idParam: string | string[] | undefined) {
 function sanitizeTournamentInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeTournamentInput = {
         name: req.body.name,
-    leagueId: req.body.leagueId,
+    league: req.body.league ?? req.body.leagueId,
     initialBudget: req.body.initialBudget,
     squadSize: req.body.squadSize,
     status: req.body.status,
@@ -29,7 +29,7 @@ function sanitizeTournamentInput(req: Request, res: Response, next: NextFunction
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(Tournament, {});
+    const items = await em.find(Tournament, {}, { populate: ['league'] });
     res.status(200).json({ message: 'found all tournaments', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -39,7 +39,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(Tournament, { id });
+    const item = await em.findOneOrFail(Tournament, { id }, { populate: ['league'] });
     res.status(200).json({ message: 'found tournament', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

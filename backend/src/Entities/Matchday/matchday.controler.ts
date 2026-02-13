@@ -11,7 +11,7 @@ function parseId(idParam: string | string[] | undefined) {
 
 function sanitizeMatchdayInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeMatchdayInput = {
-        leagueId: req.body.leagueId,
+        league: req.body.league ?? req.body.leagueId,
     season: req.body.season,
     matchdayNumber: req.body.matchdayNumber,
     startDate: req.body.startDate,
@@ -29,7 +29,7 @@ function sanitizeMatchdayInput(req: Request, res: Response, next: NextFunction) 
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(Matchday, {});
+    const items = await em.find(Matchday, {}, { populate: ['league'] });
     res.status(200).json({ message: 'found all matchdays', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -39,7 +39,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(Matchday, { id });
+    const item = await em.findOneOrFail(Matchday, { id }, { populate: ['league'] });
     res.status(200).json({ message: 'found matchday', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

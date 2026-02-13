@@ -12,7 +12,7 @@ function parseId(idParam: string | string[] | undefined) {
 function sanitizeRealTeamInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeRealTeamInput = {
         name: req.body.name,
-    leagueId: req.body.leagueId,
+    league: req.body.league ?? req.body.leagueId,
     externalApiId: req.body.externalApiId,
     };
 
@@ -26,7 +26,7 @@ function sanitizeRealTeamInput(req: Request, res: Response, next: NextFunction) 
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(RealTeam, {});
+    const items = await em.find(RealTeam, {}, { populate: ['league'] });
     res.status(200).json({ message: 'found all real teams', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -36,7 +36,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(RealTeam, { id });
+    const item = await em.findOneOrFail(RealTeam, { id }, { populate: ['league'] });
     res.status(200).json({ message: 'found real team', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

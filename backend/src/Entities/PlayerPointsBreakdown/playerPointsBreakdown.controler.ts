@@ -11,11 +11,11 @@ function parseId(idParam: string | string[] | undefined) {
 
 function sanitizePlayerPointsBreakdownInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizePlayerPointsBreakdownInput = {
-        participantId: req.body.participantId,
-    matchdayId: req.body.matchdayId,
-    realPlayerId: req.body.realPlayerId,
+        participant: req.body.participant ?? req.body.participantId,
+    matchday: req.body.matchday ?? req.body.matchdayId,
+    realPlayer: req.body.realPlayer ?? req.body.realPlayerId,
     contributedPoints: req.body.contributedPoints,
-    playerPerformanceId: req.body.playerPerformanceId,
+    playerPerformance: req.body.playerPerformance ?? req.body.playerPerformanceId,
     };
 
   Object.keys(req.body.sanitizePlayerPointsBreakdownInput).forEach((key) => {
@@ -28,7 +28,7 @@ function sanitizePlayerPointsBreakdownInput(req: Request, res: Response, next: N
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(PlayerPointsBreakdown, {});
+    const items = await em.find(PlayerPointsBreakdown, {}, { populate: ['participant', 'matchday', 'realPlayer', 'playerPerformance'] });
     res.status(200).json({ message: 'found all player points breakdowns', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -38,7 +38,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(PlayerPointsBreakdown, { id });
+    const item = await em.findOneOrFail(PlayerPointsBreakdown, { id }, { populate: ['participant', 'matchday', 'realPlayer', 'playerPerformance'] });
     res.status(200).json({ message: 'found player points breakdown', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

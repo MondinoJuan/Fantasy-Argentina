@@ -11,9 +11,9 @@ function parseId(idParam: string | string[] | undefined) {
 
 function sanitizeTransactionInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeTransactionInput = {
-        originParticipantId: req.body.originParticipantId,
-    destinationParticipantId: req.body.destinationParticipantId,
-    tournamentId: req.body.tournamentId,
+        originParticipant: req.body.originParticipant ?? req.body.originParticipantId,
+    destinationParticipant: req.body.destinationParticipant ?? req.body.destinationParticipantId,
+    tournament: req.body.tournament ?? req.body.tournamentId,
     type: req.body.type,
     amount: req.body.amount,
     referenceTable: req.body.referenceTable,
@@ -32,7 +32,7 @@ function sanitizeTransactionInput(req: Request, res: Response, next: NextFunctio
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(Transaction, {});
+    const items = await em.find(Transaction, {}, { populate: ['originParticipant', 'destinationParticipant', 'tournament'] });
     res.status(200).json({ message: 'found all transactions', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -42,7 +42,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(Transaction, { id });
+    const item = await em.findOneOrFail(Transaction, { id }, { populate: ['originParticipant', 'destinationParticipant', 'tournament'] });
     res.status(200).json({ message: 'found transaction', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

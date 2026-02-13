@@ -11,8 +11,8 @@ function parseId(idParam: string | string[] | undefined) {
 
 function sanitizeShieldingInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeShieldingInput = {
-        playerClauseId: req.body.playerClauseId,
-    participantId: req.body.participantId,
+        playerClause: req.body.playerClause ?? req.body.playerClauseId,
+    participant: req.body.participant ?? req.body.participantId,
     investedAmount: req.body.investedAmount,
     clauseIncrease: req.body.clauseIncrease,
     };
@@ -27,7 +27,7 @@ function sanitizeShieldingInput(req: Request, res: Response, next: NextFunction)
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(Shielding, {});
+    const items = await em.find(Shielding, {}, { populate: ['playerClause', 'participant'] });
     res.status(200).json({ message: 'found all shieldings', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -37,7 +37,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(Shielding, { id });
+    const item = await em.findOneOrFail(Shielding, { id }, { populate: ['playerClause', 'participant'] });
     res.status(200).json({ message: 'found shielding', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

@@ -11,8 +11,8 @@ function parseId(idParam: string | string[] | undefined) {
 
 function sanitizeParticipantInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeParticipantInput = {
-        userId: req.body.userId,
-    tournamentId: req.body.tournamentId,
+        user: req.body.user ?? req.body.userId,
+    tournament: req.body.tournament ?? req.body.tournamentId,
     bankBudget: req.body.bankBudget,
     reservedMoney: req.body.reservedMoney,
     availableMoney: req.body.availableMoney,
@@ -29,7 +29,7 @@ function sanitizeParticipantInput(req: Request, res: Response, next: NextFunctio
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(Participant, {});
+    const items = await em.find(Participant, {}, { populate: ['user', 'tournament'] });
     res.status(200).json({ message: 'found all participants', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -39,7 +39,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(Participant, { id });
+    const item = await em.findOneOrFail(Participant, { id }, { populate: ['user', 'tournament'] });
     res.status(200).json({ message: 'found participant', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
