@@ -15,7 +15,7 @@ import { Negotiation } from '../Negotiation/negotiation.entity.js';
 @Entity()
 @Unique({ properties: ['user', 'tournament'] })
 export class Participant extends BaseEntity {
-  @ManyToOne(() => User, { nullable: false })
+  @ManyToOne(() => User, { nullable: false, deleteRule: 'cascade' })
   user!: Rel<User>;
 
   @ManyToOne(() => Tournament, { nullable: false })

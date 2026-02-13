@@ -9,9 +9,9 @@ POST http://127.0.0.1:3000/api/users
 Content-Type: application/json
 
 {
-  "username": "juanperez",
+  "username": "juanpere1z",
   "password": "ClaveSegura123!",
-  "mail": "juan.perez@example.com"
+  "mail": "juan1.perez@example.com"
 }
 
 ### actualizar un registro de User por id
@@ -33,4 +33,4 @@ Content-Type: application/json
 }
 
 ### eliminar un registro de User por id
-DELETE http://127.0.0.1:3000/api/users/1
+DELETE http://127.0.0.1:3000/api/users/2
