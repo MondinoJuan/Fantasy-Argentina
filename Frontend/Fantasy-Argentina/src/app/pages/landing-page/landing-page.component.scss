@@ -1,0 +1,96 @@
+:host {
+  --amber: #ae785b;
+  --linen: #d2c8b9;
+  --evergreen-fog: #94978a;
+  --dried-thyme: #857867;
+  --tiki-hut: #8a7a6b;
+
+  display: block;
+  min-height: 100vh;
+  background: linear-gradient(165deg, #f6f2ec 0%, #ece4d9 45%, #f7f4ef 100%);
+  padding: clamp(1rem, 2.5vw, 2rem);
+}
+
+.landing-shell {
+  width: min(65rem, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 1.2rem;
+}
+
+.landing-header {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(138, 122, 107, 0.28);
+  border-radius: 1.1rem;
+  padding: 1.1rem 1.2rem;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: center;
+  animation: rise-in 0.45s ease;
+}
+
+h1, h2, h3 { margin: 0; color: #4f4337; }
+p { margin: 0.2rem 0; color: #6b5f52; }
+.eyebrow { text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.72rem; color: var(--dried-thyme); }
+
+button {
+  border: 0;
+  background: linear-gradient(125deg, var(--amber), var(--dried-thyme));
+  color: #fff;
+  padding: 0.65rem 1rem;
+  border-radius: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.create-card,
+.state-card {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(148, 151, 138, 0.3);
+  border-radius: 1rem;
+  padding: 1rem;
+  animation: rise-in 0.45s ease;
+}
+
+form {
+  margin-top: 0.8rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+label { display: grid; gap: 0.28rem; font-weight: 600; color: #5b4c40; }
+input {
+  border: 1px solid rgba(133, 120, 103, 0.4);
+  border-radius: 0.65rem;
+  padding: 0.6rem 0.72rem;
+}
+input:focus { outline: none; border-color: var(--evergreen-fog); box-shadow: 0 0 0 3px rgba(148, 151, 138, 0.2); }
+.grid-2 { display: grid; gap: 0.7rem; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
+.error { color: #873a2c; }
+
+.tournament-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.9rem;
+}
+
+.tournament-card {
+  background: linear-gradient(175deg, rgba(255, 255, 255, 0.94), rgba(210, 200, 185, 0.45));
+  border: 1px solid rgba(138, 122, 107, 0.3);
+  border-radius: 0.95rem;
+  padding: 1rem;
+  animation: fade-up 0.4s ease;
+}
+
+.empty { text-align: center; }
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}

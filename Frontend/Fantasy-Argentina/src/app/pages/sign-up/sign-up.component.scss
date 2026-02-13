@@ -1,0 +1,56 @@
+:host {
+  --amber: #ae785b;
+  --linen: #d2c8b9;
+  --evergreen-fog: #94978a;
+  --dried-thyme: #857867;
+
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(174, 120, 91, 0.15), transparent 40%),
+    linear-gradient(145deg, #f4efe9, var(--linen));
+  padding: 1.5rem;
+}
+
+.auth-card {
+  width: min(30rem, 100%);
+  background: rgba(255, 255, 255, 0.88);
+  border-radius: 1.3rem;
+  border: 1px solid rgba(149, 151, 138, 0.4);
+  padding: 2rem;
+  box-shadow: 0 16px 38px rgba(83, 70, 59, 0.16);
+  animation: fade-slide 0.45s ease;
+}
+
+h1 { margin: 0; color: #504338; }
+.subtitle { color: #756756; margin: 0.5rem 0 1.35rem; }
+form { display: grid; gap: 0.68rem; }
+label { display: grid; gap: 0.35rem; color: #5a4c3f; font-weight: 600; }
+input {
+  border: 1px solid rgba(133, 120, 103, 0.42);
+  border-radius: 0.7rem;
+  padding: 0.72rem 0.82rem;
+  transition: all 0.2s ease;
+}
+input:focus { outline: none; border-color: var(--evergreen-fog); box-shadow: 0 0 0 3px rgba(149, 151, 138, 0.22); }
+button {
+  margin-top: 0.8rem;
+  border: 0;
+  border-radius: 0.8rem;
+  background: linear-gradient(120deg, var(--dried-thyme), var(--amber));
+  color: #fff;
+  font-weight: 700;
+  padding: 0.8rem;
+  cursor: pointer;
+}
+button:disabled { opacity: 0.7; }
+.error, .error-message { color: #8b3f31; font-size: 0.85rem; }
+.success-message { color: #43664a; font-size: 0.9rem; }
+.switch-link { margin-top: 1rem; text-align: center; }
+a { color: #6a5f52; font-weight: 700; }
+
+@keyframes fade-slide {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}

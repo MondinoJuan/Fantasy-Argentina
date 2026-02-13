@@ -1,1 +1,45 @@
-<p>log-in works!</p>
+<section class="auth-page">
+  <div class="auth-card">
+    <h1>Bienvenido a Fantasy Argentina</h1>
+    <p class="subtitle">Iniciá sesión para ver tus torneos y seguir compitiendo.</p>
+
+    <form [formGroup]="loginForm" (ngSubmit)="submit()" novalidate>
+      <label>
+        Email
+        <input type="email" formControlName="mail" placeholder="tu@email.com" />
+      </label>
+      @if (loginForm.controls.mail.invalid && loginForm.controls.mail.touched) {
+        <small class="error">Ingresá un email válido.</small>
+      }
+
+      <label>
+        Contraseña
+        <input type="password" formControlName="password" placeholder="********" />
+      </label>
+      @if (loginForm.controls.password.invalid && loginForm.controls.password.touched) {
+        <small class="error">La contraseña debe tener al menos 4 caracteres.</small>
+      }
+
+      @if (errorMessage) {
+        <p class="error-message">{{ errorMessage }}</p>
+      }
+
+      <button type="submit" [disabled]="isLoading">
+        @if (isLoading) {
+          Entrando...
+        } @else {
+          Entrar
+        }
+      </button>
+    </form>
+
+    @if (isLoading) {
+      <app-loading-spinner label="Validando credenciales" size="2.1rem" />
+    }
+
+    <p class="switch-link">
+      ¿No tenés cuenta?
+      <a routerLink="/signUp">Registrate acá</a>
+    </p>
+  </div>
+</section>
