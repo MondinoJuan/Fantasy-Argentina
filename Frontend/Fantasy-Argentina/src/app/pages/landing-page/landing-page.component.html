@@ -1,13 +1,13 @@
 <section class="landing-shell">
   <header class="landing-header">
-    <div>
-      <p class="eyebrow">Fantasy Argentina</p>
-      <h1>Hola, {{ username }} 👋</h1>
-      <p>Estos son los torneos a los que estás unido.</p>
+    <div class="header-top">
+      <div>
+        <p class="eyebrow">Fantasy Argentina</p>
+        <h1>Hola, {{ username }} 👋</h1>
+      </div>
+      <button type="button" class="logout-btn" (click)="logout()">Cerrar sesión</button>
     </div>
-    <button type="button" (click)="toggleCreateForm()">
-      {{ showCreateForm ? 'Cerrar' : 'Crear torneo' }}
-    </button>
+    <p>Elegí un torneo para entrar, o creá uno nuevo desde la grilla.</p>
   </header>
 
   @if (showCreateForm) {
@@ -37,18 +37,27 @@
     </article>
   }
 
+  <section class="search-wrap">
+    <input
+      type="text"
+      [(ngModel)]="searchTerm"
+      [ngModelOptions]="{ standalone: true }"
+      placeholder="Buscar torneo por nombre..."
+      aria-label="Buscar torneo"
+    />
+  </section>
+
   @if (isLoading) {
     <div class="state-card">
       <app-loading-spinner label="Cargando torneos" />
     </div>
-  } @else if (tournaments.length === 0) {
-    <article class="state-card empty">
-      <h2>Sin torneos todavía</h2>
-      <p>Creá tu primer torneo para empezar a jugar.</p>
-    </article>
   } @else {
     <section class="tournament-grid">
-      @for (tournament of tournaments; track tournament.id) {
+      <button type="button" class="add-card" (click)="toggleCreateForm()" aria-label="Crear torneo">
+        <span>+</span>
+      </button>
+
+      @for (tournament of filteredTournaments; track tournament.id) {
         <article class="tournament-card">
           <h3>{{ tournament.name }}</h3>
           <p><strong>Estado:</strong> {{ tournament.status }}</p>
@@ -58,5 +67,12 @@
         </article>
       }
     </section>
+
+    @if (filteredTournaments.length === 0) {
+      <article class="state-card empty">
+        <h2>No hay resultados</h2>
+        <p>Probá con otro nombre o creá un torneo nuevo con el botón +.</p>
+      </article>
+    }
   }
 </section>

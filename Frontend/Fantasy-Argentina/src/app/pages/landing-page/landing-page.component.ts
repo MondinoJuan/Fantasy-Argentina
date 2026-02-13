@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError, finalize } from 'rxjs/operators';
@@ -11,12 +11,13 @@ import { tournamentI } from '../../modelos/tournament.interface';
 @Component({
   selector: 'app-landing-page',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, ReactiveFormsModule, LoadingSpinnerComponent],
+  imports: [DatePipe, DecimalPipe, FormsModule, ReactiveFormsModule, LoadingSpinnerComponent],
   templateUrl: './landing-page.component.html',
   styleUrl: './landing-page.component.scss'
 })
 export class LandingPageComponent implements OnInit {
   tournaments: tournamentI[] = [];
+  searchTerm = '';
   isLoading = true;
   isCreating = false;
   showCreateForm = false;
@@ -26,6 +27,15 @@ export class LandingPageComponent implements OnInit {
 
   get username(): string {
     return localStorage.getItem('currentUsername') ?? 'DT';
+  }
+
+  get filteredTournaments(): tournamentI[] {
+    const value = this.searchTerm.trim().toLowerCase();
+    if (!value) {
+      return this.tournaments;
+    }
+
+    return this.tournaments.filter((tournament) => tournament.name.toLowerCase().includes(value));
   }
 
   constructor(
@@ -54,6 +64,12 @@ export class LandingPageComponent implements OnInit {
 
   toggleCreateForm(): void {
     this.showCreateForm = !this.showCreateForm;
+  }
+
+  logout(): void {
+    localStorage.removeItem('currentUserId');
+    localStorage.removeItem('currentUsername');
+    this.router.navigate(['/logIn']);
   }
 
   createTournament(): void {
