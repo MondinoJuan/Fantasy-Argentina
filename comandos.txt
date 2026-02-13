@@ -4,4 +4,4 @@ pnpm start:dev
 
 # Frontend
 cd "Frontend/Fantasy-Argentina"
-ng 
+ng serve -o
