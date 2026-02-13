@@ -11,8 +11,8 @@ function parseId(idParam: string | string[] | undefined) {
 
 function sanitizeParticipantSquadInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeParticipantSquadInput = {
-        participantId: req.body.participantId,
-    realPlayerId: req.body.realPlayerId,
+        participant: req.body.participant ?? req.body.participantId,
+    realPlayer: req.body.realPlayer ?? req.body.realPlayerId,
     releaseDate: req.body.releaseDate,
     purchasePrice: req.body.purchasePrice,
     acquisitionType: req.body.acquisitionType,
@@ -28,7 +28,7 @@ function sanitizeParticipantSquadInput(req: Request, res: Response, next: NextFu
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(ParticipantSquad, {});
+    const items = await em.find(ParticipantSquad, {}, { populate: ['participant', 'realPlayer'] });
     res.status(200).json({ message: 'found all participant squads', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -38,7 +38,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(ParticipantSquad, { id });
+    const item = await em.findOneOrFail(ParticipantSquad, { id }, { populate: ['participant', 'realPlayer'] });
     res.status(200).json({ message: 'found participant squad', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

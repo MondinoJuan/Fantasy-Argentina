@@ -11,8 +11,8 @@ function parseId(idParam: string | string[] | undefined) {
 
 function sanitizePlayerPerformanceInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizePlayerPerformanceInput = {
-        realPlayerId: req.body.realPlayerId,
-    matchdayId: req.body.matchdayId,
+        realPlayer: req.body.realPlayer ?? req.body.realPlayerId,
+    matchday: req.body.matchday ?? req.body.matchdayId,
     pointsObtained: req.body.pointsObtained,
     played: req.body.played,
     };
@@ -27,7 +27,7 @@ function sanitizePlayerPerformanceInput(req: Request, res: Response, next: NextF
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(PlayerPerformance, {});
+    const items = await em.find(PlayerPerformance, {}, { populate: ['realPlayer', 'matchday'] });
     res.status(200).json({ message: 'found all player performances', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -37,7 +37,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(PlayerPerformance, { id });
+    const item = await em.findOneOrFail(PlayerPerformance, { id }, { populate: ['realPlayer', 'matchday'] });
     res.status(200).json({ message: 'found player performance', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

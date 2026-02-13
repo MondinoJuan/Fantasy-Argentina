@@ -11,8 +11,8 @@ function parseId(idParam: string | string[] | undefined) {
 
 function sanitizeParticipantMatchdayPointsInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeParticipantMatchdayPointsInput = {
-        participantId: req.body.participantId,
-    matchdayId: req.body.matchdayId,
+        participant: req.body.participant ?? req.body.participantId,
+    matchday: req.body.matchday ?? req.body.matchdayId,
     matchdayPoints: req.body.matchdayPoints,
     accumulatedPoints: req.body.accumulatedPoints,
     position: req.body.position,
@@ -29,7 +29,7 @@ function sanitizeParticipantMatchdayPointsInput(req: Request, res: Response, nex
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(ParticipantMatchdayPoints, {});
+    const items = await em.find(ParticipantMatchdayPoints, {}, { populate: ['participant', 'matchday'] });
     res.status(200).json({ message: 'found all participant matchday pointss', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -39,7 +39,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(ParticipantMatchdayPoints, { id });
+    const item = await em.findOneOrFail(ParticipantMatchdayPoints, { id }, { populate: ['participant', 'matchday'] });
     res.status(200).json({ message: 'found participant matchday points', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
