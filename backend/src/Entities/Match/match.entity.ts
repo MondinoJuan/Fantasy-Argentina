@@ -5,7 +5,7 @@ import { Matchday } from '../Matchday/matchday.entity.js';
 @Entity()
 @Unique({ properties: ['externalApiId'] })
 export class Match extends BaseEntity {
-  @ManyToOne(() => Matchday, { nullable: false })
+  @ManyToOne(() => Matchday, { nullable: false, deleteRule: 'cascade' })
   matchday!: Rel<Matchday>;
 
   @Property({ nullable: false })

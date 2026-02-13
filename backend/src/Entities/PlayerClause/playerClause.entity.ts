@@ -8,13 +8,13 @@ import { Shielding } from '../Shielding/shielding.entity.js';
 @Entity()
 @Unique({ properties: ['tournament', 'realPlayer'] })
 export class PlayerClause extends BaseEntity {
-  @ManyToOne(() => Tournament, { nullable: false })
+  @ManyToOne(() => Tournament, { nullable: false, deleteRule: 'cascade' })
   tournament!: Rel<Tournament>;
 
-  @ManyToOne(() => RealPlayer, { nullable: false })
+  @ManyToOne(() => RealPlayer, { nullable: false, deleteRule: 'cascade' })
   realPlayer!: Rel<RealPlayer>;
 
-  @ManyToOne(() => Participant, { nullable: false })
+  @ManyToOne(() => Participant, { nullable: false, deleteRule: 'cascade' })
   ownerParticipant!: Rel<Participant>;
 
   @Property({ nullable: false })

@@ -18,7 +18,7 @@ export class Participant extends BaseEntity {
   @ManyToOne(() => User, { nullable: false, deleteRule: 'cascade' })
   user!: Rel<User>;
 
-  @ManyToOne(() => Tournament, { nullable: false })
+  @ManyToOne(() => Tournament, { nullable: false, deleteRule: 'cascade' })
   tournament!: Rel<Tournament>;
 
   @Property({ nullable: false })

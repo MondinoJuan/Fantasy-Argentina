@@ -5,10 +5,10 @@ import { Participant } from '../Participant/participant.entity.js';
 
 @Entity()
 export class Shielding extends BaseEntity {
-  @ManyToOne(() => PlayerClause, { nullable: false })
+  @ManyToOne(() => PlayerClause, { nullable: false, deleteRule: 'cascade' })
   playerClause!: Rel<PlayerClause>;
 
-  @ManyToOne(() => Participant, { nullable: false })
+  @ManyToOne(() => Participant, { nullable: false, deleteRule: 'cascade' })
   participant!: Rel<Participant>;
 
   @Property({ nullable: false })
