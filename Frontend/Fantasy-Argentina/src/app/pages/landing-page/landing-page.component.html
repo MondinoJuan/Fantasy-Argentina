@@ -1,1 +1,78 @@
-<p>landing-page works!</p>
+<section class="landing-shell">
+  <header class="landing-header">
+    <div class="header-top">
+      <div>
+        <p class="eyebrow">Fantasy Argentina</p>
+        <h1>Hola, {{ username }} 👋</h1>
+      </div>
+      <button type="button" class="logout-btn" (click)="logout()">Cerrar sesión</button>
+    </div>
+    <p>Elegí un torneo para entrar, o creá uno nuevo desde la grilla.</p>
+  </header>
+
+  @if (showCreateForm) {
+    <article class="create-card">
+      <h2>Nuevo torneo</h2>
+      <form [formGroup]="createTournamentForm" (ngSubmit)="createTournament()">
+        <label>
+          Nombre del torneo
+          <input formControlName="name" placeholder="Ej: Amigos del Finde" />
+        </label>
+        <div class="grid-2">
+          <label>
+            Presupuesto inicial
+            <input type="number" formControlName="initialBudget" />
+          </label>
+          <label>
+            Tamaño de plantel
+            <input type="number" formControlName="squadSize" />
+          </label>
+        </div>
+        @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+        <button type="submit" [disabled]="isCreating">{{ isCreating ? 'Creando...' : 'Crear y unirme' }}</button>
+      </form>
+      @if (isCreating) {
+        <app-loading-spinner label="Creando torneo" size="2rem" />
+      }
+    </article>
+  }
+
+  <section class="search-wrap">
+    <input
+      type="text"
+      [(ngModel)]="searchTerm"
+      [ngModelOptions]="{ standalone: true }"
+      placeholder="Buscar torneo por nombre..."
+      aria-label="Buscar torneo"
+    />
+  </section>
+
+  @if (isLoading) {
+    <div class="state-card">
+      <app-loading-spinner label="Cargando torneos" />
+    </div>
+  } @else {
+    <section class="tournament-grid">
+      <button type="button" class="add-card" (click)="toggleCreateForm()" aria-label="Crear torneo">
+        <span>+</span>
+      </button>
+
+      @for (tournament of filteredTournaments; track tournament.id) {
+        <article class="tournament-card">
+          <h3>{{ tournament.name }}</h3>
+          <p><strong>Estado:</strong> {{ tournament.status }}</p>
+          <p><strong>Creado:</strong> {{ tournament.creationDate | date: 'dd/MM/yyyy' }}</p>
+          <p><strong>Plantel:</strong> {{ tournament.squadSize }} jugadores</p>
+          <p><strong>Presupuesto:</strong> {{ tournament.initialBudget | number }}</p>
+        </article>
+      }
+    </section>
+
+    @if (filteredTournaments.length === 0) {
+      <article class="state-card empty">
+        <h2>No hay resultados</h2>
+        <p>Probá con otro nombre o creá un torneo nuevo con el botón +.</p>
+      </article>
+    }
+  }
+</section>
