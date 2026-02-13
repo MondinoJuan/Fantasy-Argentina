@@ -9,13 +9,13 @@ import { Bid } from '../Bid/bid.entity.js';
 @Entity()
 @Unique({ properties: ['tournament', 'matchday', 'realPlayer'] })
 export class MatchdayMarket extends BaseEntity {
-  @ManyToOne(() => Tournament, { nullable: false })
+  @ManyToOne(() => Tournament, { nullable: false, deleteRule: 'cascade' })
   tournament!: Rel<Tournament>;
 
-  @ManyToOne(() => Matchday, { nullable: false })
+  @ManyToOne(() => Matchday, { nullable: false, deleteRule: 'cascade' })
   matchday!: Rel<Matchday>;
 
-  @ManyToOne(() => RealPlayer, { nullable: false })
+  @ManyToOne(() => RealPlayer, { nullable: false, deleteRule: 'cascade' })
   realPlayer!: Rel<RealPlayer>;
 
   @Property({ nullable: false })
@@ -24,7 +24,7 @@ export class MatchdayMarket extends BaseEntity {
   @Property({ nullable: false })
   origin!: string;
 
-  @ManyToOne(() => Participant, { nullable: true })
+  @ManyToOne(() => Participant, { nullable: true, deleteRule: 'cascade' })
   sellerParticipant?: Rel<Participant>;
 
   @Property({ nullable: false })

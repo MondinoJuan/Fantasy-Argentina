@@ -19,7 +19,7 @@ export class RealPlayer extends BaseEntity {
   @Property({ nullable: false })
   position!: string;
 
-  @ManyToOne(() => RealTeam, { nullable: false })
+  @ManyToOne(() => RealTeam, { nullable: false, deleteRule: 'cascade' })
   realTeam!: Rel<RealTeam>;
 
   @Property({ nullable: false })

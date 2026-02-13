@@ -6,16 +6,16 @@ import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
 
 @Entity()
 export class Negotiation extends BaseEntity {
-  @ManyToOne(() => Tournament, { nullable: false })
+  @ManyToOne(() => Tournament, { nullable: false, deleteRule: 'cascade' })
   tournament!: Rel<Tournament>;
 
-  @ManyToOne(() => Participant, { nullable: false })
+  @ManyToOne(() => Participant, { nullable: false, deleteRule: 'cascade' })
   sellerParticipant!: Rel<Participant>;
 
-  @ManyToOne(() => Participant, { nullable: false })
+  @ManyToOne(() => Participant, { nullable: false, deleteRule: 'cascade' })
   buyerParticipant!: Rel<Participant>;
 
-  @ManyToOne(() => RealPlayer, { nullable: false })
+  @ManyToOne(() => RealPlayer, { nullable: false, deleteRule: 'cascade' })
   realPlayer!: Rel<RealPlayer>;
 
   @Property({ nullable: false })

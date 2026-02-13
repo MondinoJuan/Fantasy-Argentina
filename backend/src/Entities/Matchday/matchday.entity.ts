@@ -10,7 +10,7 @@ import { PlayerPointsBreakdown } from '../PlayerPointsBreakdown/playerPointsBrea
 @Entity()
 @Unique({ properties: ['league', 'season', 'matchdayNumber'] })
 export class Matchday extends BaseEntity {
-  @ManyToOne(() => League, { nullable: false })
+  @ManyToOne(() => League, { nullable: false, deleteRule: 'cascade' })
   league!: Rel<League>;
 
   @Property({ nullable: false })

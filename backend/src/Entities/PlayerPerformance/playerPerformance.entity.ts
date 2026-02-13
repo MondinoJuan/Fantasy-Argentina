@@ -7,10 +7,10 @@ import { PlayerPointsBreakdown } from '../PlayerPointsBreakdown/playerPointsBrea
 @Entity()
 @Unique({ properties: ['realPlayer', 'matchday'] })
 export class PlayerPerformance extends BaseEntity {
-  @ManyToOne(() => RealPlayer, { nullable: false })
+  @ManyToOne(() => RealPlayer, { nullable: false, deleteRule: 'cascade' })
   realPlayer!: Rel<RealPlayer>;
 
-  @ManyToOne(() => Matchday, { nullable: false })
+  @ManyToOne(() => Matchday, { nullable: false, deleteRule: 'cascade' })
   matchday!: Rel<Matchday>;
 
   @Property({ nullable: false })

@@ -6,10 +6,10 @@ import { Matchday } from '../Matchday/matchday.entity.js';
 @Entity()
 @Unique({ properties: ['participant', 'matchday'] })
 export class ParticipantMatchdayPoints extends BaseEntity {
-  @ManyToOne(() => Participant, { nullable: false })
+  @ManyToOne(() => Participant, { nullable: false, deleteRule: 'cascade' })
   participant!: Rel<Participant>;
 
-  @ManyToOne(() => Matchday, { nullable: false })
+  @ManyToOne(() => Matchday, { nullable: false, deleteRule: 'cascade' })
   matchday!: Rel<Matchday>;
 
   @Property({ nullable: false })

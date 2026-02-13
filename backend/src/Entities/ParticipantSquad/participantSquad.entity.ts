@@ -6,10 +6,10 @@ import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
 @Entity()
 @Unique({ properties: ['participant', 'realPlayer', 'acquisitionDate'] })
 export class ParticipantSquad extends BaseEntity {
-  @ManyToOne(() => Participant, { nullable: false })
+  @ManyToOne(() => Participant, { nullable: false, deleteRule: 'cascade' })
   participant!: Rel<Participant>;
 
-  @ManyToOne(() => RealPlayer, { nullable: false })
+  @ManyToOne(() => RealPlayer, { nullable: false, deleteRule: 'cascade' })
   realPlayer!: Rel<RealPlayer>;
 
   @Property({ nullable: false })

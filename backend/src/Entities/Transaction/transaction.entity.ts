@@ -5,13 +5,13 @@ import { Tournament } from '../Tournament/tournament.entity.js';
 
 @Entity()
 export class Transaction extends BaseEntity {
-  @ManyToOne(() => Participant, { nullable: true })
+  @ManyToOne(() => Participant, { nullable: true, deleteRule: 'cascade' })
   originParticipant?: Rel<Participant>;
 
-  @ManyToOne(() => Participant, { nullable: true })
+  @ManyToOne(() => Participant, { nullable: true, deleteRule: 'cascade' })
   destinationParticipant?: Rel<Participant>;
 
-  @ManyToOne(() => Tournament, { nullable: false })
+  @ManyToOne(() => Tournament, { nullable: false, deleteRule: 'cascade' })
   tournament!: Rel<Tournament>;
 
   @Property({ nullable: false })
