@@ -34,16 +34,50 @@
   gap: 1rem;
 }
 
-.logout-btn {
+.menu-wrapper {
+  position: relative;
+}
+
+.menu-btn {
   background: rgba(82, 43, 91, 0.18);
   color: #2b124c;
   border: 1px solid rgba(82, 43, 91, 0.35);
   border-radius: 0.75rem;
-  padding: 0.55rem 0.9rem;
+  padding: 0.45rem 0.8rem;
+  min-width: 2.7rem;
+  font-size: 1.1rem;
 }
 
-.logout-btn:hover {
+.menu-btn:hover {
   background: rgba(82, 43, 91, 0.28);
+}
+
+.menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  z-index: 2;
+  min-width: 13rem;
+  padding: 0.5rem;
+  background: rgba(251, 228, 216, 0.98);
+  border: 1px solid rgba(82, 43, 91, 0.35);
+  border-radius: 0.75rem;
+  box-shadow: 0 8px 22px rgba(25, 0, 25, 0.25);
+  display: grid;
+  gap: 0.4rem;
+}
+
+.menu-dropdown button {
+  width: 100%;
+  text-align: left;
+  border-radius: 0.55rem;
+  padding: 0.55rem 0.7rem;
+  color: #2b124c;
+  background: rgba(82, 43, 91, 0.1);
+}
+
+.menu-dropdown button:hover {
+  background: rgba(82, 43, 91, 0.22);
 }
 
 .eyebrow {
@@ -99,6 +133,17 @@ input {
   background: #fff8f4;
 }
 input:focus { outline: none; border-color: var(--mauve); box-shadow: 0 0 0 3px rgba(133, 79, 108, 0.2); }
+select {
+  border: 1px solid rgba(82, 43, 91, 0.35);
+  border-radius: 0.65rem;
+  padding: 0.62rem 0.74rem;
+  background: #fff8f4;
+}
+select:focus {
+  outline: none;
+  border-color: var(--mauve);
+  box-shadow: 0 0 0 3px rgba(133, 79, 108, 0.2);
+}
 .grid-2 { display: grid; gap: 0.7rem; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
 
 button {
