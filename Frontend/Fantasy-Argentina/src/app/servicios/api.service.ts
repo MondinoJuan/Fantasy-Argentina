@@ -137,6 +137,7 @@ export class ApiService {
   // Leagues
   searchLeagues() { return this.http.get<leagueCollectionI>(`${this.url}/leagues`); }
   searchLeagueById(id: number | string) { return this.http.get<responseLeagueI>(`${this.url}/leagues/${id}`); }
+  ensureLeagueByName(name: string) { return this.http.post<responseLeagueI>(`${this.url}/leagues/ensure/by-name`, { name }); }
   postLeague(league: addLeagueI) { return this.http.post<responseLeagueI>(`${this.url}/leagues`, league); }
   updateLeague(league: leagueI) { return this.http.put<responseLeagueI>(`${this.url}/leagues/${league.id}`, league); }
   patchLeague(league: leaguePatchI) { return this.http.patch<responseLeagueI>(`${this.url}/leagues/${league.id}`, league); }

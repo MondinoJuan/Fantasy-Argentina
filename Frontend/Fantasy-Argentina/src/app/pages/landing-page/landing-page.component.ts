@@ -2,8 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { forkJoin, of } from 'rxjs';
-import { catchError, finalize } from 'rxjs/operators';
+import { forkJoin } from 'rxjs';
+import { finalize, switchMap } from 'rxjs/operators';
 import { ApiService } from '../../servicios/api.service';
 import { LoadingSpinnerComponent } from '../../components/loading-spinner/loading-spinner.component';
 import { tournamentI } from '../../modelos/tournament.interface';
@@ -17,15 +17,13 @@ import { tournamentI } from '../../modelos/tournament.interface';
 })
 export class LandingPageComponent implements OnInit {
   tournaments: tournamentI[] = [];
-  leagues: Array<{ id: number; name: string }> = [];
-  readonly allowedLeagues = new Set([
+  readonly allowedLeagues = [
     'Liga Profesional',
     'Premier League',
     'La Liga',
     'Bundesliga',
     'Serie A',
-    'Ligue1',
-  ]);
+  ];
   readonly sportOptions = ['Football', 'Basketball'];
   searchTerm = '';
   isLoading = true;
@@ -56,7 +54,7 @@ export class LandingPageComponent implements OnInit {
   ) {
     this.createTournamentForm = this.fb.nonNullable.group({
       name: ['', [Validators.required, Validators.minLength(4)]],
-      league: [0, [Validators.required, Validators.min(1)]],
+      leagueName: ['', Validators.required],
       sport: ['Football', Validators.required],
       initialBudget: [1000000, [Validators.required, Validators.min(100000)]],
       status: ['active', Validators.required]
@@ -123,18 +121,26 @@ export class LandingPageComponent implements OnInit {
     const clauseEnableDate = new Date(creationDate);
     clauseEnableDate.setDate(clauseEnableDate.getDate() + 14);
 
-    this.apiService.postTournament({
-      ...formValue,
-      squadSize: 16,
-      creationDate,
-      clauseEnableDate,
-      creatorUserId: userId,
-    }).pipe(finalize(() => this.isCreating = false)).subscribe({
+    // API-EXTERNA: antes de crear el torneo garantizamos que exista la liga en BD local.
+    this.apiService.ensureLeagueByName(formValue.leagueName).pipe(
+      switchMap((leagueResponse) => this.apiService.postTournament({
+        name: formValue.name,
+        league: leagueResponse.data.id as number,
+        sport: formValue.sport,
+        initialBudget: formValue.initialBudget,
+        status: formValue.status,
+        squadSize: 16,
+        creationDate,
+        clauseEnableDate,
+        creatorUserId: userId,
+      })),
+      finalize(() => this.isCreating = false)
+    ).subscribe({
       next: () => {
         this.showCreateForm = false;
         this.createTournamentForm.reset({
           name: '',
-          league: formValue.league,
+          leagueName: formValue.leagueName,
           sport: formValue.sport,
           initialBudget: 1000000,
           status: 'active'
@@ -151,21 +157,15 @@ export class LandingPageComponent implements OnInit {
     this.isLoading = true;
     this.errorMessage = '';
 
+    if (!this.createTournamentForm.controls.leagueName.value && this.allowedLeagues.length > 0) {
+      this.createTournamentForm.patchValue({ leagueName: this.allowedLeagues[0] });
+    }
+
     forkJoin({
-      leagues: this.apiService.searchLeagues().pipe(catchError(() => of({ data: [] }))),
       participants: this.apiService.searchParticipants(),
       tournaments: this.apiService.searchTournaments()
     }).pipe(finalize(() => this.isLoading = false)).subscribe({
-      next: ({ leagues, participants, tournaments }) => {
-        this.leagues = leagues.data
-          .filter((league) => league.id !== undefined && this.allowedLeagues.has(league.name))
-          .map((league) => ({ id: league.id as number, name: league.name }));
-
-        const selectedLeagueId = this.createTournamentForm.controls.league.value;
-        if ((!selectedLeagueId || !this.leagues.some((league) => league.id === selectedLeagueId)) && this.leagues.length > 0) {
-          this.createTournamentForm.patchValue({ league: this.leagues[0].id });
-        }
-
+      next: ({ participants, tournaments }) => {
         const joinedTournamentIds = new Set(
           participants.data
             .filter(participant => participant.user === userId)
