@@ -1,4 +1,4 @@
 Listado de posibles APIs
 - https://www.api-football.com/documentation-v3
 - https://rapidapi.com/GiulianoCrescimbeni/api/football98
-- https://my.sportmonks.com/dashboard
+- https://dashboard.api-football.com/subscription/soccer
