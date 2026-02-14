@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { League } from './league.entity.js';
 import { orm } from '../../shared/db/orm.js';
+import { fetchLeaguesFromRapidApi } from '../../integrations/rapidapi/rapidapi.client.js';
 
 const em = orm.em;
 
@@ -22,6 +23,48 @@ function sanitizeLeagueInput(req: Request, res: Response, next: NextFunction) {
     }
   });
   next();
+}
+
+
+async function syncFromRapidApi(req: Request, res: Response) {
+  try {
+    const externalLeagues = await fetchLeaguesFromRapidApi();
+    let created = 0;
+    let updated = 0;
+
+    for (const externalLeague of externalLeagues) {
+      const existing = await em.findOne(League, { externalApiId: externalLeague.id });
+
+      if (existing) {
+        existing.name = externalLeague.name;
+        existing.country = externalLeague.country;
+        updated += 1;
+        continue;
+      }
+
+      em.create(League, {
+        name: externalLeague.name,
+        country: externalLeague.country,
+        externalApiId: externalLeague.id,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      created += 1;
+    }
+
+    await em.flush();
+
+    res.status(200).json({
+      message: 'leagues synchronized from rapidapi',
+      data: {
+        imported: externalLeagues.length,
+        created,
+        updated,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 async function findAll(req: Request, res: Response) {
@@ -77,4 +120,4 @@ async function remove(req: Request, res: Response) {
   }
 }
 
-export { sanitizeLeagueInput, findAll, findOne, add, update, remove };
+export { sanitizeLeagueInput, findAll, findOne, add, update, remove, syncFromRapidApi };

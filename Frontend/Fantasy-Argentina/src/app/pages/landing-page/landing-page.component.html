@@ -5,7 +5,25 @@
         <p class="eyebrow">Fantasy Argentina</p>
         <h1>Hola, {{ username }} 👋</h1>
       </div>
-      <button type="button" class="logout-btn" (click)="logout()">Cerrar sesión</button>
+
+      <div class="menu-wrapper">
+        <button
+          type="button"
+          class="menu-btn"
+          aria-label="Abrir menú de usuario"
+          [attr.aria-expanded]="menuOpen"
+          (click)="toggleMenu()"
+        >
+          ☰
+        </button>
+
+        @if (menuOpen) {
+          <div class="menu-dropdown">
+            <button type="button" (click)="goToUserSettings()">Modificar datos</button>
+            <button type="button" (click)="logout()">Cerrar sesión</button>
+          </div>
+        }
+      </div>
     </div>
     <p>Elegí un torneo para entrar, o creá uno nuevo desde la grilla.</p>
   </header>
@@ -17,6 +35,15 @@
         <label>
           Nombre del torneo
           <input formControlName="name" placeholder="Ej: Amigos del Finde" />
+        </label>
+        <label>
+          Liga
+          <select formControlName="league">
+            <option [ngValue]="0" disabled>Seleccioná una liga</option>
+            @for (league of leagues; track league.id) {
+              <option [ngValue]="league.id">{{ league.name }}</option>
+            }
+          </select>
         </label>
         <div class="grid-2">
           <label>

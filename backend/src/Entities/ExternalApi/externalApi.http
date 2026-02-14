@@ -1,0 +1,14 @@
+### Dashboard API-Football - leagues
+GET http://127.0.0.1:3000/api/external/dashboard/leagues
+
+### Dashboard API-Football - seasons
+GET http://127.0.0.1:3000/api/external/dashboard/seasons
+
+### Dashboard API-Football - teams by league & season
+GET http://127.0.0.1:3000/api/external/dashboard/teams?leagueId=128&season=2024
+
+### Dashboard API-Football - players by team & season
+GET http://127.0.0.1:3000/api/external/dashboard/players?teamId=435&season=2024
+
+### Dashboard API-Football - player rating in one fixture
+GET http://127.0.0.1:3000/api/external/dashboard/player-rating?fixtureId=1208008&playerId=278
