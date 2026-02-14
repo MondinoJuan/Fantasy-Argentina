@@ -4,7 +4,7 @@ export interface realPlayerPatchI {
   name?: string;
   position?: string;
   realTeam?: number;
-  marketValue?: number;
+  marketValue?: number | null;
   active?: boolean;
   lastUpdate?: Date;
 }
