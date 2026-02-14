@@ -22,8 +22,8 @@ export class RealPlayer extends BaseEntity {
   @ManyToOne(() => RealTeam, { nullable: false, deleteRule: 'cascade' })
   realTeam!: Rel<RealTeam>;
 
-  @Property({ nullable: false })
-  marketValue!: number;
+  @Property({ nullable: true })
+  marketValue?: number;
 
   @Property({ nullable: false, default: true })
   active: boolean = true;

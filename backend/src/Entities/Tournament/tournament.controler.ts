@@ -72,6 +72,7 @@ async function bootstrapCreatorTeam(tournament: Tournament, creatorParticipant: 
     endDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
     status: 'upcoming',
   } as any);
+  em.persist(firstMatchday);
 
   const fromExternalApi = await requestInitialPlayersFromExternalApi(tournament.sport, 0);
 
@@ -99,7 +100,7 @@ async function bootstrapCreatorTeam(tournament: Tournament, creatorParticipant: 
       realPlayer: player,
       formation: DEFAULT_FORMATION,
       acquisitionDate: new Date(),
-      purchasePrice: player.marketValue,
+      purchasePrice: player.marketValue ?? null,
       acquisitionType: 'initial_assignment',
     } as any);
   }
@@ -160,7 +161,7 @@ async function add(req: Request, res: Response) {
     await em.flush();
     res.status(201).json({ message: 'tournament created', data: item });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message, sqlMessage: error?.sqlMessage, code: error?.code });
   }
 }
 
