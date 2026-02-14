@@ -2,3 +2,4 @@ Listado de posibles APIs
 - https://www.api-football.com/documentation-v3
 - https://rapidapi.com/GiulianoCrescimbeni/api/football98
 - https://dashboard.api-football.com/subscription/soccer
+- https://rapidapi.com/Creativesdev/api/free-api-live-football-data/playground/apiendpoint_031bfad6-9a09-418b-882b-4d442f27a9ae
