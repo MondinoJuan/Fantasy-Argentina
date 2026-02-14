@@ -90,6 +90,7 @@ async function ensureByNameFromRapidApi(req: Request, res: Response) {
     }
 
     // API-EXTERNA: buscamos la liga por nombre en RapidAPI para persistirla localmente.
+    // API-EXTERNA: desde esta selección de liga se encadena luego la carga de equipos/jugadores que la conforman.
     const externalLeagues = await fetchLeaguesFromRapidApi();
     const matchedLeague = externalLeagues.find((league) => league.name.toLowerCase() === leagueName.toLowerCase());
 
