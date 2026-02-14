@@ -1,28 +1,33 @@
 import https from 'node:https';
 
+type UnknownRecord = Record<string, unknown>;
+
 export interface ExternalLeague {
   id: string;
   name: string;
   country: string;
 }
 
-type UnknownRecord = Record<string, unknown>;
+const ALLOWED_LEAGUE_IDS = new Set([47, 112, 87, 55, 53, 54]);
+
+export interface RapidApiLeagueDetail {
+  id: string;
+  name: string;
+  country?: string;
+  logo?: string;
+  raw: UnknownRecord;
+}
 
 function getRapidApiConfig() {
-  const key = process.env.RAPIDAPI_KEY;
-  const host = process.env.RAPIDAPI_HOST;
-  const baseUrl = process.env.RAPIDAPI_BASE_URL ?? `https://${host}`;
-  const leaguesPath = process.env.RAPIDAPI_LEAGUES_PATH ?? '/tournaments/list';
+  const key = process.env.RAPIDAPI_FREEFOOTBALL_KEY;
+  const host = process.env.RAPIDAPI_FREEFOOTBALL_HOST ?? 'free-api-live-football-data.p.rapidapi.com';
+  const baseUrl = process.env.FOOTBALL_FREEFOOTBALL_API_BASE ?? `https://${host}`;
 
   if (!key) {
-    throw new Error('Missing RAPIDAPI_KEY environment variable');
+    throw new Error('Missing RAPIDAPI_FREEFOOTBALL_KEY environment variable');
   }
 
-  if (!host) {
-    throw new Error('Missing RAPIDAPI_HOST environment variable');
-  }
-
-  return { key, host, baseUrl, leaguesPath };
+  return { key, host, baseUrl };
 }
 
 function getJson(url: string, headers: Record<string, string>): Promise<unknown> {
@@ -51,77 +56,134 @@ function getJson(url: string, headers: Record<string, string>): Promise<unknown>
   });
 }
 
-function getString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
-}
+async function getRapidApi(path: string, query: Record<string, string | number> = {}) {
+  const { key, host, baseUrl } = getRapidApiConfig();
+  const url = new URL(path, baseUrl);
 
-function getArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
+  Object.entries(query).forEach(([queryKey, value]) => {
+    url.searchParams.set(queryKey, String(value));
+  });
 
-function mapTournamentNode(item: UnknownRecord): ExternalLeague | null {
-  const directId = item.id ?? item.tournamentId;
-  const directName = getString(item.name) || getString(item.tournamentName);
-
-  const countryNode = (item.category as UnknownRecord | undefined) ?? (item.country as UnknownRecord | undefined);
-  const country = getString(countryNode?.name) || getString(item.countryName) || 'Unknown';
-
-  if (directId !== undefined && directName) {
-    return {
-      id: String(directId),
-      name: directName,
-      country,
-    };
-  }
-
-  const uniqueTournament = item.uniqueTournament as UnknownRecord | undefined;
-  const uniqueId = uniqueTournament?.id;
-  const uniqueName = getString(uniqueTournament?.name);
-
-  if (uniqueId !== undefined && uniqueName) {
-    return {
-      id: String(uniqueId),
-      name: uniqueName,
-      country,
-    };
-  }
-
-  return null;
-}
-
-function extractLeagues(payload: unknown): ExternalLeague[] {
-  const source = payload as UnknownRecord;
-
-  const candidates = [
-    ...getArray(source.data),
-    ...getArray(source.tournaments),
-    ...getArray(source.events),
-  ];
-
-  const mapped = candidates
-    .filter((item): item is UnknownRecord => typeof item === 'object' && item !== null)
-    .map(mapTournamentNode)
-    .filter((item): item is ExternalLeague => item !== null);
-
-  const dedup = new Map<string, ExternalLeague>();
-  for (const league of mapped) {
-    if (!dedup.has(league.id)) {
-      dedup.set(league.id, league);
-    }
-  }
-
-  return [...dedup.values()];
-}
-
-export async function fetchLeaguesFromRapidApi(): Promise<ExternalLeague[]> {
-  const { key, host, baseUrl, leaguesPath } = getRapidApiConfig();
-  const url = new URL(leaguesPath, baseUrl);
-
-  // API-EXTERNA: consume listado de ligas desde RapidAPI.
-  const payload = await getJson(url.toString(), {
+  // API-EXTERNA: request genérico al proveedor RapidAPI.
+  return getJson(url.toString(), {
     'x-rapidapi-key': key,
     'x-rapidapi-host': host,
   });
+}
 
-  return extractLeagues(payload);
+function asRecord(value: unknown): UnknownRecord {
+  return typeof value === 'object' && value !== null ? (value as UnknownRecord) : {};
+}
+
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function findArrayDeep(value: unknown): unknown[] {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value !== 'object' || value === null) {
+    return [];
+  }
+
+  for (const nested of Object.values(value as UnknownRecord)) {
+    const result = findArrayDeep(nested);
+    if (result.length > 0) {
+      return result;
+    }
+  }
+
+  return [];
+}
+
+function findLeagueName(node: UnknownRecord): string {
+  return (
+    asString(node.league_name) ||
+    asString(node.leagueName) ||
+    asString(node.name) ||
+    asString(node.title)
+  );
+}
+
+function mapLeagueDetail(node: UnknownRecord): RapidApiLeagueDetail | null {
+  const rawId = node.league_id ?? node.id ?? node.leagueId;
+  const id = String(rawId ?? '').trim();
+  const name = findLeagueName(node);
+
+  if (!id || !name) {
+    return null;
+  }
+
+  return {
+    id,
+    name,
+    country: asString(node.country_name) || asString(node.country),
+    logo: asString(node.logo) || asString(node.league_logo),
+    raw: node,
+  };
+}
+
+export async function fetchLeaguesFromRapidApi(): Promise<ExternalLeague[]> {
+  const details = await fetchAllowedLeagueDetailsFromRapidApi();
+
+  return details.map((league) => ({
+    id: league.id,
+    name: league.name,
+    country: league.country ?? 'Unknown',
+  }));
+}
+
+export async function fetchPlayerByIdFromRapidApi(playerId: number) {
+  return getRapidApi('/football-get-list-player', { playerid: playerId });
+}
+
+export async function fetchPlayersByTeamIdFromRapidApi(teamId: number) {
+  return getRapidApi('/football-get-list-player', { teamid: teamId });
+}
+
+export async function fetchTeamsByLeagueIdFromRapidApi(leagueId: number) {
+  return getRapidApi('/football-get-list-all-team', { leagueid: leagueId });
+}
+
+export async function fetchTeamDetailByTeamIdFromRapidApi(teamId: number) {
+  return getRapidApi('/football-league-team', { teamid: teamId });
+}
+
+export async function fetchAllowedLeagueDetailsFromRapidApi(): Promise<RapidApiLeagueDetail[]> {
+  const requests = [...ALLOWED_LEAGUE_IDS].map((leagueId) =>
+    getRapidApi('/football-get-league-detail', { leagueid: leagueId })
+      .then((payload) => ({ leagueId, payload }))
+      .catch(() => ({ leagueId, payload: null })),
+  );
+
+  const results = await Promise.all(requests);
+  const leagues = new Map<string, RapidApiLeagueDetail>();
+
+  for (const result of results) {
+    if (!result.payload) {
+      continue;
+    }
+
+    const candidates = findArrayDeep(result.payload);
+    const mapped = candidates
+      .map((item) => mapLeagueDetail(asRecord(item)))
+      .filter((item): item is RapidApiLeagueDetail => item !== null);
+
+    if (mapped.length === 0) {
+      leagues.set(String(result.leagueId), {
+        id: String(result.leagueId),
+        name: `League ${result.leagueId}`,
+        raw: asRecord(result.payload),
+      });
+      continue;
+    }
+
+    for (const league of mapped) {
+      leagues.set(league.id, league);
+    }
+  }
+
+  return [...leagues.values()];
 }

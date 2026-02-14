@@ -1,16 +1,16 @@
 import { Router } from 'express';
 import {
-  getDashboardLeagues,
-  getDashboardSeasons,
-  getDashboardTeams,
-  getDashboardPlayers,
-  getDashboardPlayerRating,
+  getRapidApiPlayerById,
+  getRapidApiPlayersByTeam,
+  getRapidApiAllowedLeagues,
+  getRapidApiTeamsByLeague,
+  getRapidApiTeamDetailByTeam,
 } from './externalApi.controler.js';
 
 export const ExternalApiRouter = Router();
 
-ExternalApiRouter.get('/dashboard/leagues', getDashboardLeagues);
-ExternalApiRouter.get('/dashboard/seasons', getDashboardSeasons);
-ExternalApiRouter.get('/dashboard/teams', getDashboardTeams);
-ExternalApiRouter.get('/dashboard/players', getDashboardPlayers);
-ExternalApiRouter.get('/dashboard/player-rating', getDashboardPlayerRating);
+ExternalApiRouter.get('/rapidapi/player', getRapidApiPlayerById);
+ExternalApiRouter.get('/rapidapi/team-players', getRapidApiPlayersByTeam);
+ExternalApiRouter.get('/rapidapi/leagues', getRapidApiAllowedLeagues);
+ExternalApiRouter.get('/rapidapi/teams', getRapidApiTeamsByLeague);
+ExternalApiRouter.get('/rapidapi/team-detail', getRapidApiTeamDetailByTeam);
