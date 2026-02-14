@@ -14,6 +14,7 @@ function sanitizeLeagueInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeLeagueInput = {
         name: req.body.name,
     country: req.body.country,
+    sport: req.body.sport,
     externalApiId: req.body.externalApiId,
     };
 
@@ -28,6 +29,7 @@ function sanitizeLeagueInput(req: Request, res: Response, next: NextFunction) {
 
 async function syncFromRapidApi(req: Request, res: Response) {
   try {
+    // API-EXTERNA: sincroniza ligas desde RapidAPI.
     const externalLeagues = await fetchLeaguesFromRapidApi();
     let created = 0;
     let updated = 0;
@@ -38,6 +40,9 @@ async function syncFromRapidApi(req: Request, res: Response) {
       if (existing) {
         existing.name = externalLeague.name;
         existing.country = externalLeague.country;
+        if (!existing.sport) {
+          existing.sport = 'Football';
+        }
         updated += 1;
         continue;
       }
@@ -45,6 +50,7 @@ async function syncFromRapidApi(req: Request, res: Response) {
       em.create(League, {
         name: externalLeague.name,
         country: externalLeague.country,
+        sport: 'Football',
         externalApiId: externalLeague.id,
         createdAt: new Date(),
         updatedAt: new Date(),

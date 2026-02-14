@@ -52,6 +52,7 @@ function getDashboardConfig() {
 
 function getJson(url: string, headers: Record<string, string>): Promise<unknown> {
   return new Promise((resolve, reject) => {
+    // API-EXTERNA: llamada HTTP a API-Football.
     https
       .get(url, { headers }, (response) => {
         const chunks: Uint8Array[] = [];
@@ -83,6 +84,7 @@ async function getApiFootball<T>(path: string, query: Record<string, string | nu
     url.searchParams.set(key, String(value));
   });
 
+  // API-EXTERNA: request genérico al proveedor API-Football.
   const payload = await getJson(url.toString(), {
     'x-apisports-key': apiKey,
   });

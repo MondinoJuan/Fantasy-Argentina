@@ -15,6 +15,7 @@ function parseRequiredNumber(value: string | string[] | undefined): number | nul
 
 async function getDashboardLeagues(req: Request, res: Response) {
   try {
+    // API-EXTERNA: obtiene ligas desde API-Football.
     const data = await fetchLeaguesFromDashboard();
     res.status(200).json({ message: 'dashboard leagues fetched', data });
   } catch (error: any) {
@@ -24,6 +25,7 @@ async function getDashboardLeagues(req: Request, res: Response) {
 
 async function getDashboardSeasons(req: Request, res: Response) {
   try {
+    // API-EXTERNA: obtiene temporadas desde API-Football.
     const data = await fetchSeasonsFromDashboard();
     res.status(200).json({ message: 'dashboard seasons fetched', data });
   } catch (error: any) {
@@ -40,6 +42,7 @@ async function getDashboardTeams(req: Request, res: Response) {
   }
 
   try {
+    // API-EXTERNA: obtiene equipos desde API-Football.
     const data = await fetchTeamsFromDashboard(leagueId, season);
     res.status(200).json({ message: 'dashboard teams fetched', data });
   } catch (error: any) {
@@ -56,6 +59,7 @@ async function getDashboardPlayers(req: Request, res: Response) {
   }
 
   try {
+    // API-EXTERNA: obtiene jugadores desde API-Football.
     const data = await fetchPlayersFromDashboard(teamId, season);
     res.status(200).json({ message: 'dashboard players fetched', data });
   } catch (error: any) {
@@ -72,6 +76,7 @@ async function getDashboardPlayerRating(req: Request, res: Response) {
   }
 
   try {
+    // API-EXTERNA: obtiene rating de jugador desde API-Football.
     const data = await fetchPlayerRatingFromDashboard(fixtureId, playerId);
 
     if (!data) {

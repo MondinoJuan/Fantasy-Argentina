@@ -16,6 +16,9 @@ export class Tournament extends BaseEntity {
   league!: Rel<League>;
 
   @Property({ nullable: false })
+  sport!: string;
+
+  @Property({ nullable: false })
   creationDate: Date = new Date();
 
   @Property({ nullable: false })

@@ -13,6 +13,7 @@ function sanitizeParticipantSquadInput(req: Request, res: Response, next: NextFu
   req.body.sanitizeParticipantSquadInput = {
         participant: req.body.participant ?? req.body.participantId,
     realPlayer: req.body.realPlayer ?? req.body.realPlayerId,
+    formation: req.body.formation,
     releaseDate: req.body.releaseDate,
     purchasePrice: req.body.purchasePrice,
     acquisitionType: req.body.acquisitionType,
