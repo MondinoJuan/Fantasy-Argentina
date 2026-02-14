@@ -13,6 +13,9 @@ export class League extends BaseEntity {
   country!: string;
 
   @Property({ nullable: false })
+  sport!: string;
+
+  @Property({ nullable: false })
   externalApiId!: string;
 
   @OneToMany(() => Tournament, (tournament) => tournament.league, {

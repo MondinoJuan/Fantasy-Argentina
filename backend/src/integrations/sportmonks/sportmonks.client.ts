@@ -48,6 +48,7 @@ function mapLeague(raw: SportmonksLeagueRaw): ExternalLeague | null {
 
 function getJson<T>(url: string): Promise<T> {
   return new Promise((resolve, reject) => {
+    // API-EXTERNA: llamada HTTP a Sportmonks.
     https
       .get(url, (response) => {
         const chunks: Uint8Array[] = [];
@@ -76,6 +77,7 @@ export async function fetchLeaguesFromSportmonks(): Promise<ExternalLeague[]> {
   const leaguesUrl = new URL('/leagues', baseUrl);
   leaguesUrl.searchParams.set('api_token', token);
 
+  // API-EXTERNA: consume listado de ligas desde Sportmonks.
   const payload = await getJson<SportmonksLeaguesResponse>(leaguesUrl.toString());
 
   return (payload.data ?? [])

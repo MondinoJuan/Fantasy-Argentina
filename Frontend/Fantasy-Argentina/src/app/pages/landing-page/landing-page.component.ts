@@ -18,6 +18,15 @@ import { tournamentI } from '../../modelos/tournament.interface';
 export class LandingPageComponent implements OnInit {
   tournaments: tournamentI[] = [];
   leagues: Array<{ id: number; name: string }> = [];
+  readonly allowedLeagues = new Set([
+    'Liga Profesional',
+    'Premier League',
+    'La Liga',
+    'Bundesliga',
+    'Serie A',
+    'Ligue1',
+  ]);
+  readonly sportOptions = ['Football', 'Basketball'];
   searchTerm = '';
   isLoading = true;
   isCreating = false;
@@ -48,8 +57,8 @@ export class LandingPageComponent implements OnInit {
     this.createTournamentForm = this.fb.nonNullable.group({
       name: ['', [Validators.required, Validators.minLength(4)]],
       league: [0, [Validators.required, Validators.min(1)]],
+      sport: ['Football', Validators.required],
       initialBudget: [1000000, [Validators.required, Validators.min(100000)]],
-      squadSize: [11, [Validators.required, Validators.min(5)]],
       status: ['active', Validators.required]
     });
   }
@@ -116,35 +125,21 @@ export class LandingPageComponent implements OnInit {
 
     this.apiService.postTournament({
       ...formValue,
+      squadSize: 16,
       creationDate,
-      clauseEnableDate
+      clauseEnableDate,
+      creatorUserId: userId,
     }).pipe(finalize(() => this.isCreating = false)).subscribe({
-      next: ({ data: createdTournament }) => {
-        this.apiService.postParticipant({
-          user: userId,
-          tournament: createdTournament.id ?? 0,
-          bankBudget: formValue.initialBudget,
-          reservedMoney: 0,
-          availableMoney: formValue.initialBudget,
-          totalScore: 0,
-          joinDate: new Date()
-        }).subscribe({
-          next: () => {
-            this.showCreateForm = false;
-            this.createTournamentForm.reset({
-              name: '',
-              league: formValue.league,
-              initialBudget: 1000000,
-              squadSize: 11,
-              status: 'active'
-            });
-            this.loadTournaments(userId);
-          },
-          error: () => {
-            this.errorMessage = 'Torneo creado, pero no se pudo unir el usuario automáticamente.';
-            this.loadTournaments(userId);
-          }
+      next: () => {
+        this.showCreateForm = false;
+        this.createTournamentForm.reset({
+          name: '',
+          league: formValue.league,
+          sport: formValue.sport,
+          initialBudget: 1000000,
+          status: 'active'
         });
+        this.loadTournaments(userId);
       },
       error: () => {
         this.errorMessage = 'No pudimos crear el torneo. Intentá nuevamente.';
@@ -163,11 +158,11 @@ export class LandingPageComponent implements OnInit {
     }).pipe(finalize(() => this.isLoading = false)).subscribe({
       next: ({ leagues, participants, tournaments }) => {
         this.leagues = leagues.data
-          .filter((league) => league.id !== undefined)
+          .filter((league) => league.id !== undefined && this.allowedLeagues.has(league.name))
           .map((league) => ({ id: league.id as number, name: league.name }));
 
         const selectedLeagueId = this.createTournamentForm.controls.league.value;
-        if (!selectedLeagueId && this.leagues.length > 0) {
+        if ((!selectedLeagueId || !this.leagues.some((league) => league.id === selectedLeagueId)) && this.leagues.length > 0) {
           this.createTournamentForm.patchValue({ league: this.leagues[0].id });
         }
 

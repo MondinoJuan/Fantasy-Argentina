@@ -27,6 +27,7 @@ function getRapidApiConfig() {
 
 function getJson(url: string, headers: Record<string, string>): Promise<unknown> {
   return new Promise((resolve, reject) => {
+    // API-EXTERNA: llamada HTTP a RapidAPI.
     https
       .get(url, { headers }, (response) => {
         const chunks: Uint8Array[] = [];
@@ -116,6 +117,7 @@ export async function fetchLeaguesFromRapidApi(): Promise<ExternalLeague[]> {
   const { key, host, baseUrl, leaguesPath } = getRapidApiConfig();
   const url = new URL(leaguesPath, baseUrl);
 
+  // API-EXTERNA: consume listado de ligas desde RapidAPI.
   const payload = await getJson(url.toString(), {
     'x-rapidapi-key': key,
     'x-rapidapi-host': host,
