@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { League } from './league.entity.js';
 import { orm } from '../../shared/db/orm.js';
-import { fetchLeaguesFromSportmonks } from '../../integrations/sportmonks/sportmonks.client.js';
+import { fetchLeaguesFromRapidApi } from '../../integrations/rapidapi/rapidapi.client.js';
 
 const em = orm.em;
 
@@ -26,9 +26,9 @@ function sanitizeLeagueInput(req: Request, res: Response, next: NextFunction) {
 }
 
 
-async function syncFromSportmonks(req: Request, res: Response) {
+async function syncFromRapidApi(req: Request, res: Response) {
   try {
-    const externalLeagues = await fetchLeaguesFromSportmonks();
+    const externalLeagues = await fetchLeaguesFromRapidApi();
     let created = 0;
     let updated = 0;
 
@@ -55,7 +55,7 @@ async function syncFromSportmonks(req: Request, res: Response) {
     await em.flush();
 
     res.status(200).json({
-      message: 'leagues synchronized from sportmonks',
+      message: 'leagues synchronized from rapidapi',
       data: {
         imported: externalLeagues.length,
         created,
@@ -120,4 +120,4 @@ async function remove(req: Request, res: Response) {
   }
 }
 
-export { sanitizeLeagueInput, findAll, findOne, add, update, remove, syncFromSportmonks };
+export { sanitizeLeagueInput, findAll, findOne, add, update, remove, syncFromRapidApi };
