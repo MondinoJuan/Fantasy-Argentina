@@ -1,14 +1,14 @@
-### Dashboard API-Football - leagues
-GET http://127.0.0.1:3000/api/external/dashboard/leagues
+### RapidAPI - player by playerId
+GET http://127.0.0.1:3000/api/external/rapidapi/player?playerId=123
 
-### Dashboard API-Football - seasons
-GET http://127.0.0.1:3000/api/external/dashboard/seasons
+### RapidAPI - all players by teamId
+GET http://127.0.0.1:3000/api/external/rapidapi/team-players?teamId=8650
 
-### Dashboard API-Football - teams by league & season
-GET http://127.0.0.1:3000/api/external/dashboard/teams?leagueId=128&season=2024
+### RapidAPI - allowed leagues (47,112,87,55,53,54)
+GET http://127.0.0.1:3000/api/external/rapidapi/leagues
 
-### Dashboard API-Football - players by team & season
-GET http://127.0.0.1:3000/api/external/dashboard/players?teamId=435&season=2024
+### RapidAPI - teams by leagueId
+GET http://127.0.0.1:3000/api/external/rapidapi/teams?leagueId=112
 
-### Dashboard API-Football - player rating in one fixture
-GET http://127.0.0.1:3000/api/external/dashboard/player-rating?fixtureId=1208008&playerId=278
+### RapidAPI - team detail by teamId
+GET http://127.0.0.1:3000/api/external/rapidapi/team-detail?teamId=8650
