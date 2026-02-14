@@ -23,7 +23,7 @@ export class RealPlayer extends BaseEntity {
   realTeam!: Rel<RealTeam>;
 
   @Property({ nullable: true })
-  marketValue?: number;
+  marketValue?: number | null;
 
   @Property({ nullable: false, default: true })
   active: boolean = true;

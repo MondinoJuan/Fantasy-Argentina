@@ -73,6 +73,49 @@ async function syncFromRapidApi(req: Request, res: Response) {
   }
 }
 
+
+async function ensureByNameFromRapidApi(req: Request, res: Response) {
+  try {
+    const leagueName = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+
+    if (!leagueName) {
+      res.status(400).json({ message: 'league name is required' });
+      return;
+    }
+
+    const existingLeague = await em.findOne(League, { name: leagueName });
+    if (existingLeague) {
+      res.status(200).json({ message: 'league already exists', data: existingLeague });
+      return;
+    }
+
+    // API-EXTERNA: buscamos la liga por nombre en RapidAPI para persistirla localmente.
+    // API-EXTERNA: desde esta selección de liga se encadena luego la carga de equipos/jugadores que la conforman.
+    const externalLeagues = await fetchLeaguesFromRapidApi();
+    const matchedLeague = externalLeagues.find((league) => league.name.toLowerCase() === leagueName.toLowerCase());
+
+    if (!matchedLeague) {
+      res.status(404).json({ message: `league ${leagueName} not found on external provider` });
+      return;
+    }
+
+    const createdLeague = em.create(League, {
+      name: matchedLeague.name,
+      country: matchedLeague.country,
+      sport: 'Football',
+      externalApiId: matchedLeague.id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await em.flush();
+
+    res.status(201).json({ message: 'league created from rapidapi', data: createdLeague });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
 async function findAll(req: Request, res: Response) {
   try {
     const items = await em.find(League, {});
@@ -126,4 +169,4 @@ async function remove(req: Request, res: Response) {
   }
 }
 
-export { sanitizeLeagueInput, findAll, findOne, add, update, remove, syncFromRapidApi };
+export { sanitizeLeagueInput, findAll, findOne, add, update, remove, syncFromRapidApi, ensureByNameFromRapidApi };

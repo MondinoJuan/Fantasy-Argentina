@@ -38,10 +38,10 @@
         </label>
         <label>
           Liga
-          <select formControlName="league">
-            <option [ngValue]="0" disabled>Seleccioná una liga</option>
-            @for (league of leagues; track league.id) {
-              <option [ngValue]="league.id">{{ league.name }}</option>
+          <select formControlName="leagueName">
+            <option value="" disabled>Seleccioná una liga</option>
+            @for (leagueName of allowedLeagues; track leagueName) {
+              <option [ngValue]="leagueName">{{ leagueName }}</option>
             }
           </select>
         </label>

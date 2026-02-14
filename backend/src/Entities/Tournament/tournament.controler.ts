@@ -142,21 +142,26 @@ async function findOne(req: Request, res: Response) {
 async function add(req: Request, res: Response) {
   try {
     const { creatorUserId, ...tournamentInput } = req.body.sanitizeTournamentInput;
+
+    if (!creatorUserId) {
+      res.status(400).json({ message: 'creatorUserId is required to create tournament participant' });
+      return;
+    }
+
     const item = em.create(Tournament, tournamentInput);
 
-    if (creatorUserId) {
-      const creatorParticipant = em.create(Participant, {
-        user: creatorUserId,
-        tournament: item,
-        bankBudget: item.initialBudget,
-        reservedMoney: 0,
-        availableMoney: item.initialBudget,
-        totalScore: 0,
-        joinDate: new Date(),
-      } as any);
+    // Regla de negocio: al crear un torneo, lo primero es crear el Participant que relaciona User y Tournament.
+    const creatorParticipant = em.create(Participant, {
+      user: creatorUserId,
+      tournament: item,
+      bankBudget: item.initialBudget,
+      reservedMoney: 0,
+      availableMoney: item.initialBudget,
+      totalScore: 0,
+      joinDate: new Date(),
+    } as any);
 
-      await bootstrapCreatorTeam(item, creatorParticipant);
-    }
+    await bootstrapCreatorTeam(item, creatorParticipant);
 
     await em.flush();
     res.status(201).json({ message: 'tournament created', data: item });
