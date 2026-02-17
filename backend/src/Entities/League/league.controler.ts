@@ -15,7 +15,7 @@ function sanitizeLeagueInput(req: Request, res: Response, next: NextFunction) {
         name: req.body.name,
     country: req.body.country,
     sport: req.body.sport,
-    externalApiId: req.body.externalApiId,
+    idEnApi: req.body.idEnApi,
     };
 
   Object.keys(req.body.sanitizeLeagueInput).forEach((key) => {
@@ -35,7 +35,7 @@ async function syncFromRapidApi(req: Request, res: Response) {
     let updated = 0;
 
     for (const externalLeague of externalLeagues) {
-      const existing = await em.findOne(League, { externalApiId: externalLeague.id });
+      const existing = await em.findOne(League, { idEnApi: externalLeague.id });
 
       if (existing) {
         existing.name = externalLeague.name;
@@ -51,7 +51,7 @@ async function syncFromRapidApi(req: Request, res: Response) {
         name: externalLeague.name,
         country: externalLeague.country,
         sport: 'Football',
-        externalApiId: externalLeague.id,
+        idEnApi: externalLeague.id,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -103,7 +103,7 @@ async function ensureByNameFromRapidApi(req: Request, res: Response) {
       name: matchedLeague.name,
       country: matchedLeague.country,
       sport: 'Football',
-      externalApiId: matchedLeague.id,
+      idEnApi: matchedLeague.id,
       createdAt: new Date(),
       updatedAt: new Date(),
     });

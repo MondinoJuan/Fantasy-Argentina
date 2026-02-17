@@ -12,7 +12,7 @@ function parseId(idParam: string | string[] | undefined) {
 function sanitizePlayerClauseInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizePlayerClauseInput = {
         tournament: req.body.tournament ?? req.body.tournamentId,
-    realPlayer: req.body.realPlayer ?? req.body.realPlayerId,
+    dependantPlayer: req.body.dependantPlayer ?? req.body.dependantPlayerId,
     ownerParticipant: req.body.ownerParticipant ?? req.body.ownerParticipantId,
     baseClause: req.body.baseClause,
     additionalShieldingClause: req.body.additionalShieldingClause,
@@ -29,7 +29,7 @@ function sanitizePlayerClauseInput(req: Request, res: Response, next: NextFuncti
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(PlayerClause, {}, { populate: ['tournament', 'realPlayer', 'ownerParticipant'] });
+    const items = await em.find(PlayerClause, {}, { populate: ['tournament', 'dependantPlayer', 'ownerParticipant'] });
     res.status(200).json({ message: 'found all player clauses', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -39,7 +39,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(PlayerClause, { id }, { populate: ['tournament', 'realPlayer', 'ownerParticipant'] });
+    const item = await em.findOneOrFail(PlayerClause, { id }, { populate: ['tournament', 'dependantPlayer', 'ownerParticipant'] });
     res.status(200).json({ message: 'found player clause', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

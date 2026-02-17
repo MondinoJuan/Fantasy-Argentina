@@ -3,7 +3,7 @@ export interface negotiationI {
   tournament: number;
   sellerParticipant: number;
   buyerParticipant: number;
-  realPlayer: number;
+  dependantPlayer: number;
   agreedAmount: number;
   status: string;
   creationDate: Date;

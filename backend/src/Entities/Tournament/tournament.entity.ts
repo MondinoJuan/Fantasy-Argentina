@@ -6,6 +6,7 @@ import { MatchdayMarket } from '../MatchdayMarket/matchdayMarket.entity.js';
 import { PlayerClause } from '../PlayerClause/playerClause.entity.js';
 import { Transaction } from '../Transaction/transaction.entity.js';
 import { Negotiation } from '../Negotiation/negotiation.entity.js';
+import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
 
 @Entity()
 export class Tournament extends BaseEntity {
@@ -57,4 +58,9 @@ export class Tournament extends BaseEntity {
     cascade: [Cascade.ALL],
   })
   negotiations = new Collection<Negotiation>(this);
+
+  @OneToMany(() => DependantPlayer, (dependantPlayer) => dependantPlayer.tournament, {
+    cascade: [Cascade.ALL],
+  })
+  dependantPlayers = new Collection<DependantPlayer>(this);
 }

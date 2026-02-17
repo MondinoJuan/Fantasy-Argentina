@@ -13,7 +13,7 @@ function sanitizeRealTeamInput(req: Request, res: Response, next: NextFunction) 
   req.body.sanitizeRealTeamInput = {
         name: req.body.name,
     league: req.body.league ?? req.body.leagueId,
-    externalApiId: req.body.externalApiId,
+    idEnApi: req.body.idEnApi,
     };
 
   Object.keys(req.body.sanitizeRealTeamInput).forEach((key) => {

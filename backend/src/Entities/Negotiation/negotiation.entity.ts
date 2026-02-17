@@ -2,7 +2,7 @@ import { Entity, ManyToOne, Property, Rel } from '@mikro-orm/core';
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { Tournament } from '../Tournament/tournament.entity.js';
 import { Participant } from '../Participant/participant.entity.js';
-import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
+import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
 
 @Entity()
 export class Negotiation extends BaseEntity {
@@ -15,8 +15,8 @@ export class Negotiation extends BaseEntity {
   @ManyToOne(() => Participant, { nullable: false, deleteRule: 'cascade' })
   buyerParticipant!: Rel<Participant>;
 
-  @ManyToOne(() => RealPlayer, { nullable: false, deleteRule: 'cascade' })
-  realPlayer!: Rel<RealPlayer>;
+  @ManyToOne(() => DependantPlayer, { nullable: false, deleteRule: 'cascade' })
+  dependantPlayer!: Rel<DependantPlayer>;
 
   @Property({ nullable: false })
   agreedAmount!: number;

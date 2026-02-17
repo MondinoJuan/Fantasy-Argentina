@@ -9,11 +9,10 @@ POST http://127.0.0.1:3000/api/real-players
 Content-Type: application/json
 
 {
-  "externalApiId": "1",
+  "idEnApi": "1",
   "name": "Liga Profesional",
   "position": "DEL",
   "realTeamId": "1",
-  "marketValue": 4500000,
   "active": true
 }
 
@@ -22,11 +21,10 @@ PUT http://127.0.0.1:3000/api/real-players/1
 Content-Type: application/json
 
 {
-  "externalApiId": "1",
+  "idEnApi": "1",
   "name": "Liga Profesional actualizado",
   "position": "DEL actualizado",
   "realTeamId": "1",
-  "marketValue": 4500100,
   "active": true
 }
 
@@ -35,10 +33,9 @@ PATCH http://127.0.0.1:3000/api/real-players/1
 Content-Type: application/json
 
 {
-  "externalApiId": "1",
+  "idEnApi": "1",
   "name": "Liga Profesional actualizado",
   "position": "DEL actualizado",
-  "marketValue": 4500100
 }
 
 ### eliminar un registro de RealPlayer por id

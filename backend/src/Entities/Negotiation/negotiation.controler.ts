@@ -14,7 +14,7 @@ function sanitizeNegotiationInput(req: Request, res: Response, next: NextFunctio
         tournament: req.body.tournament ?? req.body.tournamentId,
     sellerParticipant: req.body.sellerParticipant ?? req.body.sellerParticipantId,
     buyerParticipant: req.body.buyerParticipant ?? req.body.buyerParticipantId,
-    realPlayer: req.body.realPlayer ?? req.body.realPlayerId,
+    dependantPlayer: req.body.dependantPlayer ?? req.body.dependantPlayerId,
     agreedAmount: req.body.agreedAmount,
     status: req.body.status,
     publicationDate: req.body.publicationDate,
@@ -32,7 +32,7 @@ function sanitizeNegotiationInput(req: Request, res: Response, next: NextFunctio
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(Negotiation, {}, { populate: ['tournament', 'sellerParticipant', 'buyerParticipant', 'realPlayer'] });
+    const items = await em.find(Negotiation, {}, { populate: ['tournament', 'sellerParticipant', 'buyerParticipant', 'dependantPlayer'] });
     res.status(200).json({ message: 'found all negotiations', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -42,7 +42,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(Negotiation, { id }, { populate: ['tournament', 'sellerParticipant', 'buyerParticipant', 'realPlayer'] });
+    const item = await em.findOneOrFail(Negotiation, { id }, { populate: ['tournament', 'sellerParticipant', 'buyerParticipant', 'dependantPlayer'] });
     res.status(200).json({ message: 'found negotiation', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
