@@ -3,7 +3,7 @@ import https from 'node:https';
 type UnknownRecord = Record<string, unknown>;
 
 export interface ExternalLeague {
-  id: string;
+  id: number;
   name: string;
   country: string;
 }
@@ -11,7 +11,7 @@ export interface ExternalLeague {
 const ALLOWED_LEAGUE_IDS = new Set([47, 112, 87, 55, 53, 54]);
 
 export interface RapidApiLeagueDetail {
-  id: string;
+  id: number;
   name: string;
   country?: string;
   logo?: string;
@@ -109,10 +109,10 @@ function findLeagueName(node: UnknownRecord): string {
 
 function mapLeagueDetail(node: UnknownRecord): RapidApiLeagueDetail | null {
   const rawId = node.league_id ?? node.id ?? node.leagueId;
-  const id = String(rawId ?? '').trim();
+  const id = Number.parseInt(String(rawId ?? "").trim(), 10);
   const name = findLeagueName(node);
 
-  if (!id || !name) {
+  if (Number.isNaN(id) || !name) {
     return null;
   }
 
@@ -159,7 +159,7 @@ export async function fetchAllowedLeagueDetailsFromRapidApi(): Promise<RapidApiL
   );
 
   const results = await Promise.all(requests);
-  const leagues = new Map<string, RapidApiLeagueDetail>();
+  const leagues = new Map<number, RapidApiLeagueDetail>();
 
   for (const result of results) {
     if (!result.payload) {
@@ -172,8 +172,8 @@ export async function fetchAllowedLeagueDetailsFromRapidApi(): Promise<RapidApiL
       .filter((item): item is RapidApiLeagueDetail => item !== null);
 
     if (mapped.length === 0) {
-      leagues.set(String(result.leagueId), {
-        id: String(result.leagueId),
+      leagues.set(result.leagueId, {
+        id: result.leagueId,
         name: `League ${result.leagueId}`,
         raw: asRecord(result.payload),
       });

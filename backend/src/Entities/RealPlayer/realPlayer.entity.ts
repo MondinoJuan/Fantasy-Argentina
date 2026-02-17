@@ -2,16 +2,14 @@ import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property, Rel } from
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { RealTeam } from '../RealTeam/realTeam.entity.js';
 import { ParticipantSquad } from '../ParticipantSquad/participantSquad.entity.js';
-import { MatchdayMarket } from '../MatchdayMarket/matchdayMarket.entity.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
 import { PlayerPointsBreakdown } from '../PlayerPointsBreakdown/playerPointsBreakdown.entity.js';
-import { PlayerClause } from '../PlayerClause/playerClause.entity.js';
-import { Negotiation } from '../Negotiation/negotiation.entity.js';
+import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
 
 @Entity()
 export class RealPlayer extends BaseEntity {
   @Property({ nullable: false })
-  externalApiId!: string;
+  idEnApi!: number;
 
   @Property({ nullable: false })
   name!: string;
@@ -21,9 +19,6 @@ export class RealPlayer extends BaseEntity {
 
   @ManyToOne(() => RealTeam, { nullable: false, deleteRule: 'cascade' })
   realTeam!: Rel<RealTeam>;
-
-  @Property({ nullable: true })
-  marketValue?: number | null;
 
   @Property({ nullable: false, default: true })
   active: boolean = true;
@@ -36,11 +31,6 @@ export class RealPlayer extends BaseEntity {
   })
   participantSquads = new Collection<ParticipantSquad>(this);
 
-  @OneToMany(() => MatchdayMarket, (matchdayMarket) => matchdayMarket.realPlayer, {
-    cascade: [Cascade.ALL],
-  })
-  markets = new Collection<MatchdayMarket>(this);
-
   @OneToMany(() => PlayerPerformance, (playerPerformance) => playerPerformance.realPlayer, {
     cascade: [Cascade.ALL],
   })
@@ -51,13 +41,8 @@ export class RealPlayer extends BaseEntity {
   })
   pointsBreakdowns = new Collection<PlayerPointsBreakdown>(this);
 
-  @OneToMany(() => PlayerClause, (playerClause) => playerClause.realPlayer, {
+  @OneToMany(() => DependantPlayer, (dependantPlayer) => dependantPlayer.realPlayer, {
     cascade: [Cascade.ALL],
   })
-  clauses = new Collection<PlayerClause>(this);
-
-  @OneToMany(() => Negotiation, (negotiation) => negotiation.realPlayer, {
-    cascade: [Cascade.ALL],
-  })
-  negotiations = new Collection<Negotiation>(this);
+  dependantPlayers = new Collection<DependantPlayer>(this);
 }

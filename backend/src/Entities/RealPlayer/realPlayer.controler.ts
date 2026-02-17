@@ -11,11 +11,10 @@ function parseId(idParam: string | string[] | undefined) {
 
 function sanitizeRealPlayerInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeRealPlayerInput = {
-        externalApiId: req.body.externalApiId,
+        idEnApi: req.body.idEnApi,
     name: req.body.name,
     position: req.body.position,
     realTeam: req.body.realTeam ?? req.body.realTeamId,
-    marketValue: req.body.marketValue,
     active: req.body.active,
     };
 

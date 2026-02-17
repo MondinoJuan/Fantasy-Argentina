@@ -6,6 +6,7 @@ import { Matchday } from '../Matchday/matchday.entity.js';
 import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
 import { ParticipantSquad } from '../ParticipantSquad/participantSquad.entity.js';
 import { MatchdayMarket } from '../MatchdayMarket/matchdayMarket.entity.js';
+import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
 
 const em = orm.em;
 const DEFAULT_FORMATION = '4-4-2';
@@ -100,19 +101,39 @@ async function bootstrapCreatorTeam(tournament: Tournament, creatorParticipant: 
       realPlayer: player,
       formation: DEFAULT_FORMATION,
       acquisitionDate: new Date(),
-      purchasePrice: player.marketValue ?? null,
+      purchasePrice: 0,
       acquisitionType: 'initial_assignment',
     } as any);
+  }
+
+  const dependantByRealPlayerId = new Map<number, DependantPlayer>();
+
+  for (const player of allPlayers) {
+    if (!player.id) continue;
+
+    const dependantPlayer = em.create(DependantPlayer, {
+      tournament,
+      realPlayer: player,
+      marketValue: 0,
+    } as any);
+
+    dependantByRealPlayerId.set(player.id, dependantPlayer);
   }
 
   const selectedIds = new Set(squad.map((player) => player.id));
   const marketCandidates = allPlayers.filter((player) => player.id && !selectedIds.has(player.id));
 
   for (const player of pickRandom(marketCandidates, 3)) {
+    const dependantPlayer = player.id ? dependantByRealPlayerId.get(player.id) : undefined;
+
+    if (!dependantPlayer) {
+      continue;
+    }
+
     em.create(MatchdayMarket, {
       tournament,
       matchday: firstMatchday,
-      realPlayer: player,
+      dependantPlayer,
       minimumPrice: 100,
       origin: 'system_initial_market',
       creationDate: new Date(),

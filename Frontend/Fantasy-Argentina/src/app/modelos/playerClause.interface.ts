@@ -1,7 +1,7 @@
 export interface playerClauseI {
   id?: number;
   tournament: number;
-  realPlayer: number;
+  dependantPlayer: number;
   ownerParticipant: number;
   baseClause: number;
   additionalShieldingClause: number;

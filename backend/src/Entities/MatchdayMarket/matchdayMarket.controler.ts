@@ -13,7 +13,7 @@ function sanitizeMatchdayMarketInput(req: Request, res: Response, next: NextFunc
   req.body.sanitizeMatchdayMarketInput = {
         tournament: req.body.tournament ?? req.body.tournamentId,
     matchday: req.body.matchday ?? req.body.matchdayId,
-    realPlayer: req.body.realPlayer ?? req.body.realPlayerId,
+    dependantPlayer: req.body.dependantPlayer ?? req.body.dependantPlayerId,
     minimumPrice: req.body.minimumPrice,
     origin: req.body.origin,
     sellerParticipant: req.body.sellerParticipant ?? req.body.sellerParticipantId,
@@ -29,7 +29,7 @@ function sanitizeMatchdayMarketInput(req: Request, res: Response, next: NextFunc
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(MatchdayMarket, {}, { populate: ['tournament', 'matchday', 'realPlayer', 'sellerParticipant'] });
+    const items = await em.find(MatchdayMarket, {}, { populate: ['tournament', 'matchday', 'dependantPlayer', 'sellerParticipant'] });
     res.status(200).json({ message: 'found all matchday markets', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -39,7 +39,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(MatchdayMarket, { id }, { populate: ['tournament', 'matchday', 'realPlayer', 'sellerParticipant'] });
+    const item = await em.findOneOrFail(MatchdayMarket, { id }, { populate: ['tournament', 'matchday', 'dependantPlayer', 'sellerParticipant'] });
     res.status(200).json({ message: 'found matchday market', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

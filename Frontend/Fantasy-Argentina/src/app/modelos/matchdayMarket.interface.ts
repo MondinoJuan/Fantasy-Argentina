@@ -2,7 +2,7 @@ export interface matchdayMarketI {
   id?: number;
   tournament: number;
   matchday: number;
-  realPlayer: number;
+  dependantPlayer: number;
   minimumPrice: number;
   origin: string;
   sellerParticipant?: number;

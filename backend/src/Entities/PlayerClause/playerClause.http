@@ -10,7 +10,7 @@ Content-Type: application/json
 
 {
   "tournamentId": "1",
-  "realPlayerId": "1",
+  "dependantPlayerId": "1",
   "ownerParticipantId": "1",
   "baseClause": 5000000,
   "additionalShieldingClause": 1500000,
@@ -23,7 +23,7 @@ Content-Type: application/json
 
 {
   "tournamentId": "1",
-  "realPlayerId": "1",
+  "dependantPlayerId": "1",
   "ownerParticipantId": "1",
   "baseClause": 5000100,
   "additionalShieldingClause": 1500100,
@@ -36,7 +36,7 @@ Content-Type: application/json
 
 {
   "tournamentId": "1",
-  "realPlayerId": "1",
+  "dependantPlayerId": "1",
   "ownerParticipantId": "1"
 }
 

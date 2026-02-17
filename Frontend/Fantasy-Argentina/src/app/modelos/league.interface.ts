@@ -3,5 +3,5 @@ export interface leagueI {
   name: string;
   country: string;
   sport: string;
-  externalApiId: string;
+  idEnApi: number;
 }

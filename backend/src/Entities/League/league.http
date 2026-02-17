@@ -11,7 +11,7 @@ Content-Type: application/json
 {
   "name": "Liga Profesional",
   "country": "Argentina",
-  "externalApiId": "1"
+  "idEnApi": "1"
 }
 
 ### actualizar un registro de League por id
@@ -21,7 +21,7 @@ Content-Type: application/json
 {
   "name": "Liga Profesional actualizado",
   "country": "Argentina",
-  "externalApiId": "1"
+  "idEnApi": "1"
 }
 
 ### actualizar parcialmente un registro de League por id
@@ -31,7 +31,7 @@ Content-Type: application/json
 {
   "name": "Liga Profesional actualizado",
   "country": "Argentina",
-  "externalApiId": "1"
+  "idEnApi": "1"
 }
 
 ### eliminar un registro de League por id

@@ -12,7 +12,7 @@ export class RealTeam extends BaseEntity {
   league!: Rel<League>;
 
   @Property({ nullable: false })
-  externalApiId!: string;
+  idEnApi!: number;
 
   @OneToMany(() => RealPlayer, (realPlayer) => realPlayer.realTeam, {
     cascade: [Cascade.ALL],
