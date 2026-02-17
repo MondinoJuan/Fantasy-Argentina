@@ -3,3 +3,8 @@ Listado de posibles APIs
 - https://rapidapi.com/GiulianoCrescimbeni/api/football98
 - https://dashboard.api-football.com/subscription/soccer
 - https://rapidapi.com/Creativesdev/api/free-api-live-football-data/playground/apiendpoint_031bfad6-9a09-418b-882b-4d442f27a9ae
+- https://www.thesportsdb.com/documentation
+
+
+API usada: 
+- https://v1.football.sportsapipro.com

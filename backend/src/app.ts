@@ -1,5 +1,7 @@
 import 'reflect-metadata';
 import express, {Request, Response, NextFunction} from 'express';
+import { orm, syncSchema } from './shared/db/orm.js';
+import { RequestContext } from '@mikro-orm/mysql';
 import { UserRouter } from './Entities/User/user.routes.js';
 import { TournamentRouter } from './Entities/Tournament/tournament.routes.js';
 import { LeagueRouter } from './Entities/League/league.routes.js';
@@ -19,8 +21,7 @@ import { ShieldingRouter } from './Entities/Shielding/shielding.routes.js';
 import { TransactionRouter } from './Entities/Transaction/transaction.routes.js';
 import { NegotiationRouter } from './Entities/Negotiation/negotiation.routes.js';
 import { ExternalApiRouter } from './Entities/ExternalApi/externalApi.routes.js';
-import { orm, syncSchema } from './shared/db/orm.js';
-import { RequestContext } from '@mikro-orm/mysql';
+import "dotenv/config";
 
 const app = express();
 app.use(express.json());
