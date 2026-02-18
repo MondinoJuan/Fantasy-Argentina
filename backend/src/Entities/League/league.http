@@ -37,5 +37,5 @@ Content-Type: application/json
 ### eliminar un registro de League por id
 DELETE http://127.0.0.1:3000/api/leagues/1
 
-### sincronizar ligas desde RapidAPI
-POST http://127.0.0.1:3000/api/leagues/sync/rapidapi
+### sincronizar ligas desde SportsApiPro
+POST http://127.0.0.1:3000/api/leagues/sync/sportsapipro
