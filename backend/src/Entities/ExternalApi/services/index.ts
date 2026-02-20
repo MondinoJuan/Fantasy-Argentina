@@ -9,3 +9,4 @@ export {
   collectFixtureEventRefsFromTeamsService,
   readFixtureSeedConfigFromJson,
 } from './buildCompetitionFixtureFromTeams.service.js';
+export { getCompetitionTeamsBySportAndCompetitionService } from './getCompetitionTeamsBySportAndCompetition.service.js';
