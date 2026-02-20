@@ -1,14 +1,14 @@
-### RapidAPI - player by playerId
-GET http://127.0.0.1:3000/api/external/rapidapi/player?playerId=123
+### SportsApiPro - player by playerId
+GET http://127.0.0.1:3000/api/external/sportsapipro/player?playerId=123
 
-### RapidAPI - all players by teamId
-GET http://127.0.0.1:3000/api/external/rapidapi/team-players?teamId=8650
+### SportsApiPro - all players by teamId
+GET http://127.0.0.1:3000/api/external/sportsapipro/team-players?teamId=8650
 
-### RapidAPI - allowed leagues (47,112,87,55,53,54)
-GET http://127.0.0.1:3000/api/external/rapidapi/leagues
+### SportsApiPro - allowed leagues (47,112,87,55,53,54)
+GET http://127.0.0.1:3000/api/external/sportsapipro/leagues
 
-### RapidAPI - teams by leagueId
-GET http://127.0.0.1:3000/api/external/rapidapi/teams?leagueId=112
+### SportsApiPro - teams by leagueId
+GET http://127.0.0.1:3000/api/external/sportsapipro/teams?leagueId=112
 
-### RapidAPI - team detail by teamId
-GET http://127.0.0.1:3000/api/external/rapidapi/team-detail?teamId=8650
+### SportsApiPro - team detail by teamId
+GET http://127.0.0.1:3000/api/external/sportsapipro/team-detail?teamId=8650
