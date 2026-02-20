@@ -18,7 +18,7 @@ export interface SportsApiProLeagueDetail {
   raw: UnknownRecord;
 }
 
-class SportsApiProHttpError extends Error {
+export class SportsApiProHttpError extends Error {
   statusCode: number | null;
   retryAfterSeconds: number | null;
 
@@ -49,6 +49,11 @@ function getSportsApiProConfig() {
   return { apiKeys, baseUrl };
 }
 
+export function getSportsApiProApiKeys(): string[] {
+  const { apiKeys } = getSportsApiProConfig();
+  return [...apiKeys];
+}
+
 function parseRetryAfterHeader(value: string | undefined): number | null {
   if (!value) {
     return null;
@@ -60,7 +65,6 @@ function parseRetryAfterHeader(value: string | undefined): number | null {
 
 function getJson(url: string, headers: Record<string, string>): Promise<unknown> {
   return new Promise((resolve, reject) => {
-    // API-EXTERNA: llamada HTTP al proveedor SportsApiPro.
     https
       .get(url, { headers }, (response) => {
         const chunks: Uint8Array[] = [];
@@ -100,7 +104,7 @@ function shouldFallbackToNextKey(error: unknown): error is SportsApiProHttpError
   return error instanceof SportsApiProHttpError && error.statusCode === 429;
 }
 
-async function getSportsApiPro(path: string, query: Record<string, string | number> = {}) {
+export async function requestSportsApiPro(path: string, query: Record<string, string | number> = {}) {
   const { apiKeys, baseUrl } = getSportsApiProConfig();
   const url = new URL(path, baseUrl);
 
@@ -114,7 +118,6 @@ async function getSportsApiPro(path: string, query: Record<string, string | numb
     const apiKey = apiKeys[index];
 
     try {
-      // API-EXTERNA: request genérico al proveedor SportsApiPro.
       return await getJson(url.toString(), {
         Authorization: `Bearer ${apiKey}`,
         'x-api-key': apiKey,
@@ -164,12 +167,7 @@ function findArrayDeep(value: unknown): unknown[] {
 }
 
 function findLeagueName(node: UnknownRecord): string {
-  return (
-    asString(node.league_name) ||
-    asString(node.leagueName) ||
-    asString(node.name) ||
-    asString(node.title)
-  );
+  return asString(node.league_name) || asString(node.leagueName) || asString(node.name) || asString(node.title);
 }
 
 function mapLeagueDetail(node: UnknownRecord): SportsApiProLeagueDetail | null {
@@ -201,24 +199,24 @@ export async function fetchLeaguesFromSportsApiPro(): Promise<ExternalLeague[]> 
 }
 
 export async function fetchPlayerByIdFromSportsApiPro(playerId: number) {
-  return getSportsApiPro('/football-get-list-player', { playerid: playerId });
+  return requestSportsApiPro('/football-get-list-player', { playerid: playerId });
 }
 
 export async function fetchPlayersByTeamIdFromSportsApiPro(teamId: number) {
-  return getSportsApiPro('/football-get-list-player', { teamid: teamId });
+  return requestSportsApiPro('/football-get-list-player', { teamid: teamId });
 }
 
 export async function fetchTeamsByLeagueIdFromSportsApiPro(leagueId: number) {
-  return getSportsApiPro('/football-get-list-all-team', { leagueid: leagueId });
+  return requestSportsApiPro('/football-get-list-all-team', { leagueid: leagueId });
 }
 
 export async function fetchTeamDetailByTeamIdFromSportsApiPro(teamId: number) {
-  return getSportsApiPro('/football-league-team', { teamid: teamId });
+  return requestSportsApiPro('/football-league-team', { teamid: teamId });
 }
 
 export async function fetchAllowedLeagueDetailsFromSportsApiPro(): Promise<SportsApiProLeagueDetail[]> {
   const requests = [...ALLOWED_LEAGUE_IDS].map((leagueId) =>
-    getSportsApiPro('/football-get-league-detail', { leagueid: leagueId })
+    requestSportsApiPro('/football-get-league-detail', { leagueid: leagueId })
       .then((payload) => ({ leagueId, payload }))
       .catch(() => ({ leagueId, payload: null })),
   );
