@@ -1,11 +1,15 @@
 import { Request, Response } from 'express';
 import {
-  fetchAllowedLeagueDetailsFromRapidApi,
-  fetchPlayerByIdFromRapidApi,
-  fetchPlayersByTeamIdFromRapidApi,
-  fetchTeamDetailByTeamIdFromRapidApi,
-  fetchTeamsByLeagueIdFromRapidApi,
-} from '../../integrations/rapidapi/rapidapi.client.js';
+  buildFixtureFromEventRefsService,
+  collectFixtureEventRefsFromTeamsService,
+  getCompetitionTeamsBySportAndCompetitionService,
+  getLatestMatchdayResultsWithPlayerRatingsService,
+  getSportsApiProAllowedLeaguesService,
+  getSportsApiProPlayerByIdService,
+  getSportsApiProPlayersByTeamService,
+  getSportsApiProTeamDetailByTeamService,
+  getSportsApiProTeamsByLeagueService,
+} from './services/index.js';
 
 function parseRequiredNumber(value: string | string[] | undefined): number | null {
   const raw = Array.isArray(value) ? value[0] : value;
@@ -13,7 +17,7 @@ function parseRequiredNumber(value: string | string[] | undefined): number | nul
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-async function getRapidApiPlayerById(req: Request, res: Response) {
+async function getSportsApiProPlayerById(req: Request, res: Response) {
   const playerId = parseRequiredNumber(req.query.playerId as string | undefined);
 
   if (!playerId) {
@@ -21,14 +25,14 @@ async function getRapidApiPlayerById(req: Request, res: Response) {
   }
 
   try {
-    const data = await fetchPlayerByIdFromRapidApi(playerId);
-    return res.status(200).json({ message: 'rapidapi player fetched', data });
+    const data = await getSportsApiProPlayerByIdService(playerId);
+    return res.status(200).json({ message: 'sportsapipro player fetched', data });
   } catch (error: any) {
     return res.status(500).json({ message: error.message });
   }
 }
 
-async function getRapidApiPlayersByTeam(req: Request, res: Response) {
+async function getSportsApiProPlayersByTeam(req: Request, res: Response) {
   const teamId = parseRequiredNumber(req.query.teamId as string | undefined);
 
   if (!teamId) {
@@ -36,23 +40,23 @@ async function getRapidApiPlayersByTeam(req: Request, res: Response) {
   }
 
   try {
-    const data = await fetchPlayersByTeamIdFromRapidApi(teamId);
-    return res.status(200).json({ message: 'rapidapi team players fetched', data });
+    const data = await getSportsApiProPlayersByTeamService(teamId);
+    return res.status(200).json({ message: 'sportsapipro team players fetched', data });
   } catch (error: any) {
     return res.status(500).json({ message: error.message });
   }
 }
 
-async function getRapidApiAllowedLeagues(req: Request, res: Response) {
+async function getSportsApiProAllowedLeagues(req: Request, res: Response) {
   try {
-    const data = await fetchAllowedLeagueDetailsFromRapidApi();
-    return res.status(200).json({ message: 'rapidapi allowed leagues fetched', data });
+    const data = await getSportsApiProAllowedLeaguesService();
+    return res.status(200).json({ message: 'sportsapipro allowed leagues fetched', data });
   } catch (error: any) {
     return res.status(500).json({ message: error.message });
   }
 }
 
-async function getRapidApiTeamsByLeague(req: Request, res: Response) {
+async function getSportsApiProTeamsByLeague(req: Request, res: Response) {
   const leagueId = parseRequiredNumber(req.query.leagueId as string | undefined);
 
   if (!leagueId) {
@@ -60,14 +64,14 @@ async function getRapidApiTeamsByLeague(req: Request, res: Response) {
   }
 
   try {
-    const data = await fetchTeamsByLeagueIdFromRapidApi(leagueId);
-    return res.status(200).json({ message: 'rapidapi league teams fetched', data });
+    const data = await getSportsApiProTeamsByLeagueService(leagueId);
+    return res.status(200).json({ message: 'sportsapipro league teams fetched', data });
   } catch (error: any) {
     return res.status(500).json({ message: error.message });
   }
 }
 
-async function getRapidApiTeamDetailByTeam(req: Request, res: Response) {
+async function getSportsApiProTeamDetailByTeam(req: Request, res: Response) {
   const teamId = parseRequiredNumber(req.query.teamId as string | undefined);
 
   if (!teamId) {
@@ -75,17 +79,85 @@ async function getRapidApiTeamDetailByTeam(req: Request, res: Response) {
   }
 
   try {
-    const data = await fetchTeamDetailByTeamIdFromRapidApi(teamId);
-    return res.status(200).json({ message: 'rapidapi team detail fetched', data });
+    const data = await getSportsApiProTeamDetailByTeamService(teamId);
+    return res.status(200).json({ message: 'sportsapipro team detail fetched', data });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
+async function getSportsApiProCompetitionTeams(req: Request, res: Response) {
+  const sportId = parseRequiredNumber(req.query.sportId as string | undefined);
+  const competitionId = parseRequiredNumber(req.query.competitionId as string | undefined);
+
+  if (!sportId || !competitionId) {
+    return res.status(400).json({ message: 'sportId and competitionId query params are required numbers' });
+  }
+
+  try {
+    const data = await getCompetitionTeamsBySportAndCompetitionService(sportId, competitionId);
+    return res.status(200).json({ message: 'sportsapipro competition teams fetched', data });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
+async function getSportsApiProLatestMatchdayRatings(req: Request, res: Response) {
+  const sportId = parseRequiredNumber(req.query.sportId as string | undefined);
+  const competitionId = parseRequiredNumber(req.query.competitionId as string | undefined);
+
+  if (!sportId || !competitionId) {
+    return res.status(400).json({ message: 'sportId and competitionId query params are required numbers' });
+  }
+
+  try {
+    const data = await getLatestMatchdayResultsWithPlayerRatingsService(sportId, competitionId);
+    return res.status(200).json({ message: 'sportsapipro latest matchday ratings fetched', data });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
+async function postSportsApiProFixtureEventRefs(req: Request, res: Response) {
+  const config = req.body?.config;
+  const options = req.body?.options;
+
+  if (!config || typeof config !== 'object') {
+    return res.status(400).json({ message: 'config body object is required' });
+  }
+
+  try {
+    const data = await collectFixtureEventRefsFromTeamsService(config, options);
+    return res.status(200).json({ message: 'sportsapipro fixture event refs collected', data });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
+async function postSportsApiProFixtureBuild(req: Request, res: Response) {
+  const eventRefs = req.body?.eventRefs;
+  const options = req.body?.options;
+
+  if (!Array.isArray(eventRefs)) {
+    return res.status(400).json({ message: 'eventRefs body array is required' });
+  }
+
+  try {
+    const data = await buildFixtureFromEventRefsService(eventRefs, options);
+    return res.status(200).json({ message: 'sportsapipro fixture built', data });
   } catch (error: any) {
     return res.status(500).json({ message: error.message });
   }
 }
 
 export {
-  getRapidApiPlayerById,
-  getRapidApiPlayersByTeam,
-  getRapidApiAllowedLeagues,
-  getRapidApiTeamsByLeague,
-  getRapidApiTeamDetailByTeam,
+  getSportsApiProPlayerById,
+  getSportsApiProPlayersByTeam,
+  getSportsApiProAllowedLeagues,
+  getSportsApiProTeamsByLeague,
+  getSportsApiProTeamDetailByTeam,
+  getSportsApiProCompetitionTeams,
+  getSportsApiProLatestMatchdayRatings,
+  postSportsApiProFixtureEventRefs,
+  postSportsApiProFixtureBuild,
 };

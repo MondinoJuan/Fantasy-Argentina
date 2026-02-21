@@ -16,6 +16,7 @@ import { addPlayerPointsBreakdownI } from '../modelos/addPlayerPointsBreakdown.i
 import { addRealPlayerI } from '../modelos/addRealPlayer.interface';
 import { addRealTeamI } from '../modelos/addRealTeam.interface';
 import { addShieldingI } from '../modelos/addShielding.interface';
+import { addSportI } from '../modelos/addSport.interface';
 import { addTournamentI } from '../modelos/addTournament.interface';
 import { addTransactionI } from '../modelos/addTransaction.interface';
 import { addUserI } from '../modelos/addUser.interface';
@@ -90,6 +91,11 @@ import { realTeamPatchI } from '../modelos/realTeam.patch.interface';
 import { realTeamCollectionI } from '../modelos/realTeam.collection.interface';
 import { responseRealTeamI } from '../modelos/responseRealTeam.interface';
 
+import { sportI } from '../modelos/sport.interface';
+import { sportPatchI } from '../modelos/sport.patch.interface';
+import { sportCollectionI } from '../modelos/sport.collection.interface';
+import { responseSportI } from '../modelos/responseSport.interface';
+
 import { shieldingI } from '../modelos/shielding.interface';
 import { shieldingPatchI } from '../modelos/shielding.patch.interface';
 import { shieldingCollectionI } from '../modelos/shielding.collection.interface';
@@ -134,14 +140,39 @@ export class ApiService {
   patchTournament(tournament: tournamentPatchI) { return this.http.patch<responseTournamentI>(`${this.url}/tournaments/${tournament.id}`, tournament); }
   removeTournament(id: number | string) { return this.http.delete<responseTournamentI>(`${this.url}/tournaments/${id}`); }
 
+  // Sports
+  searchSports() { return this.http.get<sportCollectionI>(`${this.url}/sports`); }
+  searchSportById(id: number | string) { return this.http.get<responseSportI>(`${this.url}/sports/${id}`); }
+  searchSportByIdEnApi(idEnApi: number | string) { return this.http.get<responseSportI>(`${this.url}/sports/by-id-en-api/${idEnApi}`); }
+  postSport(sport: addSportI) { return this.http.post<responseSportI>(`${this.url}/sports`, sport); }
+  updateSport(sport: sportI) { return this.http.put<responseSportI>(`${this.url}/sports/${sport.id}`, sport); }
+  patchSport(sport: sportPatchI) { return this.http.patch<responseSportI>(`${this.url}/sports/${sport.id}`, sport); }
+  removeSport(id: number | string) { return this.http.delete<responseSportI>(`${this.url}/sports/${id}`); }
+
   // Leagues
   searchLeagues() { return this.http.get<leagueCollectionI>(`${this.url}/leagues`); }
   searchLeagueById(id: number | string) { return this.http.get<responseLeagueI>(`${this.url}/leagues/${id}`); }
+  searchLeagueByIdEnApi(idEnApi: number | string) { return this.http.get<responseLeagueI>(`${this.url}/leagues/by-id-en-api/${idEnApi}`); }
   ensureLeagueByName(name: string) { return this.http.post<responseLeagueI>(`${this.url}/leagues/ensure/by-name`, { name }); }
   postLeague(league: addLeagueI) { return this.http.post<responseLeagueI>(`${this.url}/leagues`, league); }
   updateLeague(league: leagueI) { return this.http.put<responseLeagueI>(`${this.url}/leagues/${league.id}`, league); }
   patchLeague(league: leaguePatchI) { return this.http.patch<responseLeagueI>(`${this.url}/leagues/${league.id}`, league); }
   removeLeague(id: number | string) { return this.http.delete<responseLeagueI>(`${this.url}/leagues/${id}`); }
+
+
+  // External SportsApiPro
+  searchExternalCompetitionTeams(sportId: number | string, competitionId: number | string) {
+    return this.http.get<any>(`${this.url}/external/sportsapipro/competition-teams?sportId=${sportId}&competitionId=${competitionId}`);
+  }
+  searchExternalLatestMatchdayRatings(sportId: number | string, competitionId: number | string) {
+    return this.http.get<any>(`${this.url}/external/sportsapipro/latest-matchday-ratings?sportId=${sportId}&competitionId=${competitionId}`);
+  }
+  postExternalFixtureEventRefs(payload: { config: any; options?: any }) {
+    return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/event-refs`, payload);
+  }
+  postExternalFixtureBuild(payload: { eventRefs: any[]; options?: any }) {
+    return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/build`, payload);
+  }
 
   // Participants
   searchParticipants() { return this.http.get<participantCollectionI>(`${this.url}/participants`); }
@@ -154,6 +185,7 @@ export class ApiService {
   // Real Players
   searchRealPlayers() { return this.http.get<realPlayerCollectionI>(`${this.url}/real-players`); }
   searchRealPlayerById(id: number | string) { return this.http.get<responseRealPlayerI>(`${this.url}/real-players/${id}`); }
+  searchRealPlayerByIdEnApi(idEnApi: number | string) { return this.http.get<responseRealPlayerI>(`${this.url}/real-players/by-id-en-api/${idEnApi}`); }
   postRealPlayer(realPlayer: addRealPlayerI) { return this.http.post<responseRealPlayerI>(`${this.url}/real-players`, realPlayer); }
   updateRealPlayer(realPlayer: realPlayerI) { return this.http.put<responseRealPlayerI>(`${this.url}/real-players/${realPlayer.id}`, realPlayer); }
   patchRealPlayer(realPlayer: realPlayerPatchI) { return this.http.patch<responseRealPlayerI>(`${this.url}/real-players/${realPlayer.id}`, realPlayer); }
@@ -162,6 +194,7 @@ export class ApiService {
   // Real Teams
   searchRealTeams() { return this.http.get<realTeamCollectionI>(`${this.url}/real-teams`); }
   searchRealTeamById(id: number | string) { return this.http.get<responseRealTeamI>(`${this.url}/real-teams/${id}`); }
+  searchRealTeamByIdEnApi(idEnApi: number | string) { return this.http.get<responseRealTeamI>(`${this.url}/real-teams/by-id-en-api/${idEnApi}`); }
   postRealTeam(realTeam: addRealTeamI) { return this.http.post<responseRealTeamI>(`${this.url}/real-teams`, realTeam); }
   updateRealTeam(realTeam: realTeamI) { return this.http.put<responseRealTeamI>(`${this.url}/real-teams/${realTeam.id}`, realTeam); }
   patchRealTeam(realTeam: realTeamPatchI) { return this.http.patch<responseRealTeamI>(`${this.url}/real-teams/${realTeam.id}`, realTeam); }

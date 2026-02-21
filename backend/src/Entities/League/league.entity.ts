@@ -18,6 +18,9 @@ export class League extends BaseEntity {
   @Property({ nullable: false })
   idEnApi!: number;
 
+  @Property({ nullable: true })
+  seasonNum?: number | null;
+
   @OneToMany(() => Tournament, (tournament) => tournament.league, {
     cascade: [Cascade.ALL],
   })

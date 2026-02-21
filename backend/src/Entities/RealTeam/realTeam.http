@@ -36,3 +36,6 @@ Content-Type: application/json
 
 ### eliminar un registro de RealTeam por id
 DELETE http://127.0.0.1:3000/api/real-teams/1
+
+### buscar por idEnApi
+GET http://127.0.0.1:3000/api/real-teams/by-id-en-api/1

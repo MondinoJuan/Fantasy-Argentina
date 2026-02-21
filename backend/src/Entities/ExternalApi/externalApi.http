@@ -1,14 +1,64 @@
-### RapidAPI - player by playerId
-GET http://127.0.0.1:3000/api/external/rapidapi/player?playerId=123
+### SportsApiPro - player by playerId
+GET http://127.0.0.1:3000/api/external/sportsapipro/player?playerId=123
 
-### RapidAPI - all players by teamId
-GET http://127.0.0.1:3000/api/external/rapidapi/team-players?teamId=8650
+### SportsApiPro - all players by teamId
+GET http://127.0.0.1:3000/api/external/sportsapipro/team-players?teamId=8650
 
-### RapidAPI - allowed leagues (47,112,87,55,53,54)
-GET http://127.0.0.1:3000/api/external/rapidapi/leagues
+### SportsApiPro - allowed leagues (47,112,87,55,53,54)
+GET http://127.0.0.1:3000/api/external/sportsapipro/leagues
 
-### RapidAPI - teams by leagueId
-GET http://127.0.0.1:3000/api/external/rapidapi/teams?leagueId=112
+### SportsApiPro - teams by leagueId
+GET http://127.0.0.1:3000/api/external/sportsapipro/teams?leagueId=112
 
-### RapidAPI - team detail by teamId
-GET http://127.0.0.1:3000/api/external/rapidapi/team-detail?teamId=8650
+### SportsApiPro - team detail by teamId
+GET http://127.0.0.1:3000/api/external/sportsapipro/team-detail?teamId=8650
+
+### SportsApiPro - teams by sportId and competitionId
+GET http://127.0.0.1:3000/api/external/sportsapipro/competition-teams?sportId=1&competitionId=72
+
+### SportsApiPro - latest matchday ratings by sportId and competitionId
+GET http://127.0.0.1:3000/api/external/sportsapipro/latest-matchday-ratings?sportId=1&competitionId=72
+
+### SportsApiPro - collect fixture event refs (ids + metadata)
+POST http://127.0.0.1:3000/api/external/sportsapipro/fixture/event-refs
+Content-Type: application/json
+
+{
+  "config": {
+    "competitionId": 72,
+    "seasonNum": 228,
+    "stageNum": 3,
+    "teams": [
+      { "id": 9050, "name": "Boca Juniors" },
+      { "id": 9051, "name": "River Plate" }
+    ]
+  },
+  "options": {
+    "maxPagesPerTeam": 80,
+    "sleepMsBetweenRequests": 200
+  }
+}
+
+### SportsApiPro - build fixture from event refs
+POST http://127.0.0.1:3000/api/external/sportsapipro/fixture/build
+Content-Type: application/json
+
+{
+  "eventRefs": [
+    {
+      "gameId": 123456,
+      "competitionId": 72,
+      "seasonNum": 228,
+      "stageNum": 3,
+      "homeCompetitorId": 9050,
+      "awayCompetitorId": 9051,
+      "startTime": "2026-02-10T21:00:00Z",
+      "statusGroup": 1,
+      "statusText": "Scheduled",
+      "source": "fixtures"
+    }
+  ],
+  "options": {
+    "sleepMsBetweenRequests": 0
+  }
+}
