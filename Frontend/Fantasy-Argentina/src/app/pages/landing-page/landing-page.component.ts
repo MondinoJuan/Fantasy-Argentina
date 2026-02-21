@@ -3,7 +3,8 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
-import { finalize, switchMap } from 'rxjs/operators';
+import { catchError, finalize } from 'rxjs/operators';
+import { switchMap } from 'rxjs';
 import { ApiService } from '../../servicios/api.service';
 import { LoadingSpinnerComponent } from '../../components/loading-spinner/loading-spinner.component';
 import { tournamentI } from '../../modelos/tournament.interface';
@@ -23,6 +24,7 @@ export class LandingPageComponent implements OnInit {
     'La Liga',
     'Bundesliga',
     'Serie A',
+    'Ligue 1',
   ];
   readonly sportOptions = ['Football', 'Basketball'];
   searchTerm = '';
@@ -122,35 +124,37 @@ export class LandingPageComponent implements OnInit {
     clauseEnableDate.setDate(clauseEnableDate.getDate() + 14);
 
     // API-EXTERNA: antes de crear el torneo garantizamos que exista la liga en BD local.
-    this.apiService.ensureLeagueByName(formValue.leagueName).pipe(
-      switchMap((leagueResponse) => this.apiService.postTournament({
-        name: formValue.name,
-        league: leagueResponse.data.id as number,
-        sport: formValue.sport,
-        initialBudget: formValue.initialBudget,
-        status: formValue.status,
-        squadSize: 16,
-        creationDate,
-        clauseEnableDate,
-        creatorUserId: userId,
-      })),
-      finalize(() => this.isCreating = false)
-    ).subscribe({
-      next: () => {
-        this.showCreateForm = false;
-        this.createTournamentForm.reset({
-          name: '',
-          leagueName: formValue.leagueName,
-          sport: formValue.sport,
-          initialBudget: 1000000,
-          status: 'active'
-        });
-        this.loadTournaments(userId);
-      },
-      error: () => {
-        this.errorMessage = 'No pudimos crear el torneo. Intentá nuevamente.';
-      }
-    });
+    // Si la liga existe la busca en la base de datos local, si no existe la busca en la API externa con el endpoint y persiste los datos de la misma
+    // y de los equipos en la base de datos local.
+
+    let idLeague_ExternalAPI = Number();
+
+    switch (formValue.leagueName) {
+      case 'Liga Profesional':
+        idLeague_ExternalAPI = 72;
+        break;
+      case 'Premier League':
+        idLeague_ExternalAPI = 7;
+        break;
+      case 'La Liga':
+        idLeague_ExternalAPI = 11;
+        break;
+      case 'Bundesliga':
+        idLeague_ExternalAPI = 25;
+        break;
+      case 'Serie A':
+        idLeague_ExternalAPI = 17;
+        break;
+      case 'Ligue 1':
+        idLeague_ExternalAPI = 35;
+        break;
+    }
+
+    // Busco la liga por su ID externa, si no existe uso el endpoint para buscar la liga en la API externa
+    this.apiService.searchLeagueByIdEnApi(idLeague_ExternalAPI).pipe(
+
+    )
+        
   }
 
   private loadTournaments(userId: number): void {
