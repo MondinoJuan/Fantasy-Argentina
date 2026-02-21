@@ -5,6 +5,7 @@ type UnknownRecord = Record<string, unknown>;
 interface CompetitionTeamsResult {
   competitionId: number;
   competitionName: string | null;
+  country: string | null;
   seasonNum: number | null;
   stageNum: number | null;
   teams: Array<{ id: number; name: string | null }>;
@@ -109,6 +110,14 @@ async function getStandingsPayloadWithFallback(
   }
 }
 
+async function searchCountries(countryId: number | null): Promise<string | null> {
+  if (countryId === null) {
+    return null;
+  }
+  const result = (await requestSportsApiPro('/countries', { countryIds: countryId })) as UnknownRecord;
+  return typeof result.name === 'string' ? result.name : null;
+}
+
 export async function getCompetitionTeamsBySportAndCompetitionService(
   sportId: number,
   competitionId: number,
@@ -119,6 +128,7 @@ export async function getCompetitionTeamsBySportAndCompetitionService(
   const competition = await getCompetitionMeta(sportId, competitionId);
   const seasonNum = toInt(competition.currentSeasonNum);
   const stageNum = toInt(competition.currentStageNum);
+  const country = await searchCountries(toInt(competition.countryId));
 
   const standingsPayload = await getStandingsPayloadWithFallback(competitionId, seasonNum, stageNum);
   const teams = extractTeamsFromStandingsPayload(standingsPayload);
@@ -126,6 +136,7 @@ export async function getCompetitionTeamsBySportAndCompetitionService(
   return {
     competitionId,
     competitionName: typeof competition.name === 'string' ? competition.name : null,
+    country,
     seasonNum,
     stageNum,
     teams,
