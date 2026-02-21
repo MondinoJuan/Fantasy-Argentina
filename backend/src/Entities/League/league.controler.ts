@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { League } from './league.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { fetchLeaguesFromSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
+import { persistNewLeagueService } from './services/persistNewLeague.service.js';
 
 const em = orm.em;
 
@@ -16,6 +17,7 @@ function sanitizeLeagueInput(req: Request, res: Response, next: NextFunction) {
     country: req.body.country,
     sport: req.body.sport,
     idEnApi: req.body.idEnApi,
+    seasonNum: req.body.seasonNum,
     };
 
   Object.keys(req.body.sanitizeLeagueInput).forEach((key) => {
@@ -43,6 +45,9 @@ async function syncFromSportsApiPro(req: Request, res: Response) {
         if (!existing.sport) {
           existing.sport = 'Football';
         }
+        if (typeof externalLeague.seasonNum === 'number') {
+          existing.seasonNum = externalLeague.seasonNum;
+        }
         updated += 1;
         continue;
       }
@@ -52,6 +57,7 @@ async function syncFromSportsApiPro(req: Request, res: Response) {
         country: externalLeague.country,
         sport: 'Football',
         idEnApi: externalLeague.id,
+        seasonNum: typeof externalLeague.seasonNum === 'number' ? externalLeague.seasonNum : null,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -104,6 +110,7 @@ async function ensureByNameFromSportsApiPro(req: Request, res: Response) {
       country: matchedLeague.country,
       sport: 'Football',
       idEnApi: matchedLeague.id,
+      seasonNum: typeof matchedLeague.seasonNum === 'number' ? matchedLeague.seasonNum : null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -135,8 +142,21 @@ async function findByIdEnApi(req: Request, res: Response) {
       return;
     }
 
-    const item = await em.findOneOrFail(League, { idEnApi });
-    res.status(200).json({ message: 'found league by idEnApi', data: item });
+    const item = await em.findOne(League, { idEnApi });
+
+    if (item) {
+      res.status(200).json({ message: 'found league by idEnApi', data: item });
+      return;
+    }
+
+    const sportId = Number.parseInt(String(req.query.sportId ?? '1'), 10);
+    if (!Number.isFinite(sportId)) {
+      res.status(400).json({ message: 'sportId query param must be a valid number' });
+      return;
+    }
+
+    const persisted = await persistNewLeagueService(sportId, idEnApi);
+    res.status(201).json({ message: 'league not found locally, persisted from external provider', data: persisted.league });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }

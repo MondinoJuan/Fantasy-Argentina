@@ -5,7 +5,7 @@ type UnknownRecord = Record<string, unknown>;
 interface CompetitionTeamsResult {
   competitionId: number;
   competitionName: string | null;
-  country: string | null;
+  countryName: string | null;
   seasonNum: number | null;
   stageNum: number | null;
   teams: Array<{ id: number; name: string | null }>;
@@ -32,6 +32,10 @@ function toInt(value: unknown): number | null {
   return null;
 }
 
+function asString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
 async function getCompetitionMeta(sportId: number, competitionId: number): Promise<UnknownRecord> {
   const payload = (await requestSportsApiPro('/competitions', { sports: sportId })) as UnknownRecord;
   const competitions = asArray(payload.competitions);
@@ -46,6 +50,59 @@ async function getCompetitionMeta(sportId: number, competitionId: number): Promi
   }
 
   return asRecord(competition);
+}
+
+function findCountryNameByCompetition(node: unknown, competitionId: number): string | null {
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const found = findCountryNameByCompetition(item, competitionId);
+      if (found) {
+        return found;
+      }
+    }
+    return null;
+  }
+
+  if (!node || typeof node !== 'object') {
+    return null;
+  }
+
+  const record = node as UnknownRecord;
+  const competitions = asArray(record.competitions);
+
+  if (competitions.some((item) => toInt(asRecord(item).id) === competitionId)) {
+    return asString(record.name) ?? asString(record.countryName);
+  }
+
+  for (const value of Object.values(record)) {
+    const found = findCountryNameByCompetition(value, competitionId);
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
+async function searchCountries(sportId: number, competitionId: number): Promise<string | null> {
+  const candidates: Array<{ path: string; query: Record<string, string | number> }> = [
+    { path: '/countries', query: { sports: sportId } },
+    { path: '/countries', query: {} },
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const payload = (await requestSportsApiPro(candidate.path, candidate.query)) as UnknownRecord;
+      const country = findCountryNameByCompetition(payload, competitionId);
+      if (country) {
+        return country;
+      }
+    } catch {
+      // continue with next candidate
+    }
+  }
+
+  return null;
 }
 
 function extractTeamsFromStandingsPayload(payload: UnknownRecord): Array<{ id: number; name: string | null }> {
@@ -110,33 +167,28 @@ async function getStandingsPayloadWithFallback(
   }
 }
 
-async function searchCountries(countryId: number | null): Promise<string | null> {
-  if (countryId === null) {
-    return null;
-  }
-  const result = (await requestSportsApiPro('/countries', { countryIds: countryId })) as UnknownRecord;
-  return typeof result.name === 'string' ? result.name : null;
-}
-
 export async function getCompetitionTeamsBySportAndCompetitionService(
   sportId: number,
   competitionId: number,
 ): Promise<CompetitionTeamsResult> {
-  // valida disponibilidad de keys y reutiliza rotación automática ante 429.
   getSportsApiProApiKeys();
 
   const competition = await getCompetitionMeta(sportId, competitionId);
   const seasonNum = toInt(competition.currentSeasonNum);
   const stageNum = toInt(competition.currentStageNum);
-  const country = await searchCountries(toInt(competition.countryId));
 
   const standingsPayload = await getStandingsPayloadWithFallback(competitionId, seasonNum, stageNum);
   const teams = extractTeamsFromStandingsPayload(standingsPayload);
 
+  const countryName =
+    asString(competition.countryName) ??
+    asString(asRecord(competition.country).name) ??
+    (await searchCountries(sportId, competitionId));
+
   return {
     competitionId,
     competitionName: typeof competition.name === 'string' ? competition.name : null,
-    country,
+    countryName,
     seasonNum,
     stageNum,
     teams,

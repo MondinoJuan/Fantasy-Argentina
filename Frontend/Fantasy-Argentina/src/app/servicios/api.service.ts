@@ -159,6 +159,21 @@ export class ApiService {
   patchLeague(league: leaguePatchI) { return this.http.patch<responseLeagueI>(`${this.url}/leagues/${league.id}`, league); }
   removeLeague(id: number | string) { return this.http.delete<responseLeagueI>(`${this.url}/leagues/${id}`); }
 
+
+  // External SportsApiPro
+  searchExternalCompetitionTeams(sportId: number | string, competitionId: number | string) {
+    return this.http.get<any>(`${this.url}/external/sportsapipro/competition-teams?sportId=${sportId}&competitionId=${competitionId}`);
+  }
+  searchExternalLatestMatchdayRatings(sportId: number | string, competitionId: number | string) {
+    return this.http.get<any>(`${this.url}/external/sportsapipro/latest-matchday-ratings?sportId=${sportId}&competitionId=${competitionId}`);
+  }
+  postExternalFixtureEventRefs(payload: { config: any; options?: any }) {
+    return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/event-refs`, payload);
+  }
+  postExternalFixtureBuild(payload: { eventRefs: any[]; options?: any }) {
+    return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/build`, payload);
+  }
+
   // Participants
   searchParticipants() { return this.http.get<participantCollectionI>(`${this.url}/participants`); }
   searchParticipantById(id: number | string) { return this.http.get<responseParticipantI>(`${this.url}/participants/${id}`); }

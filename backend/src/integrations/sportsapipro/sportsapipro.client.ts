@@ -6,6 +6,7 @@ export interface ExternalLeague {
   id: number;
   name: string;
   country: string;
+  seasonNum?: number | null;
 }
 
 const ALLOWED_LEAGUE_IDS = new Set([47, 112, 87, 55, 53, 54]);
