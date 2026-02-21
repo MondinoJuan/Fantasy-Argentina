@@ -3,7 +3,8 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
-import { finalize, switchMap } from 'rxjs/operators';
+import { catchError, finalize } from 'rxjs/operators';
+import { switchMap } from 'rxjs';
 import { ApiService } from '../../servicios/api.service';
 import { LoadingSpinnerComponent } from '../../components/loading-spinner/loading-spinner.component';
 import { tournamentI } from '../../modelos/tournament.interface';
@@ -150,14 +151,9 @@ export class LandingPageComponent implements OnInit {
     }
 
     // Busco la liga por su ID externa, si no existe uso el endpoint para buscar la liga en la API externa
-    this.apiService.searchLeagueByExternalId(idLeague_ExternalAPI).pipe(
-      switchMap((responseLeague) => {
-        if (responseLeague.data) {
-          return [responseLeague];
-        } else {
-          
-        }
-      }),
+    this.apiService.searchLeagueByIdEnApi(idLeague_ExternalAPI).pipe(
+
+    )
         
   }
 
