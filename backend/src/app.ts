@@ -21,6 +21,7 @@ import { ShieldingRouter } from './Entities/Shielding/shielding.routes.js';
 import { TransactionRouter } from './Entities/Transaction/transaction.routes.js';
 import { NegotiationRouter } from './Entities/Negotiation/negotiation.routes.js';
 import { ExternalApiRouter } from './Entities/ExternalApi/externalApi.routes.js';
+import { SportRouter } from './Entities/Sport/sport.routes.js';
 import "dotenv/config";
 
 const app = express();
@@ -51,6 +52,7 @@ app.use('/api/shieldings', ShieldingRouter)
 app.use('/api/transactions', TransactionRouter)
 app.use('/api/negotiations', NegotiationRouter)
 app.use('/api/external', ExternalApiRouter)
+app.use('/api/sports', SportRouter)
 
 app.use((_, res) => {
     return res.status(404).send({ error: 'Resource not found' });

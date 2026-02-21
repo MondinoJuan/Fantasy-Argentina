@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { League } from './league.entity.js';
 import { orm } from '../../shared/db/orm.js';
-import { fetchLeaguesFromRapidApi } from '../../integrations/rapidapi/rapidapi.client.js';
+import { fetchLeaguesFromSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
 
 const em = orm.em;
 
@@ -27,10 +27,10 @@ function sanitizeLeagueInput(req: Request, res: Response, next: NextFunction) {
 }
 
 
-async function syncFromRapidApi(req: Request, res: Response) {
+async function syncFromSportsApiPro(req: Request, res: Response) {
   try {
-    // API-EXTERNA: sincroniza ligas desde RapidAPI.
-    const externalLeagues = await fetchLeaguesFromRapidApi();
+    // API-EXTERNA: sincroniza ligas desde SportsApiPro.
+    const externalLeagues = await fetchLeaguesFromSportsApiPro();
     let created = 0;
     let updated = 0;
 
@@ -61,7 +61,7 @@ async function syncFromRapidApi(req: Request, res: Response) {
     await em.flush();
 
     res.status(200).json({
-      message: 'leagues synchronized from rapidapi',
+      message: 'leagues synchronized from sportsapipro',
       data: {
         imported: externalLeagues.length,
         created,
@@ -74,7 +74,7 @@ async function syncFromRapidApi(req: Request, res: Response) {
 }
 
 
-async function ensureByNameFromRapidApi(req: Request, res: Response) {
+async function ensureByNameFromSportsApiPro(req: Request, res: Response) {
   try {
     const leagueName = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
 
@@ -89,9 +89,9 @@ async function ensureByNameFromRapidApi(req: Request, res: Response) {
       return;
     }
 
-    // API-EXTERNA: buscamos la liga por nombre en RapidAPI para persistirla localmente.
+    // API-EXTERNA: buscamos la liga por nombre en SportsApiPro para persistirla localmente.
     // API-EXTERNA: desde esta selección de liga se encadena luego la carga de equipos/jugadores que la conforman.
-    const externalLeagues = await fetchLeaguesFromRapidApi();
+    const externalLeagues = await fetchLeaguesFromSportsApiPro();
     const matchedLeague = externalLeagues.find((league) => league.name.toLowerCase() === leagueName.toLowerCase());
 
     if (!matchedLeague) {
@@ -110,7 +110,7 @@ async function ensureByNameFromRapidApi(req: Request, res: Response) {
 
     await em.flush();
 
-    res.status(201).json({ message: 'league created from rapidapi', data: createdLeague });
+    res.status(201).json({ message: 'league created from sportsapipro', data: createdLeague });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -120,6 +120,23 @@ async function findAll(req: Request, res: Response) {
   try {
     const items = await em.find(League, {});
     res.status(200).json({ message: 'found all leagues', data: items });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+
+async function findByIdEnApi(req: Request, res: Response) {
+  try {
+    const idEnApi = parseId(req.params.idEnApi);
+
+    if (!Number.isFinite(idEnApi)) {
+      res.status(400).json({ message: 'idEnApi must be a valid number' });
+      return;
+    }
+
+    const item = await em.findOneOrFail(League, { idEnApi });
+    res.status(200).json({ message: 'found league by idEnApi', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -169,4 +186,4 @@ async function remove(req: Request, res: Response) {
   }
 }
 
-export { sanitizeLeagueInput, findAll, findOne, add, update, remove, syncFromRapidApi, ensureByNameFromRapidApi };
+export { sanitizeLeagueInput, findAll, findByIdEnApi, findOne, add, update, remove, syncFromSportsApiPro, ensureByNameFromSportsApiPro };
