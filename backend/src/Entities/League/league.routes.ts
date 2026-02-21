@@ -1,13 +1,16 @@
 import { Router } from 'express';
-import { sanitizeLeagueInput, findAll, findOne, add, update, remove, syncFromRapidApi, ensureByNameFromRapidApi } from './league.controler.js';
+import { sanitizeLeagueInput, findAll, findOne, add, update, remove, syncFromSportsApiPro, ensureByNameFromSportsApiPro } from './league.controler.js';
 
 export const LeagueRouter = Router();
 
 LeagueRouter.get('/', findAll);
-LeagueRouter.post('/sync/rapidapi', syncFromRapidApi);
-LeagueRouter.post('/ensure/by-name', ensureByNameFromRapidApi);
+LeagueRouter.post('/sync/sportsapipro', syncFromSportsApiPro);
+LeagueRouter.post('/ensure/by-name', ensureByNameFromSportsApiPro);
 LeagueRouter.get('/:id', findOne);
 LeagueRouter.post('/', sanitizeLeagueInput, add);
 LeagueRouter.put('/:id', sanitizeLeagueInput, update);
 LeagueRouter.patch('/:id', sanitizeLeagueInput, update);
 LeagueRouter.delete('/:id', remove);
+
+// Compatibilidad temporal mientras se migran consumidores existentes.
+LeagueRouter.post('/sync/rapidapi', syncFromSportsApiPro);
