@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { RealTeam } from './realTeam.entity.js';
+import { Sport } from './sport.entity.js';
 import { orm } from '../../shared/db/orm.js';
 
 const em = orm.em;
@@ -9,16 +9,17 @@ function parseId(idParam: string | string[] | undefined) {
   return Number.parseInt(rawId ?? '', 10);
 }
 
-function sanitizeRealTeamInput(req: Request, res: Response, next: NextFunction) {
-  req.body.sanitizeRealTeamInput = {
-        name: req.body.name,
-    league: req.body.league ?? req.body.leagueId,
+function sanitizeSportInput(req: Request, res: Response, next: NextFunction) {
+  req.body.sanitizeSportInput = {
     idEnApi: req.body.idEnApi,
-    };
+    descripcion: req.body.descripcion,
+    cupoTitular: req.body.cupoTitular,
+    cupoSuplente: req.body.cupoSuplente,
+  };
 
-  Object.keys(req.body.sanitizeRealTeamInput).forEach((key) => {
-    if (req.body.sanitizeRealTeamInput[key] === undefined) {
-      delete req.body.sanitizeRealTeamInput[key];
+  Object.keys(req.body.sanitizeSportInput).forEach((key) => {
+    if (req.body.sanitizeSportInput[key] === undefined) {
+      delete req.body.sanitizeSportInput[key];
     }
   });
   next();
@@ -26,13 +27,12 @@ function sanitizeRealTeamInput(req: Request, res: Response, next: NextFunction) 
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(RealTeam, {}, { populate: ['league'] });
-    res.status(200).json({ message: 'found all real teams', data: items });
+    const items = await em.find(Sport, {});
+    res.status(200).json({ message: 'found all sports', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
 }
-
 
 async function findByIdEnApi(req: Request, res: Response) {
   try {
@@ -43,8 +43,8 @@ async function findByIdEnApi(req: Request, res: Response) {
       return;
     }
 
-    const item = await em.findOneOrFail(RealTeam, { idEnApi }, { populate: ['league'] });
-    res.status(200).json({ message: 'found real team by idEnApi', data: item });
+    const item = await em.findOneOrFail(Sport, { idEnApi });
+    res.status(200).json({ message: 'found sport by idEnApi', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -53,8 +53,8 @@ async function findByIdEnApi(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(RealTeam, { id }, { populate: ['league'] });
-    res.status(200).json({ message: 'found real team', data: item });
+    const item = await em.findOneOrFail(Sport, { id });
+    res.status(200).json({ message: 'found sport', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -62,9 +62,9 @@ async function findOne(req: Request, res: Response) {
 
 async function add(req: Request, res: Response) {
   try {
-    const item = em.create(RealTeam, req.body.sanitizeRealTeamInput);
+    const item = em.create(Sport, req.body.sanitizeSportInput);
     await em.flush();
-    res.status(201).json({ message: 'real team created', data: item });
+    res.status(201).json({ message: 'sport created', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -73,10 +73,10 @@ async function add(req: Request, res: Response) {
 async function update(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const itemToUpdate = await em.getReference(RealTeam, id);
-    em.assign(itemToUpdate, req.body.sanitizeRealTeamInput);
+    const itemToUpdate = await em.getReference(Sport, id);
+    em.assign(itemToUpdate, req.body.sanitizeSportInput);
     await em.flush();
-    res.status(200).json({ message: 'real team updated', data: itemToUpdate });
+    res.status(200).json({ message: 'sport updated', data: itemToUpdate });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -85,13 +85,13 @@ async function update(req: Request, res: Response) {
 async function remove(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = em.getReference(RealTeam, id);
+    const item = em.getReference(Sport, id);
     em.remove(item);
     await em.flush();
-    res.status(200).json({ message: 'real team deleted' });
+    res.status(200).json({ message: 'sport deleted' });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
 }
 
-export { sanitizeRealTeamInput, findAll, findByIdEnApi, findOne, add, update, remove };
+export { sanitizeSportInput, findAll, findByIdEnApi, findOne, add, update, remove };

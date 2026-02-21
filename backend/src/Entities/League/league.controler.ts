@@ -125,6 +125,23 @@ async function findAll(req: Request, res: Response) {
   }
 }
 
+
+async function findByIdEnApi(req: Request, res: Response) {
+  try {
+    const idEnApi = parseId(req.params.idEnApi);
+
+    if (!Number.isFinite(idEnApi)) {
+      res.status(400).json({ message: 'idEnApi must be a valid number' });
+      return;
+    }
+
+    const item = await em.findOneOrFail(League, { idEnApi });
+    res.status(200).json({ message: 'found league by idEnApi', data: item });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
@@ -169,4 +186,4 @@ async function remove(req: Request, res: Response) {
   }
 }
 
-export { sanitizeLeagueInput, findAll, findOne, add, update, remove, syncFromSportsApiPro, ensureByNameFromSportsApiPro };
+export { sanitizeLeagueInput, findAll, findByIdEnApi, findOne, add, update, remove, syncFromSportsApiPro, ensureByNameFromSportsApiPro };

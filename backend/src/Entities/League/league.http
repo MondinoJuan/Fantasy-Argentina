@@ -39,3 +39,6 @@ DELETE http://127.0.0.1:3000/api/leagues/1
 
 ### sincronizar ligas desde SportsApiPro
 POST http://127.0.0.1:3000/api/leagues/sync/sportsapipro
+
+### buscar por idEnApi
+GET http://127.0.0.1:3000/api/leagues/by-id-en-api/1

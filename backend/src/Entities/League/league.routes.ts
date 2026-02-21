@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import { sanitizeLeagueInput, findAll, findOne, add, update, remove, syncFromSportsApiPro, ensureByNameFromSportsApiPro } from './league.controler.js';
+import { sanitizeLeagueInput, findAll, findByIdEnApi, findOne, add, update, remove, syncFromSportsApiPro, ensureByNameFromSportsApiPro } from './league.controler.js';
 
 export const LeagueRouter = Router();
 
 LeagueRouter.get('/', findAll);
 LeagueRouter.post('/sync/sportsapipro', syncFromSportsApiPro);
 LeagueRouter.post('/ensure/by-name', ensureByNameFromSportsApiPro);
+LeagueRouter.get('/by-id-en-api/:idEnApi', findByIdEnApi);
 LeagueRouter.get('/:id', findOne);
 LeagueRouter.post('/', sanitizeLeagueInput, add);
 LeagueRouter.put('/:id', sanitizeLeagueInput, update);
