@@ -152,7 +152,10 @@ export class ApiService {
   // Leagues
   searchLeagues() { return this.http.get<leagueCollectionI>(`${this.url}/leagues`); }
   searchLeagueById(id: number | string) { return this.http.get<responseLeagueI>(`${this.url}/leagues/${id}`); }
-  searchLeagueByIdEnApi(idEnApi: number | string) { return this.http.get<responseLeagueI>(`${this.url}/leagues/by-id-en-api/${idEnApi}`); }
+  searchLeagueByIdEnApi(idEnApi: number | string, sportId?: number | string) {
+    const query = sportId !== undefined ? `?sportId=${sportId}` : '';
+    return this.http.get<responseLeagueI>(`${this.url}/leagues/by-id-en-api/${idEnApi}${query}`);
+  }
   ensureLeagueByName(name: string) { return this.http.post<responseLeagueI>(`${this.url}/leagues/ensure/by-name`, { name }); }
   postLeague(league: addLeagueI) { return this.http.post<responseLeagueI>(`${this.url}/leagues`, league); }
   updateLeague(league: leagueI) { return this.http.put<responseLeagueI>(`${this.url}/leagues/${league.id}`, league); }

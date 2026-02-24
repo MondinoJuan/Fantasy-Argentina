@@ -1,0 +1,42 @@
+### obtener todos los registros de Sport
+GET http://127.0.0.1:3000/api/sports
+
+### obtener un registro de Sport por id
+GET http://127.0.0.1:3000/api/sports/1
+
+### obtener un registro de Sport por idEnApi
+GET http://127.0.0.1:3000/api/sports/by-id-en-api/1
+
+### crear un nuevo registro de Sport
+POST http://127.0.0.1:3000/api/sports
+Content-Type: application/json
+
+{
+  "idEnApi": 1,
+  "descripcion": "Fútbol",
+  "cupoTitular": 11,
+  "cupoSuplente": 4
+}
+
+### actualizar un registro de Sport por id
+PUT http://127.0.0.1:3000/api/sports/1
+Content-Type: application/json
+
+{
+  "idEnApi": 1,
+  "descripcion": "Fútbol actualizado",
+  "cupoTitular": 11,
+  "cupoSuplente": 5
+}
+
+### actualizar parcialmente un registro de Sport por id
+PATCH http://127.0.0.1:3000/api/sports/1
+Content-Type: application/json
+
+{
+  "descripcion": "Fútbol 11",
+  "cupoSuplente": 7
+}
+
+### eliminar un registro de Sport por id
+DELETE http://127.0.0.1:3000/api/sports/1

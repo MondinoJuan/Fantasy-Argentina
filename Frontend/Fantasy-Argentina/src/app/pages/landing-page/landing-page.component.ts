@@ -2,9 +2,9 @@ import { Component, OnInit } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of, throwError } from 'rxjs';
 import { catchError, finalize } from 'rxjs/operators';
-import { switchMap } from 'rxjs';
+import { map, switchMap } from 'rxjs';
 import { ApiService } from '../../servicios/api.service';
 import { LoadingSpinnerComponent } from '../../components/loading-spinner/loading-spinner.component';
 import { tournamentI } from '../../modelos/tournament.interface';
@@ -26,7 +26,10 @@ export class LandingPageComponent implements OnInit {
     'Serie A',
     'Ligue 1',
   ];
-  readonly sportOptions = ['Football', 'Basketball'];
+  readonly sportOptions = [
+    { idEnApi: 1, label: 'Football', descripcion: 'Football', cupoTitular: 11, cupoSuplente: 5 },
+    { idEnApi: 2, label: 'Basket', descripcion: 'Basketball', cupoTitular: 5, cupoSuplente: 3 },
+  ];
   searchTerm = '';
   isLoading = true;
   isCreating = false;
@@ -57,7 +60,7 @@ export class LandingPageComponent implements OnInit {
     this.createTournamentForm = this.fb.nonNullable.group({
       name: ['', [Validators.required, Validators.minLength(4)]],
       leagueName: ['', Validators.required],
-      sport: ['Football', Validators.required],
+      sportIdEnApi: [1, Validators.required],
       initialBudget: [1000000, [Validators.required, Validators.min(100000)]],
       status: ['active', Validators.required]
     });
@@ -150,11 +153,88 @@ export class LandingPageComponent implements OnInit {
         break;
     }
 
-    // Busco la liga por su ID externa, si no existe uso el endpoint para buscar la liga en la API externa
-    this.apiService.searchLeagueByIdEnApi(idLeague_ExternalAPI).pipe(
-      
-    )
-        
+    if (!idLeague_ExternalAPI) {
+      this.errorMessage = 'Liga inválida. Elegí una liga de la lista.';
+      this.isCreating = false;
+      return;
+    }
+
+    // 1) Garantizar deporte local (si no existe por idEnApi, se crea) y obtener su ID local.
+    // 2) Garantizar liga local: si no existe, backend la persiste desde API externa (+ equipos) con sportId.
+    // 3) Crear torneo (backend crea Participant inicial del usuario creador).
+    this.ensureSportInLocalDb(formValue.sportIdEnApi).pipe(
+      switchMap((localSportId) => this.apiService.searchLeagueByIdEnApi(idLeague_ExternalAPI, formValue.sportIdEnApi).pipe(
+          switchMap((leagueResponse) => this.apiService.postTournament({
+            name: formValue.name.trim(),
+            league: Number(leagueResponse.data.id),
+            sport: String(localSportId),
+            creationDate,
+            initialBudget: Number(formValue.initialBudget),
+            squadSize: 16,
+            status: formValue.status,
+            clauseEnableDate,
+            creatorUserId: userId,
+          }))
+        )),
+      finalize(() => this.isCreating = false),
+      catchError((error) => {
+        const backendMessage = error?.error?.message;
+        this.errorMessage = backendMessage ?? error?.message ?? 'No pudimos crear el torneo.';
+        return throwError(() => error);
+      })
+    ).subscribe({
+      next: () => {
+        this.showCreateForm = false;
+        this.createTournamentForm.reset({
+          name: '',
+          leagueName: this.allowedLeagues[0] ?? '',
+          sportIdEnApi: 1,
+          initialBudget: 1000000,
+          status: 'active',
+        });
+
+        // Placeholder para tu próximo paso:
+        // acá podés encadenar la lógica extra de armado del Participant
+        // (players random, budget adicional, etc.) cuando la quieras agregar.
+
+        this.loadTournaments(userId);
+      },
+      error: () => {
+        // El mensaje ya se setea en catchError.
+      }
+    });
+  }
+
+  private ensureSportInLocalDb(sportIdEnApi: number) {
+    const sportSeed = this.sportOptions.find((sport) => sport.idEnApi === Number(sportIdEnApi));
+
+    if (!sportSeed) {
+      return throwError(() => new Error('Deporte inválido. Elegí una opción del selector.'));
+    }
+
+    return this.apiService.searchSports().pipe(
+      map((sportsResponse) => sportsResponse.data.find((sport) => sport.idEnApi === sportSeed.idEnApi)),
+      switchMap((existingSport) => {
+        if (existingSport?.id) {
+          return of(existingSport.id);
+        }
+
+        return this.apiService.postSport({
+          idEnApi: sportSeed.idEnApi,
+          descripcion: sportSeed.descripcion,
+          cupoTitular: sportSeed.cupoTitular,
+          cupoSuplente: sportSeed.cupoSuplente,
+        }).pipe(
+          map((createResponse) => {
+            if (!createResponse.data?.id) {
+              throw new Error('No se pudo persistir el deporte seleccionado en la BD local.');
+            }
+
+            return createResponse.data.id;
+          })
+        );
+      })
+    );
   }
 
   private loadTournaments(userId: number): void {

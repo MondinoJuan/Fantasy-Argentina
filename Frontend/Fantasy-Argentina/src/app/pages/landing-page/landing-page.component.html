@@ -48,9 +48,9 @@
         <div class="grid-2">
           <label>
             Deporte
-            <select formControlName="sport">
+            <select formControlName="sportIdEnApi">
               @for (sport of sportOptions; track sport) {
-                <option [ngValue]="sport">{{ sport }}</option>
+                <option [ngValue]="sport.idEnApi">{{ sport.label }}</option>
               }
             </select>
           </label>
