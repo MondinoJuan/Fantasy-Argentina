@@ -13,7 +13,7 @@ export class ParticipantSquad extends BaseEntity {
   realPlayer!: Rel<RealPlayer>;
 
   @Property({ nullable: false })
-  formation!: string;
+  formation: string = '4-4-2';
 
   @Property({ nullable: false })
   acquisitionDate: Date = new Date();
