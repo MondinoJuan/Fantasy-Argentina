@@ -193,9 +193,7 @@ export class LandingPageComponent implements OnInit {
           status: 'active',
         });
 
-        // Placeholder para tu próximo paso:
-        // acá podés encadenar la lógica extra de armado del Participant
-        // (players random, budget adicional, etc.) cuando la quieras agregar.
+        // Debo recuperar de la base de datos los players que perteneceran al equipo del participant.
 
         this.loadTournaments(userId);
       },
