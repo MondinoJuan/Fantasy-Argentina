@@ -152,7 +152,7 @@ export class LandingPageComponent implements OnInit {
 
     // Busco la liga por su ID externa, si no existe uso el endpoint para buscar la liga en la API externa
     this.apiService.searchLeagueByIdEnApi(idLeague_ExternalAPI).pipe(
-
+      
     )
         
   }
