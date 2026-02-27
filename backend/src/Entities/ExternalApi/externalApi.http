@@ -4,6 +4,9 @@ GET http://127.0.0.1:3000/api/external/sportsapipro/player?playerId=123
 ### SportsApiPro - all players by teamId
 GET http://127.0.0.1:3000/api/external/sportsapipro/team-players?teamId=8650
 
+### SportsApiPro - athlete basic by athleteId
+GET http://127.0.0.1:3000/api/external/sportsapipro/athlete-basic?athleteId=868&fullDetails=false
+
 ### SportsApiPro - allowed leagues (47,112,87,55,53,54)
 GET http://127.0.0.1:3000/api/external/sportsapipro/leagues
 

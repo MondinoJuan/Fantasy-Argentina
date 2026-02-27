@@ -7,6 +7,7 @@ import {
   getSportsApiProAllowedLeaguesService,
   getSportsApiProPlayerByIdService,
   getSportsApiProPlayersByTeamService,
+  getPlayersByAthleteIdService,
   getSportsApiProTeamDetailByTeamService,
   getSportsApiProTeamsByLeagueService,
 } from './services/index.js';
@@ -42,6 +43,30 @@ async function getSportsApiProPlayersByTeam(req: Request, res: Response) {
   try {
     const data = await getSportsApiProPlayersByTeamService(teamId);
     return res.status(200).json({ message: 'sportsapipro team players fetched', data });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
+async function getPlayersByAthleteId(req: Request, res: Response) {
+  const athleteId = parseRequiredNumber(req.query.athleteId as string | undefined);
+
+  if (!athleteId) {
+    return res.status(400).json({ message: 'athleteId query param is required number' });
+  }
+
+  const fullDetailsRaw = Array.isArray(req.query.fullDetails) ? req.query.fullDetails[0] : req.query.fullDetails;
+  const fullDetails = typeof fullDetailsRaw === 'string' ? fullDetailsRaw.trim().toLowerCase() === 'true' : false;
+
+  const topBookmakerRaw = Array.isArray(req.query.topBookmaker) ? req.query.topBookmaker[0] : req.query.topBookmaker;
+  const topBookmaker = parseRequiredNumber(topBookmakerRaw as string | undefined);
+
+  try {
+    const data = await getPlayersByAthleteIdService(athleteId, {
+      fullDetails,
+      topBookmaker: topBookmaker ?? undefined,
+    });
+    return res.status(200).json({ message: 'sportsapipro athlete basic fetched', data });
   } catch (error: any) {
     return res.status(500).json({ message: error.message });
   }
@@ -153,6 +178,7 @@ async function postSportsApiProFixtureBuild(req: Request, res: Response) {
 export {
   getSportsApiProPlayerById,
   getSportsApiProPlayersByTeam,
+  getPlayersByAthleteId,
   getSportsApiProAllowedLeagues,
   getSportsApiProTeamsByLeague,
   getSportsApiProTeamDetailByTeam,

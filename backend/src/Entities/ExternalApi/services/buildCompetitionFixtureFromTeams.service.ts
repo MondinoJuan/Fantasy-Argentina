@@ -167,50 +167,17 @@ function formatDateHour(iso: unknown): string | null {
   return `${y}-${m}-${d} ${h}:00`;
 }
 
-async function fetchTeamEndpointPages(
+async function fetchAndIngestTeam(
   teamId: number,
-  endpoint: 'fixtures' | 'results',
   config: FixtureSeedConfig,
   games: Map<number, FixtureEventRef>,
   seenCursors: Set<string>,
   maxPagesPerTeam: number,
   sleepMsBetweenRequests: number,
-) {
-  const endpointPath = endpoint === 'fixtures' ? '/games/fixtures' : '/games/results';
-  const firstPayload = (await requestSportsApiPro(endpointPath, { competitors: teamId })) as UnknownRecord;
+): Promise<number> {
+  let added = 0;
 
-  for (const gameUnknown of asArray(firstPayload.games)) {
-    const game = asRecord(gameUnknown);
-
-    if (!shouldIncludeGame(game, config)) {
-      continue;
-    }
-
-    const mapped = toEventRef(game, endpoint);
-    if (!mapped) {
-      continue;
-    }
-
-    if (!games.has(mapped.gameId)) {
-      games.set(mapped.gameId, mapped);
-    }
-  }
-
-  const queue = getNewCursors(firstPayload, endpoint, seenCursors);
-  let pages = 1;
-
-  while (queue.length > 0 && pages < maxPagesPerTeam) {
-    const cursor = queue.shift()!;
-
-    if (sleepMsBetweenRequests > 0) {
-      await sleep(sleepMsBetweenRequests);
-    }
-
-    const payload = (await requestSportsApiPro(endpointPath, {
-      competitors: teamId,
-      ...cursor,
-    })) as UnknownRecord;
-
+  const ingestPayload = (payload: UnknownRecord, source: 'fixtures' | 'results') => {
     for (const gameUnknown of asArray(payload.games)) {
       const game = asRecord(gameUnknown);
 
@@ -218,19 +185,43 @@ async function fetchTeamEndpointPages(
         continue;
       }
 
-      const mapped = toEventRef(game, endpoint);
-      if (!mapped) {
+      const mapped = toEventRef(game, source);
+      if (!mapped || games.has(mapped.gameId)) {
         continue;
       }
 
-      if (!games.has(mapped.gameId)) {
-        games.set(mapped.gameId, mapped);
-      }
+      games.set(mapped.gameId, mapped);
+      added += 1;
     }
+  };
 
-    queue.push(...getNewCursors(payload, endpoint, seenCursors));
-    pages += 1;
+  for (const endpoint of ['fixtures', 'results'] as const) {
+    const endpointPath = endpoint === 'fixtures' ? '/games/fixtures' : '/games/results';
+    const firstPayload = (await requestSportsApiPro(endpointPath, { competitors: teamId })) as UnknownRecord;
+    ingestPayload(firstPayload, endpoint);
+
+    const queue = getNewCursors(firstPayload, endpoint, seenCursors);
+    let pages = 1;
+
+    while (queue.length > 0 && pages < maxPagesPerTeam) {
+      const cursor = queue.shift()!;
+
+      if (sleepMsBetweenRequests > 0) {
+        await sleep(sleepMsBetweenRequests);
+      }
+
+      const payload = (await requestSportsApiPro(endpointPath, {
+        competitors: teamId,
+        ...cursor,
+      })) as UnknownRecord;
+
+      ingestPayload(payload, endpoint);
+      queue.push(...getNewCursors(payload, endpoint, seenCursors));
+      pages += 1;
+    }
   }
+
+  return added;
 }
 
 export async function readFixtureSeedConfigFromJson(path: string): Promise<FixtureSeedConfig> {
@@ -313,26 +304,7 @@ export async function collectFixtureEventRefsFromTeamsService(
     }
 
     consultedTeams += 1;
-
-    await fetchTeamEndpointPages(
-      teamId,
-      'fixtures',
-      config,
-      games,
-      seenCursors,
-      maxPagesPerTeam,
-      sleepMsBetweenRequests,
-    );
-
-    await fetchTeamEndpointPages(
-      teamId,
-      'results',
-      config,
-      games,
-      seenCursors,
-      maxPagesPerTeam,
-      sleepMsBetweenRequests,
-    );
+    await fetchAndIngestTeam(teamId, config, games, seenCursors, maxPagesPerTeam, sleepMsBetweenRequests);
   }
 
   const eventRefs = [...games.values()].sort((a, b) => {
