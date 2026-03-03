@@ -11,13 +11,13 @@ function parseId(idParam: string | string[] | undefined) {
 
 function sanitizeParticipantInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeParticipantInput = {
-        user: req.body.user ?? req.body.userId,
+    user: req.body.user ?? req.body.userId,
     tournament: req.body.tournament ?? req.body.tournamentId,
     bankBudget: req.body.bankBudget,
     reservedMoney: req.body.reservedMoney,
     availableMoney: req.body.availableMoney,
     totalScore: req.body.totalScore,
-    };
+  };
 
   Object.keys(req.body.sanitizeParticipantInput).forEach((key) => {
     if (req.body.sanitizeParticipantInput[key] === undefined) {
@@ -49,6 +49,12 @@ async function findOne(req: Request, res: Response) {
 async function add(req: Request, res: Response) {
   try {
     const item = em.create(Participant, req.body.sanitizeParticipantInput);
+
+    // TODO(TORNEO-JOIN): cuando un participant se une por idTournament, acá debe llamarse
+    // una función que asigne aleatoriamente una cantidad de jugadores igual al cupoTitular del deporte.
+    // TODO(TORNEO-JOIN): en este mismo punto también debe llamarse otra función que tome
+    // 4 jugadores al azar de la BdD para agregarlos al market de la fecha vigente.
+
     await em.flush();
     res.status(201).json({ message: 'participant created', data: item });
   } catch (error: any) {

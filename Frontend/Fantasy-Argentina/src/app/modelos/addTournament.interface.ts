@@ -8,4 +8,6 @@ export interface addTournamentI {
   status: string;
   clauseEnableDate?: Date;
   creatorUserId?: number;
+  sportId?: number;
+  competitionId?: number;
 }

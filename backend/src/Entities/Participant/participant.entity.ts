@@ -36,6 +36,7 @@ export class Participant extends BaseEntity {
   @Property({ nullable: false })
   joinDate: Date = new Date();
 
+
   @OneToMany(() => ParticipantSquad, (participantSquad) => participantSquad.participant, {
     cascade: [Cascade.ALL],
   })
