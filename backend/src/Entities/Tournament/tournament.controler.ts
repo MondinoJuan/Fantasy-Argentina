@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { Tournament } from './tournament.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { Participant } from '../Participant/participant.entity.js';
@@ -7,9 +8,20 @@ import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
 import { ParticipantSquad } from '../ParticipantSquad/participantSquad.entity.js';
 import { MatchdayMarket } from '../MatchdayMarket/matchdayMarket.entity.js';
 import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
+import { League } from '../League/league.entity.js';
+import { RealTeam } from '../RealTeam/realTeam.entity.js';
+import { Match } from '../Match/match.entity.js';
+import {
+  buildFixtureFromEventRefsService,
+  collectFixtureEventRefsFromTeamsService,
+  getCompetitionTeamsBySportAndCompetitionService,
+} from '../ExternalApi/services/index.js';
+import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
+import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
 
 const em = orm.em;
 const DEFAULT_FORMATION = '4-4-2';
+const POSTPONED_MATCHES_PATH = 'src/Entities/Tournament/data/postponedMatches.json';
 
 function parseId(idParam: string | string[] | undefined) {
   const rawId = Array.isArray(idParam) ? idParam[0] : idParam;
@@ -21,6 +33,8 @@ function sanitizeTournamentInput(req: Request, res: Response, next: NextFunction
     name: req.body.name,
     league: req.body.league ?? req.body.leagueId,
     sport: req.body.sport,
+    sportId: req.body.sportId,
+    competitionId: req.body.competitionId,
     creationDate: req.body.creationDate,
     initialBudget: req.body.initialBudget,
     squadSize: req.body.squadSize,
@@ -37,9 +51,27 @@ function sanitizeTournamentInput(req: Request, res: Response, next: NextFunction
   next();
 }
 
-async function requestInitialPlayersFromExternalApi(_sport: string, _leagueId: number): Promise<RealPlayer[]> {
-  // TODO(API-EXTERNA): acá va la llamada real a API externa para traer 11 titulares aleatorios para el creador.
-  return [];
+type UnknownRecord = Record<string, unknown>;
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function asRecord(value: unknown): UnknownRecord {
+  return value && typeof value === 'object' ? (value as UnknownRecord) : {};
+}
+
+function toInt(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number.parseInt(value.trim(), 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
 }
 
 function normalizePosition(position: string): string {
@@ -62,6 +94,255 @@ function pickRandom<T>(values: T[], limit: number): T[] {
   }
 
   return selected;
+}
+
+function groupFixtureByDate(fixture: UnknownRecord[]): Array<{ key: string; games: UnknownRecord[] }> {
+  const byDate = new Map<string, UnknownRecord[]>();
+
+  for (const game of fixture) {
+    const startTime = typeof game.startTime === 'string' ? game.startTime : null;
+    const parsed = startTime ? new Date(startTime) : new Date();
+    const key = `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, '0')}-${String(parsed.getUTCDate()).padStart(2, '0')}`;
+
+    const current = byDate.get(key) ?? [];
+    current.push(game);
+    byDate.set(key, current);
+  }
+
+  return [...byDate.entries()]
+    .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+    .map(([key, games]) => ({ key, games }));
+}
+
+function findSquadMembers(node: unknown): UnknownRecord[] {
+  const found: UnknownRecord[] = [];
+
+  const walk = (value: unknown) => {
+    if (Array.isArray(value)) {
+      value.forEach(walk);
+      return;
+    }
+
+    if (!value || typeof value !== 'object') {
+      return;
+    }
+
+    const record = value as UnknownRecord;
+
+    if (toInt(record.athleteId ?? record.id) !== null) {
+      found.push(record);
+    }
+
+    for (const nested of Object.values(record)) {
+      walk(nested);
+    }
+  };
+
+  walk(node);
+  return found;
+}
+
+function normalizeApiPositionToDomain(positionRaw: unknown): 'goalkeeper' | 'defender' | 'midfielder' | 'forward' {
+  const position = typeof positionRaw === 'string' ? positionRaw.trim().toLowerCase() : '';
+
+  if (!position) {
+    return 'midfielder';
+  }
+
+  if (position.includes('goal')) {
+    return 'goalkeeper';
+  }
+
+  if (position.includes('def') || position.includes('back') || position.includes('center-back') || position.includes('full-back') || position.includes('wing-back')) {
+    return 'defender';
+  }
+
+  if (position.includes('mid') || position.includes('rm') || position.includes('lm')) {
+    return 'midfielder';
+  }
+
+  if (position.includes('att') || position.includes('for') || position.includes('strik') || position.includes('second striker') || position.includes('center-forward') || position.includes('right wing') || position.includes('left wing') || position.includes('right-wing') || position.includes('left-wing') || position.includes('winger')) {
+    return 'forward';
+  }
+
+  return 'midfielder';
+}
+
+async function fetchAthleteProfileById(athleteId: number): Promise<{ id: number; name: string; position: 'goalkeeper' | 'defender' | 'midfielder' | 'forward'; }> {
+  const payload = (await requestSportsApiPro('/athletes', {
+    athletes: athleteId,
+    fullDetails: 'true',
+  })) as UnknownRecord;
+
+  const athlete = asRecord(asArray(payload.athletes)[0]);
+  const resolvedId = toInt(athlete.id) ?? athleteId;
+  const name = typeof athlete.name === 'string' && athlete.name.trim().length > 0 ? athlete.name.trim() : `Player ${resolvedId}`;
+  const positionName = asRecord(athlete.position).name ?? athlete.positionName ?? athlete.positionText ?? athlete.position;
+
+  return {
+    id: resolvedId,
+    name,
+    position: normalizeApiPositionToDomain(positionName),
+  };
+}
+
+function isPostponedMatch(game: UnknownRecord): boolean {
+  const status = String(game.statusText ?? '').toLowerCase();
+  return status.includes('postpon') || status.includes('aplaz');
+}
+
+async function ensureLeagueAndSportPersistence(sportId: number, competitionId: number, sportName?: string) {
+  const competitionData = await getCompetitionTeamsBySportAndCompetitionService(sportId, competitionId);
+
+  const athleteProfileCache = new Map<number, { id: number; name: string; position: 'goalkeeper' | 'defender' | 'midfielder' | 'forward' }>();
+
+  let league = await em.findOne(League, { idEnApi: competitionId });
+  if (!league) {
+    league = em.create(League, {
+      idEnApi: competitionId,
+      name: competitionData.competitionName ?? `Competition ${competitionId}`,
+      country: competitionData.countryName ?? 'Unknown',
+      sport: sportName ?? `sport-${sportId}`,
+      seasonNum: competitionData.seasonNum,
+    } as any);
+  } else {
+    league.name = competitionData.competitionName ?? league.name;
+    league.country = competitionData.countryName ?? league.country;
+    league.sport = sportName ?? league.sport;
+    league.seasonNum = competitionData.seasonNum;
+  }
+
+  for (const team of competitionData.teams) {
+    let realTeam = await em.findOne(RealTeam, { idEnApi: team.id });
+
+    if (!realTeam) {
+      realTeam = em.create(RealTeam, {
+        idEnApi: team.id,
+        name: team.name ?? `Team ${team.id}`,
+        league,
+      } as any);
+    } else {
+      realTeam.name = team.name ?? realTeam.name;
+      realTeam.league = league;
+    }
+
+    const squadPayload = (await requestSportsApiPro('/squads', { competitors: team.id })) as UnknownRecord;
+    const members = findSquadMembers(squadPayload);
+    const athleteIds = [...new Set(members
+      .map((member) => toInt(member.athleteId ?? member.id))
+      .filter((id): id is number => id !== null))];
+
+    for (const athleteId of athleteIds) {
+      let profile = athleteProfileCache.get(athleteId);
+
+      if (!profile) {
+        profile = await fetchAthleteProfileById(athleteId);
+        athleteProfileCache.set(athleteId, profile);
+      }
+
+
+      const existing = await em.findOne(RealPlayer, { idEnApi: profile.id });
+
+      if (existing) {
+        existing.name = profile.name;
+        existing.position = profile.position;
+        existing.realTeam = realTeam;
+        existing.lastUpdate = new Date();
+        continue;
+      }
+
+      em.create(RealPlayer, {
+        idEnApi: profile.id,
+        name: profile.name,
+        position: profile.position,
+        realTeam,
+        active: true,
+        lastUpdate: new Date(),
+      } as any);
+    }
+  }
+
+  return { league, competitionData };
+}
+
+async function persistFixtureAsMatchdaysAndMatches(
+  league: League,
+  fixtureData: UnknownRecord[],
+  seasonNum: number,
+  postponedAccumulator: UnknownRecord[],
+): Promise<void> {
+  const groupedByDate = groupFixtureByDate(fixtureData);
+
+  for (let index = 0; index < groupedByDate.length; index += 1) {
+    const group = groupedByDate[index];
+    const startDate = new Date(`${group.key}T00:00:00.000Z`);
+    const endDate = new Date(`${group.key}T23:59:59.999Z`);
+
+    let matchday = await em.findOne(Matchday, {
+      league,
+      season: String(seasonNum),
+      matchdayNumber: index + 1,
+    });
+
+    if (!matchday) {
+      matchday = em.create(Matchday, {
+        league,
+        season: String(seasonNum),
+        matchdayNumber: index + 1,
+        startDate,
+        endDate,
+        status: 'scheduled',
+      } as any);
+    }
+
+    for (const fixtureMatch of group.games) {
+      const gameId = toInt(fixtureMatch.gameId);
+      if (gameId === null) {
+        continue;
+      }
+
+      const existing = await em.findOne(Match, { externalApiId: String(gameId) });
+      if (!existing) {
+        em.create(Match, {
+          matchday,
+          externalApiId: String(gameId),
+          homeTeam: String(asRecord(fixtureMatch.home).name ?? 'TBD'),
+          awayTeam: String(asRecord(fixtureMatch.away).name ?? 'TBD'),
+          startDateTime: new Date(String(fixtureMatch.startTime ?? `${group.key}T00:00:00.000Z`)),
+          status: String(fixtureMatch.statusText ?? 'scheduled'),
+        } as any);
+      }
+
+      if (isPostponedMatch(fixtureMatch)) {
+        postponedAccumulator.push({
+          gameId,
+          matchupId: fixtureMatch.matchupId,
+          competitionId: fixtureMatch.competitionId,
+          seasonNum: fixtureMatch.seasonNum,
+          stageNum: fixtureMatch.stageNum,
+          startTime: fixtureMatch.startTime,
+          statusText: fixtureMatch.statusText,
+        });
+      }
+    }
+  }
+}
+
+async function writePostponedMatchesFile(tournamentId: number, postponedMatches: UnknownRecord[]): Promise<void> {
+  await mkdir('src/Entities/Tournament/data', { recursive: true });
+  const payload = {
+    updatedAt: new Date().toISOString(),
+    tournaments: {
+      [String(tournamentId)]: postponedMatches,
+    },
+  };
+
+  await writeFile(POSTPONED_MATCHES_PATH, JSON.stringify(payload, null, 2), 'utf-8');
+}
+
+async function requestInitialPlayersFromExternalApi(_sport: string, _leagueId: number): Promise<RealPlayer[]> {
+  // TODO(API-EXTERNA): acá va la llamada real a API externa para traer 11 titulares aleatorios para el creador.
+  return [];
 }
 
 async function bootstrapCreatorTeam(tournament: Tournament, creatorParticipant: Participant): Promise<void> {
@@ -141,6 +422,83 @@ async function bootstrapCreatorTeam(tournament: Tournament, creatorParticipant: 
   }
 }
 
+async function syncPostponedMatchesAndPersistPlayerRatings(tournamentId: number): Promise<UnknownRecord[]> {
+  let currentRaw = '';
+
+  try {
+    currentRaw = await readFile(POSTPONED_MATCHES_PATH, 'utf-8');
+  } catch {
+    return [];
+  }
+
+  const current = JSON.parse(currentRaw) as UnknownRecord;
+  const tournaments = asRecord(current.tournaments);
+  const pending = asArray(tournaments[String(tournamentId)]);
+  const stillPending: UnknownRecord[] = [];
+
+  for (const pendingMatchUnknown of pending) {
+    const pendingMatch = asRecord(pendingMatchUnknown);
+    const gameId = toInt(pendingMatch.gameId);
+    const matchupId = typeof pendingMatch.matchupId === 'string' ? pendingMatch.matchupId : null;
+
+    if (gameId === null || !matchupId) {
+      continue;
+    }
+
+    const gamePayload = (await requestSportsApiPro('/game', { gameId, matchupId })) as UnknownRecord;
+    const game = asRecord(gamePayload.game);
+
+    if (toInt(game.statusGroup) !== 4) {
+      stillPending.push(pendingMatch);
+      continue;
+    }
+
+    const match = await em.findOne(Match, { externalApiId: String(gameId) }, { populate: ['matchday'] });
+    if (!match) {
+      continue;
+    }
+
+    for (const member of findSquadMembers(gamePayload)) {
+      const athleteId = toInt(member.athleteId ?? member.id);
+      const ranking = toInt(member.ranking);
+
+      if (athleteId === null || ranking === null) {
+        continue;
+      }
+
+      const realPlayer = await em.findOne(RealPlayer, { idEnApi: athleteId });
+      if (!realPlayer) {
+        continue;
+      }
+
+      let performance = await em.findOne(PlayerPerformance, { realPlayer, matchday: match.matchday });
+
+      if (!performance) {
+        performance = em.create(PlayerPerformance, {
+          realPlayer,
+          matchday: match.matchday,
+          pointsObtained: ranking,
+          played: true,
+          updateDate: new Date(),
+        } as any);
+      } else {
+        performance.pointsObtained = ranking;
+        performance.played = true;
+        performance.updateDate = new Date();
+      }
+    }
+  }
+
+  tournaments[String(tournamentId)] = stillPending;
+  await writeFile(
+    POSTPONED_MATCHES_PATH,
+    JSON.stringify({ updatedAt: new Date().toISOString(), tournaments }, null, 2),
+    'utf-8',
+  );
+
+  return stillPending;
+}
+
 async function findAll(req: Request, res: Response) {
   try {
     const items = await em.find(Tournament, {}, { populate: ['league'] });
@@ -162,16 +520,55 @@ async function findOne(req: Request, res: Response) {
 
 async function add(req: Request, res: Response) {
   try {
-    const { creatorUserId, ...tournamentInput } = req.body.sanitizeTournamentInput;
+    const {
+      creatorUserId,
+      sportId,
+      competitionId,
+      league: rawLeagueId,
+      ...tournamentInput
+    } = req.body.sanitizeTournamentInput;
 
     if (!creatorUserId) {
       res.status(400).json({ message: 'creatorUserId is required to create tournament participant' });
       return;
     }
 
-    const item = em.create(Tournament, tournamentInput);
+    const resolvedSportId = toInt(sportId);
+    const resolvedCompetitionId = toInt(competitionId ?? rawLeagueId);
 
-    // Regla de negocio: al crear un torneo, lo primero es crear el Participant que relaciona User y Tournament.
+    if (resolvedSportId === null || resolvedCompetitionId === null) {
+      res.status(400).json({ message: 'sportId and competitionId (or leagueId) are required numbers' });
+      return;
+    }
+
+    const { league, competitionData } = await ensureLeagueAndSportPersistence(
+      resolvedSportId,
+      resolvedCompetitionId,
+      tournamentInput.sport,
+    );
+
+    const fixtureRefs = await collectFixtureEventRefsFromTeamsService({
+      competitionId: resolvedCompetitionId,
+      seasonNum: competitionData.seasonNum ?? new Date().getUTCFullYear(),
+      stageNum: competitionData.stageNum ?? 1,
+      teams: competitionData.teams.map((team) => ({ id: team.id, name: team.name ?? undefined })),
+    });
+
+    const fixture = await buildFixtureFromEventRefsService(fixtureRefs.eventRefs);
+    const postponedMatches: UnknownRecord[] = [];
+
+    await persistFixtureAsMatchdaysAndMatches(
+      league,
+      asArray(fixture.fixture).map((item) => asRecord(item)),
+      competitionData.seasonNum ?? new Date().getUTCFullYear(),
+      postponedMatches,
+    );
+
+    const item = em.create(Tournament, {
+      ...tournamentInput,
+      league,
+    });
+
     const creatorParticipant = em.create(Participant, {
       user: creatorUserId,
       tournament: item,
@@ -182,12 +579,45 @@ async function add(req: Request, res: Response) {
       joinDate: new Date(),
     } as any);
 
+    // TODO(TORNEO-CREACION): reservar acá la función que asigne de forma aleatoria al creator
+    // una cantidad de jugadores igual al cupo de titulares del deporte del torneo.
+    // TODO(TORNEO-CREACION): reservar acá la función que obtenga 4 jugadores al azar de la BdD
+    // para completar el market inicial cuando se agregue cada participant.
+
     await bootstrapCreatorTeam(item, creatorParticipant);
 
     await em.flush();
-    res.status(201).json({ message: 'tournament created', data: item });
+
+    if (item.id) {
+      await writePostponedMatchesFile(item.id, postponedMatches);
+    }
+
+    res.status(201).json({
+      message: 'tournament created',
+      data: item,
+      fixtureStats: fixtureRefs.stats,
+      postponedMatches: postponedMatches.length,
+    });
   } catch (error: any) {
     res.status(500).json({ message: error.message, sqlMessage: error?.sqlMessage, code: error?.code });
+  }
+}
+
+
+async function syncPostponedMatches(req: Request, res: Response) {
+  try {
+    const id = parseId(req.params.id);
+    if (!Number.isFinite(id)) {
+      res.status(400).json({ message: 'invalid tournament id' });
+      return;
+    }
+
+    const pending = await syncPostponedMatchesAndPersistPlayerRatings(id);
+    await em.flush();
+
+    res.status(200).json({ message: 'postponed matches sync executed', pending });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
   }
 }
 
@@ -215,4 +645,4 @@ async function remove(req: Request, res: Response) {
   }
 }
 
-export { sanitizeTournamentInput, findAll, findOne, add, update, remove };
+export { sanitizeTournamentInput, findAll, findOne, add, update, remove, syncPostponedMatches, syncPostponedMatchesAndPersistPlayerRatings };

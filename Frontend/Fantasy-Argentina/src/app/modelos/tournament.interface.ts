@@ -1,7 +1,9 @@
+import { leagueI } from './league.interface';
+
 export interface tournamentI {
   id?: number;
   name: string;
-  league: number;
+  league: number | leagueI;
   sport: string;
   creationDate: Date;
   initialBudget: number;

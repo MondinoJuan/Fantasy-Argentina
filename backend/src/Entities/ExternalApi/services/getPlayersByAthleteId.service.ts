@@ -53,7 +53,7 @@ export async function getPlayersByAthleteIdService(
     query.topBookmaker = Math.trunc(options.topBookmaker);
   }
 
-  const payload = (await requestSportsApiPro('/athletes/nextGame', query)) as UnknownRecord;
+  const payload = (await requestSportsApiPro('/athletes', query)) as UnknownRecord;
   const athletes = asArray(payload.athletes).map(asRecord);
 
   if (athletes.length === 0) {
@@ -71,28 +71,15 @@ export async function getPlayersByAthleteIdService(
   const position = asRecord(athlete.position);
   const positionName = typeof position.name === 'string' && position.name.trim().length > 0 ? position.name.trim() : null;
 
-  const clubId = toInt(athlete.clubId);
-  let clubName: string | null = null;
-
-  if (clubId !== null) {
-    for (const competitorUnknown of asArray(payload.competitors)) {
-      const competitor = asRecord(competitorUnknown);
-      if (toInt(competitor.id) !== clubId) {
-        continue;
-      }
-
-      if (typeof competitor.name === 'string' && competitor.name.trim().length > 0) {
-        clubName = competitor.name.trim();
-      }
-      break;
-    }
-  }
+  const clubFromAthlete = asRecord(athlete.club);
+  const clubId = toInt(athlete.clubId ?? clubFromAthlete.id);
+  let clubName = typeof clubFromAthlete.name === 'string' && clubFromAthlete.name.trim().length > 0
+    ? clubFromAthlete.name.trim()
+    : null;
 
   if (clubName === null && clubId !== null) {
-    const nextGame = asRecord(athlete.nextGame);
-
-    for (const side of ['homeCompetitor', 'awayCompetitor'] as const) {
-      const competitor = asRecord(nextGame[side]);
+    for (const competitorUnknown of asArray(payload.competitors)) {
+      const competitor = asRecord(competitorUnknown);
       if (toInt(competitor.id) !== clubId) {
         continue;
       }

@@ -139,6 +139,9 @@ export class ApiService {
   updateTournament(tournament: tournamentI) { return this.http.put<responseTournamentI>(`${this.url}/tournaments/${tournament.id}`, tournament); }
   patchTournament(tournament: tournamentPatchI) { return this.http.patch<responseTournamentI>(`${this.url}/tournaments/${tournament.id}`, tournament); }
   removeTournament(id: number | string) { return this.http.delete<responseTournamentI>(`${this.url}/tournaments/${id}`); }
+  syncPostponedTournamentMatches(id: number | string) {
+    return this.http.post<{ message: string; pending: any[] }>(`${this.url}/tournaments/${id}/sync-postponed`, {});
+  }
 
   // Sports
   searchSports() { return this.http.get<sportCollectionI>(`${this.url}/sports`); }
