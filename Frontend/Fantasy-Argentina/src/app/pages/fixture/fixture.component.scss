@@ -1,0 +1,72 @@
+:host {
+  --deep-plum: #190019;
+  --royal-violet: #2b124c;
+  --dusty-purple: #522b5b;
+  --mauve: #854f6c;
+  --rose-beige: #dfb6b2;
+  --soft-blush: #fbe4d8;
+
+  display: block;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(223, 182, 178, 0.28), transparent 34%),
+    linear-gradient(160deg, #2b124c 0%, #522b5b 55%, #190019 100%);
+  padding: 1.5rem;
+}
+
+.fixture-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  background: rgba(251, 228, 216, 0.92);
+  border-radius: 1.2rem;
+  border: 1px solid rgba(82, 43, 91, 0.42);
+  box-shadow: 0 20px 44px rgba(25, 0, 25, 0.34);
+  padding: 1.4rem;
+}
+
+h1 { margin-top: 0; color: var(--royal-violet); }
+
+.matchday-block {
+  margin-top: 1rem;
+  border-top: 1px solid rgba(82, 43, 91, 0.28);
+  padding-top: 0.9rem;
+}
+
+.matchday-header h2 {
+  margin: 0;
+  color: #2b124c;
+  font-size: 1.05rem;
+}
+
+.matchday-header p {
+  margin: 0.2rem 0 0.7rem;
+  color: #522b5b;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 0.8rem;
+}
+
+.match-card {
+  border: 1px solid rgba(82, 43, 91, 0.3);
+  border-radius: 0.9rem;
+  padding: 0.85rem;
+  background: #fff8f4;
+  box-shadow: 0 8px 18px rgba(25, 0, 25, 0.12);
+}
+
+.meta {
+  display: flex;
+  justify-content: space-between;
+  color: #65426c;
+  font-size: 0.82rem;
+}
+
+h3 { margin: 0.45rem 0; color: #2b124c; font-size: 1.04rem; }
+p { margin: 0.2rem 0; color: #522b5b; }
+.status { font-weight: 700; color: #854f6c; }
+.result { font-weight: 700; }
+.error { color: #8b1f49; font-weight: 600; }
+.empty { color: #7a536f; font-style: italic; }

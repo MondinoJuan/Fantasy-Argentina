@@ -55,7 +55,8 @@ export class LogInComponent {
 
           localStorage.setItem('currentUserId', String(user.id));
           localStorage.setItem('currentUsername', user.username);
-          this.router.navigate(['/landingPage']);
+          localStorage.setItem('currentUserType', user.type ?? 'USER');
+          this.router.navigate([user.type === 'SUPERADMIN' ? '/superadmin-menu' : '/landingPage']);
         },
         error: () => {
           this.errorMessage = 'No pudimos conectarnos al servidor. Probá nuevamente.';

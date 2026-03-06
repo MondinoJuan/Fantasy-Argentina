@@ -206,4 +206,23 @@ async function remove(req: Request, res: Response) {
   }
 }
 
-export { sanitizeLeagueInput, findAll, findByIdEnApi, findOne, add, update, remove, syncFromSportsApiPro, ensureByNameFromSportsApiPro };
+
+
+async function syncByIdEnApi(req: Request, res: Response) {
+  try {
+    const sportId = Number.parseInt(String(req.body?.sportId ?? '1'), 10);
+    const idEnApi = Number.parseInt(String(req.body?.idEnApi ?? ''), 10);
+
+    if (!Number.isFinite(sportId) || !Number.isFinite(idEnApi)) {
+      res.status(400).json({ message: 'sportId and idEnApi are required numbers' });
+      return;
+    }
+
+    const item = await persistNewLeagueService(sportId, idEnApi);
+    await em.flush();
+    res.status(201).json({ message: 'league synced from sportsapipro', data: item });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+}
+export { sanitizeLeagueInput, findAll, findByIdEnApi, findOne, add, update, remove, syncFromSportsApiPro, ensureByNameFromSportsApiPro, syncByIdEnApi };

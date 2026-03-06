@@ -16,6 +16,9 @@ export class User extends BaseEntity {
   @Property({ nullable: false })
   registrationDate: Date = new Date();
 
+  @Property({ nullable: false, default: 'USER' })
+  type: 'USER' | 'SUPERADMIN' = 'USER';
+
   @OneToMany(() => Participant, (participant) => participant.user, {
     cascade: [Cascade.ALL],
   })

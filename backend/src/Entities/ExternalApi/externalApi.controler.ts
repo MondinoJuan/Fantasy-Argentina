@@ -1,4 +1,8 @@
 import { Request, Response } from 'express';
+import { orm } from '../../shared/db/orm.js';
+import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
+import { Matchday } from '../Matchday/matchday.entity.js';
+import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
 import {
   buildFixtureFromEventRefsService,
   collectFixtureEventRefsFromTeamsService,
@@ -11,6 +15,8 @@ import {
   getSportsApiProTeamDetailByTeamService,
   getSportsApiProTeamsByLeagueService,
 } from './services/index.js';
+
+const em = orm.em;
 
 function parseRequiredNumber(value: string | string[] | undefined): number | null {
   const raw = Array.isArray(value) ? value[0] : value;
@@ -175,6 +181,113 @@ async function postSportsApiProFixtureBuild(req: Request, res: Response) {
   }
 }
 
+
+
+async function postSportsApiProBuildCompetitionFixture(req: Request, res: Response) {
+  const sportId = Number.parseInt(String(req.body?.sportId ?? ''), 10);
+  const competitionId = Number.parseInt(String(req.body?.competitionId ?? ''), 10);
+
+  if (!Number.isFinite(sportId) || !Number.isFinite(competitionId)) {
+    return res.status(400).json({ message: 'sportId and competitionId are required numbers' });
+  }
+
+  try {
+    const competitionData = await getCompetitionTeamsBySportAndCompetitionService(sportId, competitionId);
+    const fixtureRefs = await collectFixtureEventRefsFromTeamsService({
+      competitionId,
+      seasonNum: competitionData.seasonNum ?? new Date().getUTCFullYear(),
+      stageNum: competitionData.stageNum ?? 1,
+      teams: competitionData.teams.map((team) => ({ id: team.id, name: team.name ?? undefined })),
+    });
+
+    const data = await buildFixtureFromEventRefsService(fixtureRefs.eventRefs);
+    return res.status(200).json({ message: 'sportsapipro competition fixture built', data, fixtureStats: fixtureRefs.stats });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
+function extractRankedPlayersFromRatingsPayload(matchResult: any): Array<{ athleteId: number; ranking: number | null; matchDate: string | null; gameId: number | null; }> {
+  const lineups = matchResult?.lineupsAndPlayerRankings;
+  const matchDate = typeof matchResult?.match?.startTime === 'string' ? matchResult.match.startTime : null;
+  const gameId = typeof matchResult?.match?.gameId === 'number' ? matchResult.match.gameId : null;
+  const out: Array<{ athleteId: number; ranking: number | null; matchDate: string | null; gameId: number | null; }> = [];
+
+  for (const side of [lineups?.home, lineups?.away]) {
+    const sideLineups = Array.isArray(side?.lineups) ? side.lineups : [];
+    for (const lineup of sideLineups) {
+      const players = Array.isArray(lineup?.players) ? lineup.players : [];
+      for (const player of players) {
+        const athleteId = Number.parseInt(String(player?.athleteId ?? ''), 10);
+        if (!Number.isFinite(athleteId)) continue;
+
+        const ranking = typeof player?.ranking === 'number' ? player.ranking : null;
+        out.push({ athleteId, ranking, matchDate, gameId });
+      }
+    }
+  }
+
+  return out;
+}
+
+async function getSportsApiProRankingsWithLocalPerformances(req: Request, res: Response) {
+  const sportId = parseRequiredNumber(req.query.sportId as string | undefined);
+  const competitionId = parseRequiredNumber(req.query.competitionId as string | undefined);
+
+  if (!sportId || !competitionId) {
+    return res.status(400).json({ message: 'sportId and competitionId query params are required numbers' });
+  }
+
+  try {
+    const ratings = await getLatestMatchdayResultsWithPlayerRatingsService(sportId, competitionId);
+    const rows = ratings.flatMap((matchResult) => extractRankedPlayersFromRatingsPayload(matchResult));
+
+    const data = [];
+
+    for (const row of rows) {
+      const realPlayer = await em.findOne(RealPlayer, { idEnApi: row.athleteId });
+      if (!realPlayer) {
+        data.push({ ...row, localPlayerId: null, playerPerformance: null, message: 'player not found locally by athleteId' });
+        continue;
+      }
+
+      const matchDate = row.matchDate ? new Date(row.matchDate) : null;
+      let matchdayId: number | null = null;
+
+      if (matchDate) {
+        const matchday = await em.findOne(Matchday, {
+          league: { idEnApi: competitionId },
+          startDate: { $lte: matchDate },
+          endDate: { $gte: matchDate },
+        });
+        matchdayId = matchday?.id ?? null;
+      }
+
+      let performance = null;
+      if (matchdayId) {
+        performance = await em.findOne(PlayerPerformance, { realPlayer: realPlayer.id, matchday: matchdayId });
+      }
+
+      data.push({
+        ...row,
+        localPlayerId: realPlayer.id ?? null,
+        playerPerformance: performance
+          ? {
+            id: performance.id,
+            pointsObtained: performance.pointsObtained,
+            played: performance.played,
+            updateDate: performance.updateDate,
+            matchdayId,
+          }
+          : null,
+      });
+    }
+
+    return res.status(200).json({ message: 'sportsapipro rankings mapped to local player performances', data });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+}
 export {
   getSportsApiProPlayerById,
   getSportsApiProPlayersByTeam,
@@ -186,4 +299,6 @@ export {
   getSportsApiProLatestMatchdayRatings,
   postSportsApiProFixtureEventRefs,
   postSportsApiProFixtureBuild,
+  postSportsApiProBuildCompetitionFixture,
+  getSportsApiProRankingsWithLocalPerformances,
 };

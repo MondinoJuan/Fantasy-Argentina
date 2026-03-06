@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { Participant } from './participant.entity.js';
+import { Tournament } from '../Tournament/tournament.entity.js';
 import { orm } from '../../shared/db/orm.js';
 
 const em = orm.em;
@@ -86,4 +87,45 @@ async function remove(req: Request, res: Response) {
   }
 }
 
-export { sanitizeParticipantInput, findAll, findOne, add, update, remove };
+
+
+async function joinByTournamentCode(req: Request, res: Response) {
+  try {
+    const userId = Number.parseInt(String(req.body?.userId ?? ''), 10);
+    const tournamentCode = typeof req.body?.tournamentCode === 'string' ? req.body.tournamentCode.trim() : '';
+
+    if (!Number.isFinite(userId) || !tournamentCode) {
+      res.status(400).json({ message: 'userId and tournamentCode are required' });
+      return;
+    }
+
+    const tournament = await em.findOne(Tournament, { publicCode: tournamentCode });
+
+    if (!tournament) {
+      res.status(404).json({ message: 'tournament not found by code' });
+      return;
+    }
+
+    const existing = await em.findOne(Participant, { user: userId, tournament: tournament.id });
+    if (existing) {
+      res.status(200).json({ message: 'user already joined this tournament', data: existing });
+      return;
+    }
+
+    const item = em.create(Participant, {
+      user: userId,
+      tournament: tournament.id,
+      bankBudget: tournament.initialBudget,
+      reservedMoney: 0,
+      availableMoney: tournament.initialBudget,
+      totalScore: 0,
+      joinDate: new Date(),
+    } as any);
+
+    await em.flush();
+    res.status(201).json({ message: 'participant joined by tournament code', data: item });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+}
+export { sanitizeParticipantInput, findAll, findOne, add, update, remove, joinByTournamentCode };

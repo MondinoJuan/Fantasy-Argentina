@@ -6,6 +6,7 @@ export interface addTournamentI {
   initialBudget: number;
   squadSize: number;
   status: string;
+  publicCode?: string;
   clauseEnableDate?: Date;
   creatorUserId?: number;
   sportId?: number;
