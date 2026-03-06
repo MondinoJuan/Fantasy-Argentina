@@ -172,6 +172,7 @@ export class ApiService {
   updateParticipant(participant: participantI) { return this.http.put<responseParticipantI>(`${this.url}/participants/${participant.id}`, participant); }
   patchParticipant(participant: participantPatchI) { return this.http.patch<responseParticipantI>(`${this.url}/participants/${participant.id}`, participant); }
   removeParticipant(id: number | string) { return this.http.delete<responseParticipantI>(`${this.url}/participants/${id}`); }
+  joinParticipantByTournamentCode(payload: { userId: number; tournamentCode: string }) { return this.http.post<any>(`${this.url}/participants/join-by-code`, payload); }
 
   // Real Players
   searchRealPlayers() { return this.http.get<realPlayerCollectionI>(`${this.url}/real-players`); }
@@ -288,7 +289,7 @@ export class ApiService {
   removeNegotiation(id: number | string) { return this.http.delete<responseNegotiationI>(`${this.url}/negotiations/${id}`); }
 
   // External API - Sports API Pro
-  searchSportsApiProLeagues() { return this.http.get<responseLeagueI[]>(`${this.url}/external-api/sportsapipro/leagues`); }
+  searchSportsApiProLeagues() { return this.http.get<responseLeagueI[]>(`${this.url}/external/sportsapipro/leagues`); }
   searchExternalCompetitionTeams(sportId: number | string, competitionId: number | string) {
     return this.http.get<any>(`${this.url}/external/sportsapipro/competition-teams?sportId=${sportId}&competitionId=${competitionId}`);
   }
@@ -301,4 +302,29 @@ export class ApiService {
   postExternalFixtureBuild(payload: { eventRefs: any[]; options?: any }) {
     return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/build`, payload);
   }
+
+  syncLeagueByIdEnApi(payload: { sportId: number; idEnApi: number }) {
+    return this.http.post<any>(`${this.url}/leagues/sync/by-id-en-api`, payload);
+  }
+
+  syncTeamsByLeagueIdEnApi(payload: { leagueIdEnApi: number }) {
+    return this.http.post<any>(`${this.url}/real-teams/sync/by-league-id-en-api`, payload);
+  }
+
+  syncPlayersByLeagueIdEnApi(payload: { leagueIdEnApi: number }) {
+    return this.http.post<any>(`${this.url}/real-players/sync/by-league-id-en-api`, payload);
+  }
+
+  syncTeamSquadByTeamIdEnApi(payload: { teamIdEnApi: number }) {
+    return this.http.post<any>(`${this.url}/real-players/sync/team-squad`, payload);
+  }
+
+  postExternalFixtureBuildCompetition(payload: { sportId: number; competitionId: number }) {
+    return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/build-competition`, payload);
+  }
+
+  searchExternalRankingsWithLocalPerformances(sportId: number | string, competitionId: number | string) {
+    return this.http.get<any>(`${this.url}/external/sportsapipro/rankings/player-performances?sportId=${sportId}&competitionId=${competitionId}`);
+  }
+
 }

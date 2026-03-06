@@ -28,6 +28,11 @@
         <small class="error">La contraseña debe tener al menos 4 caracteres.</small>
       }
 
+      <label>
+        Código superadministrador (opcional)
+        <input type="password" formControlName="superadminCode" placeholder="Código especial" />
+      </label>
+
       @if (errorMessage) { <p class="error-message">{{ errorMessage }}</p> }
       @if (successMessage) { <p class="success-message">{{ successMessage }}</p> }
 

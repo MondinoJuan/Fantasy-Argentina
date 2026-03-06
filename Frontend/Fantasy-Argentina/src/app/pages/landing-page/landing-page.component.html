@@ -90,7 +90,7 @@
       </button>
 
       @for (tournament of filteredTournaments; track tournament.id) {
-        <article class="tournament-card">
+        <article class="tournament-card" role="button" tabindex="0" (click)="openTournament(tournament.id)" (keyup.enter)="openTournament(tournament.id)">
           <h3>{{ tournament.name }}</h3>
           <p><strong>Estado:</strong> {{ tournament.status }}</p>
           <p><strong>Creado:</strong> {{ tournament.creationDate | date: 'dd/MM/yyyy' }}</p>

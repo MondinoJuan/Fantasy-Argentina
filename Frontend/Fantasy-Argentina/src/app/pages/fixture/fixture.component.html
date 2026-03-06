@@ -1,1 +1,50 @@
-<p>fixture works!</p>
+<section class="fixture-page">
+  <h1>Fixture (base de datos local)</h1>
+
+  @if (isLoading) {
+    <p>Cargando fechas y partidos...</p>
+  }
+
+  @if (errorMessage) {
+    <p class="error">{{ errorMessage }}</p>
+  }
+
+  @if (!isLoading && !errorMessage && matchdayGroups.length === 0) {
+    <p>No hay fechas cargadas en la base de datos local.</p>
+  }
+
+  @if (!isLoading && !errorMessage && matchdayGroups.length > 0) {
+    @for (group of matchdayGroups; track group.matchdayId ?? $index) {
+      <section class="matchday-block">
+        <header class="matchday-header">
+          <h2>Fecha {{ group.matchdayNumber }} - Temporada {{ group.season }}</h2>
+          <p>
+            {{ group.startDate | date:'dd/MM/yyyy' }}
+            al
+            {{ group.endDate | date:'dd/MM/yyyy' }}
+          </p>
+        </header>
+
+        @if (group.matches.length === 0) {
+          <p class="empty">No hay partidos asociados a esta fecha.</p>
+        }
+
+        @if (group.matches.length > 0) {
+          <div class="grid">
+            @for (match of group.matches; track match.id ?? $index) {
+              <article class="match-card">
+                <div class="meta">
+                  <span>#{{ match.gameId || 'N/A' }}</span>
+                  <span>{{ match.startDateTime | date:'dd/MM/yyyy HH:mm' }}</span>
+                </div>
+                <h3>{{ match.homeTeam }} vs {{ match.awayTeam }}</h3>
+                <p class="status">Estado: {{ match.status }}</p>
+                <p class="result">Resultado: {{ match.result }}</p>
+              </article>
+            }
+          </div>
+        }
+      </section>
+    }
+  }
+</section>

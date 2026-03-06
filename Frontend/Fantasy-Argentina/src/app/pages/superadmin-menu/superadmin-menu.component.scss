@@ -1,0 +1,104 @@
+:host {
+  --deep-plum: #190019;
+  --royal-violet: #2b124c;
+  --dusty-purple: #522b5b;
+  --mauve: #854f6c;
+  --rose-beige: #dfb6b2;
+  --soft-blush: #fbe4d8;
+
+  display: block;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(223, 182, 178, 0.28), transparent 34%),
+    linear-gradient(150deg, #2b124c 0%, #522b5b 55%, #190019 100%);
+  padding: 1.5rem;
+}
+
+.superadmin-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  background: rgba(251, 228, 216, 0.92);
+  border-radius: 1.2rem;
+  border: 1px solid rgba(82, 43, 91, 0.42);
+  box-shadow: 0 20px 44px rgba(25, 0, 25, 0.34);
+  padding: 1.4rem;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+h1, h2, h3 { color: var(--royal-violet); }
+
+.actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+button {
+  padding: 0.74rem 1rem;
+  border-radius: 0.8rem;
+  border: 0;
+  background: linear-gradient(120deg, var(--dusty-purple), var(--mauve));
+  color: #fff;
+  cursor: pointer;
+  font-weight: 700;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+button:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
+button:disabled { opacity: 0.7; cursor: not-allowed; }
+
+button.secondary {
+  background: #fff8f4;
+  color: #3b1d48;
+  border: 1px solid rgba(82, 43, 91, 0.35);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(25, 0, 25, 0.62);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-card {
+  background: rgba(251, 228, 216, 0.96);
+  border: 1px solid rgba(82, 43, 91, 0.4);
+  border-radius: 1rem;
+  width: min(580px, 96vw);
+  padding: 1rem;
+  box-shadow: 0 18px 34px rgba(25, 0, 25, 0.28);
+}
+
+form { display: grid; gap: 0.58rem; }
+label { display: grid; gap: 0.25rem; font-size: 0.92rem; color: #3b1d48; font-weight: 600; }
+input {
+  border: 1px solid rgba(82, 43, 91, 0.4);
+  border-radius: 0.7rem;
+  padding: 0.62rem 0.75rem;
+  background: #fff8f4;
+}
+input:focus { outline: none; border-color: var(--mauve); box-shadow: 0 0 0 3px rgba(133, 79, 108, 0.22); }
+
+.modal-actions { display: flex; justify-content: flex-end; gap: 0.55rem; margin-top: 0.7rem; }
+
+.result-box {
+  margin-top: 1rem;
+  background: #2b124c;
+  color: #fbe4d8;
+  padding: 1rem;
+  border-radius: 0.8rem;
+}
+
+pre { white-space: pre-wrap; margin: 0; }
+.error { color: #8b1f49; font-weight: 600; }
+.success { color: #3f2d72; font-weight: 600; }

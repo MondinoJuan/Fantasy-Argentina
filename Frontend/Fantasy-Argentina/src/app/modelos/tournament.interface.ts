@@ -9,5 +9,6 @@ export interface tournamentI {
   initialBudget: number;
   squadSize: number;
   status: string;
+  publicCode?: string;
   clauseEnableDate?: Date;
 }

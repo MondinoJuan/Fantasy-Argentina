@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { RealTeam } from './realTeam.entity.js';
 import { orm } from '../../shared/db/orm.js';
+import { League } from '../League/league.entity.js';
+import { getSportsApiProTeamsByLeagueService } from '../ExternalApi/services/index.js';
 
 const em = orm.em;
 
@@ -94,4 +96,66 @@ async function remove(req: Request, res: Response) {
   }
 }
 
-export { sanitizeRealTeamInput, findAll, findByIdEnApi, findOne, add, update, remove };
+
+
+function extractTeamRows(payload: any): any[] {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== 'object') return [];
+
+  const candidates = ['result', 'data', 'teams', 'response'];
+  for (const key of candidates) {
+    if (Array.isArray((payload as any)[key])) return (payload as any)[key];
+  }
+
+  for (const value of Object.values(payload)) {
+    const nested = extractTeamRows(value);
+    if (nested.length) return nested;
+  }
+
+  return [];
+}
+
+async function syncByLeagueIdEnApi(req: Request, res: Response) {
+  try {
+    const leagueIdEnApi = Number.parseInt(String(req.body?.leagueIdEnApi ?? ''), 10);
+    if (!Number.isFinite(leagueIdEnApi)) {
+      res.status(400).json({ message: 'leagueIdEnApi is required number' });
+      return;
+    }
+
+    const league = await em.findOne(League, { idEnApi: leagueIdEnApi });
+    if (!league) {
+      res.status(404).json({ message: 'league not found locally. Sync league first.' });
+      return;
+    }
+
+    const payload = await getSportsApiProTeamsByLeagueService(leagueIdEnApi);
+    const rows = extractTeamRows(payload);
+
+    let created = 0;
+    let updated = 0;
+
+    for (const row of rows) {
+      const idEnApi = Number.parseInt(String(row?.team_id ?? row?.id ?? row?.teamId ?? ''), 10);
+      if (!Number.isFinite(idEnApi)) continue;
+
+      const name = String(row?.team_name ?? row?.name ?? row?.teamName ?? `Team ${idEnApi}`);
+      const existing = await em.findOne(RealTeam, { idEnApi });
+      if (existing) {
+        existing.name = name;
+        existing.league = league;
+        updated += 1;
+        continue;
+      }
+
+      em.create(RealTeam, { idEnApi, name, league } as any);
+      created += 1;
+    }
+
+    await em.flush();
+    res.status(200).json({ message: 'real teams synced by league', data: { rows: rows.length, created, updated } });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+}
+export { sanitizeRealTeamInput, findAll, findByIdEnApi, findOne, add, update, remove, syncByLeagueIdEnApi };
