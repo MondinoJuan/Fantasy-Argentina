@@ -42,3 +42,13 @@ POST http://127.0.0.1:3000/api/leagues/sync/sportsapipro
 
 ### buscar por idEnApi
 GET http://127.0.0.1:3000/api/leagues/by-id-en-api/1
+
+
+### sincronizar liga por idEnApi
+POST http://127.0.0.1:3000/api/leagues/sync/by-id-en-api
+Content-Type: application/json
+
+{
+  "sportId": 1,
+  "idEnApi": 72
+}

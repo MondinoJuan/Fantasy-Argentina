@@ -1,12 +1,322 @@
-import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { Component, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { forkJoin } from 'rxjs';
+import { ApiService } from '../../servicios/api.service';
+
+interface SquadPlayerView {
+  id?: number;
+  name: string;
+  position: string;
+  teamName: string;
+}
+
+interface MarketPlayerView {
+  id?: number;
+  name: string;
+  position: string;
+  teamName: string;
+}
 
 @Component({
   selector: 'app-inside-tournament',
   standalone: true,
-  imports: [],
+  imports: [CommonModule, FormsModule],
   templateUrl: './inside-tournament.component.html',
   styleUrl: './inside-tournament.component.scss'
 })
-export class InsideTournamentComponent {
+export class InsideTournamentComponent implements OnInit {
+  readonly formations = ['4-4-2', '4-3-3', '3-4-3', '5-4-1'];
+  formationIndex = 0;
 
+  tournament: any = null;
+  participant: any = null;
+  rivals: any[] = [];
+
+  isLoading = true;
+  errorMessage = '';
+
+  squadPlayers: SquadPlayerView[] = [];
+  marketPlayers: MarketPlayerView[] = [];
+  marketQuantity = 6;
+
+  existingMarketEntries: any[] = [];
+  negotiations: any[] = [];
+  bids: any[] = [];
+
+  rankingMode: 'total' | 'byMatchday' = 'total';
+  rankingRows: Array<{ participantName: string; points: number; }> = [];
+  matchdaysForTournament: any[] = [];
+  selectedMatchdayId: number | null = null;
+
+  private tournamentId: number | null = null;
+  private allParticipantSquads: any[] = [];
+  private allRealPlayers: any[] = [];
+  private allParticipantPoints: any[] = [];
+
+  constructor(
+    private readonly apiService: ApiService,
+    private readonly route: ActivatedRoute,
+    private readonly router: Router,
+  ) {}
+
+  ngOnInit(): void {
+    const paramId = Number(this.route.snapshot.queryParamMap.get('tournamentId'));
+
+    if (!Number.isFinite(paramId) || paramId <= 0) {
+      this.errorMessage = 'No se recibió un torneo válido.';
+      this.isLoading = false;
+      return;
+    }
+
+    this.tournamentId = paramId;
+    this.loadTournamentPage();
+  }
+
+  get selectedFormation(): string {
+    return this.formations[this.formationIndex] ?? this.formations[0];
+  }
+
+  get participantName(): string {
+    return localStorage.getItem('currentUsername') ?? 'Participante';
+  }
+
+  get tournamentCode(): string {
+    return this.tournament?.publicCode ?? 'Sin código';
+  }
+
+  updateFormationFromSlider(): void {
+    this.rebuildSquadFromFormation();
+  }
+
+  regenerateMarket(): void {
+    if (this.marketQuantity < 1) {
+      this.marketQuantity = 1;
+    }
+
+    const squadIds = new Set(this.squadPlayers.map((player) => player.id).filter((id): id is number => Number.isFinite(id)));
+
+    const candidates = this.allRealPlayers.filter((player) => {
+      const id = this.extractId(player);
+      return id !== null && !squadIds.has(id);
+    });
+
+    this.marketPlayers = this.pickRandom(candidates, this.marketQuantity).map((player) => ({
+      id: this.extractId(player) ?? undefined,
+      name: player.name ?? `Player ${this.extractId(player) ?? '?'}`,
+      position: player.position ?? 'midfielder',
+      teamName: player.realTeam?.name ?? 'Sin equipo',
+    }));
+  }
+
+  onRankingModeChange(): void {
+    this.rebuildRanking();
+  }
+
+  onMatchdayChange(): void {
+    this.rebuildRanking();
+  }
+
+  goBack(): void {
+    this.router.navigate(['/landingPage']);
+  }
+
+  private loadTournamentPage(): void {
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    forkJoin({
+      tournaments: this.apiService.searchTournaments(),
+      participants: this.apiService.searchParticipants(),
+      participantSquads: this.apiService.searchParticipantSquads(),
+      realPlayers: this.apiService.searchRealPlayers(),
+      matchdayMarkets: this.apiService.searchMatchdayMarkets(),
+      negotiations: this.apiService.searchNegotiations(),
+      bids: this.apiService.searchBids(),
+      matchdays: this.apiService.searchMatchdays(),
+      participantMatchdayPoints: this.apiService.searchParticipantMatchdayPoints(),
+    }).subscribe({
+      next: (response) => {
+        const currentUserId = Number(localStorage.getItem('currentUserId'));
+
+        this.tournament = response.tournaments.data.find((item: any) => this.extractId(item) === this.tournamentId) ?? null;
+        if (!this.tournament) {
+          this.errorMessage = 'No encontramos el torneo solicitado.';
+          this.isLoading = false;
+          return;
+        }
+
+        const tournamentParticipants = response.participants.data.filter((item: any) => this.extractId(item.tournament) === this.tournamentId);
+
+        this.participant = tournamentParticipants.find((item: any) => this.extractId(item.user) === currentUserId) ?? null;
+        if (!this.participant) {
+          this.errorMessage = 'No estás unido a este torneo.';
+          this.isLoading = false;
+          return;
+        }
+
+        this.rivals = tournamentParticipants.filter((item: any) => this.extractId(item) !== this.extractId(this.participant));
+
+        this.allParticipantSquads = response.participantSquads.data;
+        this.allRealPlayers = response.realPlayers.data;
+        this.allParticipantPoints = response.participantMatchdayPoints.data;
+
+        this.existingMarketEntries = response.matchdayMarkets.data.filter((item: any) => this.extractId(item.tournament) === this.tournamentId);
+        this.negotiations = response.negotiations.data.filter((item: any) => this.extractId(item.tournament) === this.tournamentId);
+
+        const participantId = this.extractId(this.participant);
+        this.bids = response.bids.data.filter((bid: any) => this.extractId(bid.participant) === participantId);
+
+        this.matchdaysForTournament = response.matchdays.data.filter(
+          (matchday: any) => this.extractId(matchday.league) === this.extractId(this.tournament.league)
+        );
+
+        this.selectedMatchdayId = this.matchdaysForTournament.length > 0
+          ? this.extractId(this.matchdaysForTournament[0])
+          : null;
+
+        this.rebuildSquadFromFormation();
+        this.regenerateMarket();
+        this.rebuildRanking();
+
+        this.isLoading = false;
+      },
+      error: (error) => {
+        this.errorMessage = error?.error?.message ?? 'No se pudo cargar el torneo.';
+        this.isLoading = false;
+      }
+    });
+  }
+
+  private rebuildSquadFromFormation(): void {
+    const participantId = this.extractId(this.participant);
+    if (!participantId) {
+      this.squadPlayers = [];
+      return;
+    }
+
+    const squadEntries = this.allParticipantSquads.filter((item) => this.extractId(item.participant) === participantId);
+    const realPlayers = squadEntries.map((entry) => entry.realPlayer).filter((player) => !!player && typeof player === 'object');
+
+    const grouped = {
+      goalkeeper: realPlayers.filter((player) => this.normalizePosition(player.position) === 'goalkeeper'),
+      defender: realPlayers.filter((player) => this.normalizePosition(player.position) === 'defender'),
+      midfielder: realPlayers.filter((player) => this.normalizePosition(player.position) === 'midfielder'),
+      forward: realPlayers.filter((player) => this.normalizePosition(player.position) === 'forward'),
+    };
+
+    const formationNeeded = this.parseFormation(this.selectedFormation);
+    const selected = [
+      ...this.pickRandom(grouped.goalkeeper, formationNeeded.goalkeeper),
+      ...this.pickRandom(grouped.defender, formationNeeded.defender),
+      ...this.pickRandom(grouped.midfielder, formationNeeded.midfielder),
+      ...this.pickRandom(grouped.forward, formationNeeded.forward),
+    ];
+
+    if (selected.length < 11) {
+      const selectedIds = new Set(selected.map((player) => this.extractId(player)).filter((id): id is number => id !== null));
+      const missing = this.pickRandom(
+        realPlayers.filter((player) => {
+          const id = this.extractId(player);
+          return id !== null && !selectedIds.has(id);
+        }),
+        11 - selected.length,
+      );
+      selected.push(...missing);
+    }
+
+    this.squadPlayers = selected.slice(0, 11).map((player) => ({
+      id: this.extractId(player) ?? undefined,
+      name: player.name ?? `Player ${this.extractId(player) ?? '?'}`,
+      position: this.normalizePosition(player.position),
+      teamName: player.realTeam?.name ?? 'Sin equipo',
+    }));
+  }
+
+  private rebuildRanking(): void {
+    const tournamentParticipants = [this.participant, ...this.rivals].filter(Boolean);
+
+    if (this.rankingMode === 'total') {
+      this.rankingRows = tournamentParticipants
+        .map((participant) => ({
+          participantName: this.resolveParticipantName(participant),
+          points: Number(participant?.totalScore ?? 0),
+        }))
+        .sort((a, b) => b.points - a.points);
+      return;
+    }
+
+    const selectedMatchdayId = this.selectedMatchdayId;
+
+    this.rankingRows = tournamentParticipants
+      .map((participant) => {
+        const participantId = this.extractId(participant);
+        const row = this.allParticipantPoints.find((points) =>
+          this.extractId(points.participant) === participantId && this.extractId(points.matchday) === selectedMatchdayId
+        );
+
+        return {
+          participantName: this.resolveParticipantName(participant),
+          points: Number(row?.matchdayPoints ?? 0),
+        };
+      })
+      .sort((a, b) => b.points - a.points);
+  }
+
+  private resolveParticipantName(participant: any): string {
+    if (participant?.user && typeof participant.user === 'object' && participant.user.username) {
+      return participant.user.username;
+    }
+
+    const participantId = this.extractId(participant);
+    const currentParticipantId = this.extractId(this.participant);
+    if (participantId !== null && currentParticipantId !== null && participantId === currentParticipantId) {
+      return this.participantName;
+    }
+
+    return `Participant #${participantId ?? '?'}`;
+  }
+
+  private parseFormation(formation: string): { goalkeeper: number; defender: number; midfielder: number; forward: number; } {
+    switch (formation) {
+      case '4-3-3':
+        return { goalkeeper: 1, defender: 4, midfielder: 3, forward: 3 };
+      case '3-4-3':
+        return { goalkeeper: 1, defender: 3, midfielder: 4, forward: 3 };
+      case '5-4-1':
+        return { goalkeeper: 1, defender: 5, midfielder: 4, forward: 1 };
+      case '4-4-2':
+      default:
+        return { goalkeeper: 1, defender: 4, midfielder: 4, forward: 2 };
+    }
+  }
+
+  private normalizePosition(positionRaw: unknown): string {
+    const position = String(positionRaw ?? '').toLowerCase();
+    if (position.includes('goal')) return 'goalkeeper';
+    if (position.includes('def')) return 'defender';
+    if (position.includes('mid')) return 'midfielder';
+    if (position.includes('for') || position.includes('att') || position.includes('strik')) return 'forward';
+    return 'midfielder';
+  }
+
+  private pickRandom<T>(values: T[], limit: number): T[] {
+    const clone = [...values];
+    const selected: T[] = [];
+
+    while (clone.length > 0 && selected.length < limit) {
+      const index = Math.floor(Math.random() * clone.length);
+      selected.push(clone[index]);
+      clone.splice(index, 1);
+    }
+
+    return selected;
+  }
+
+  private extractId(value: number | { id?: number } | undefined | null): number | null {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    if (value && typeof value === 'object' && typeof value.id === 'number') return value.id;
+    return null;
+  }
 }

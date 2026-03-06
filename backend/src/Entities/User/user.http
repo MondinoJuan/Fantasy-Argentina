@@ -11,7 +11,8 @@ Content-Type: application/json
 {
   "username": "juanpere1z",
   "password": "ClaveSegura123!",
-  "mail": "juan1.perez@example.com"
+  "mail": "juan1.perez@example.com",
+  "type": "SUPERADMIN"
 }
 
 ### actualizar un registro de User por id
@@ -21,7 +22,8 @@ Content-Type: application/json
 {
   "username": "nperez",
   "password": "ClaveSegura123!",
-  "mail": "juan.perez@example.com"
+  "mail": "juan.perez@example.com",
+  "type": "USER"
 }
 
 ### actualizar parcialmente un registro de User por id
@@ -34,3 +36,15 @@ Content-Type: application/json
 
 ### eliminar un registro de User por id
 DELETE http://127.0.0.1:3000/api/users/2
+
+
+### crear usuario SUPERADMIN (con type)
+POST http://127.0.0.1:3000/api/users
+Content-Type: application/json
+
+{
+  "username": "adminglobal",
+  "password": "ClaveSegura123!",
+  "mail": "admin@example.com",
+  "type": "SUPERADMIN"
+}

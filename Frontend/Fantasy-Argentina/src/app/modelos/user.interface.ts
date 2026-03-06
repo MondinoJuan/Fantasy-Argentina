@@ -4,4 +4,5 @@ export interface userI {
   mail: string;
   password: string;
   registrationDate: Date;
+  type?: "USER" | "SUPERADMIN";
 }

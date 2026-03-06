@@ -11,10 +11,15 @@ Content-Type: application/json
 {
   "name": "Liga Profesional",
   "leagueId": "1",
+  "sport": "Football",
+  "sportId": 1,
+  "competitionId": 72,
+  "creationDate": "2026-02-10T12:00:00.000Z",
   "initialBudget": 60000000,
-  "squadSize": 25,
+  "squadSize": 16,
   "status": "active",
-  "clauseEnableDate": "2026-02-20T12:00:00.000Z"
+  "clauseEnableDate": "2026-02-20T12:00:00.000Z",
+  "creatorUserId": 1
 }
 
 ### actualizar un registro de Tournament por id
@@ -42,3 +47,6 @@ Content-Type: application/json
 
 ### eliminar un registro de Tournament por id
 DELETE http://127.0.0.1:3000/api/tournaments/1
+
+
+### Nota: publicCode se genera automáticamente al crear torneo (único)

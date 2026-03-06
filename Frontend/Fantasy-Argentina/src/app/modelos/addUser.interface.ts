@@ -3,4 +3,5 @@ export interface addUserI {
   mail: string;
   password: string;
   registrationDate: Date;
+  type: "USER" | "SUPERADMIN";
 }
