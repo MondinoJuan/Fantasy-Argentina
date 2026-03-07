@@ -35,6 +35,9 @@ export class Tournament extends BaseEntity {
   @Property({ nullable: false, unique: true })
   publicCode!: string;
 
+  @Property({ nullable: false, unique: true })
+  publicCode!: string;
+
   @Property({ nullable: true })
   clauseEnableDate?: Date;
 
