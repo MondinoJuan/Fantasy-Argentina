@@ -1,10 +1,11 @@
+import { NegotiationStatus } from './domain-enums.types';
 export interface addNegotiationI {
   tournament: number;
   sellerParticipant: number;
   buyerParticipant: number;
   dependantPlayer: number;
   agreedAmount: number;
-  status: string;
+  status: NegotiationStatus;
   creationDate: Date;
   publicationDate?: Date;
   effectiveDate?: Date;

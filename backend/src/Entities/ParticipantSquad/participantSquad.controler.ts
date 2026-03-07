@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ParticipantSquad } from './participantSquad.entity.js';
 import { orm } from '../../shared/db/orm.js';
+import { SQUAD_ACQUISITION_TYPES, isEnumValue } from '../../shared/domain-enums.js';
 
 const em = orm.em;
 
@@ -48,6 +49,11 @@ async function findOne(req: Request, res: Response) {
 
 async function add(req: Request, res: Response) {
   try {
+    if (req.body.sanitizeParticipantSquadInput.acquisitionType !== undefined && !isEnumValue(SQUAD_ACQUISITION_TYPES, req.body.sanitizeParticipantSquadInput.acquisitionType)) {
+      res.status(400).json({ message: `acquisitionType must be one of: ${SQUAD_ACQUISITION_TYPES.join(', ')}` });
+      return;
+    }
+
     const item = em.create(ParticipantSquad, req.body.sanitizeParticipantSquadInput);
     await em.flush();
     res.status(201).json({ message: 'participant squad created', data: item });
@@ -58,6 +64,11 @@ async function add(req: Request, res: Response) {
 
 async function update(req: Request, res: Response) {
   try {
+    if (req.body.sanitizeParticipantSquadInput.acquisitionType !== undefined && !isEnumValue(SQUAD_ACQUISITION_TYPES, req.body.sanitizeParticipantSquadInput.acquisitionType)) {
+      res.status(400).json({ message: `acquisitionType must be one of: ${SQUAD_ACQUISITION_TYPES.join(', ')}` });
+      return;
+    }
+
     const id = parseId(req.params.id);
     const itemToUpdate = await em.getReference(ParticipantSquad, id);
     em.assign(itemToUpdate, req.body.sanitizeParticipantSquadInput);

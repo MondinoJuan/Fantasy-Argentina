@@ -1,8 +1,9 @@
+import { TransactionType } from './domain-enums.types';
 export interface addTransactionI {
   originParticipant?: number;
   destinationParticipant?: number;
   tournament: number;
-  type: string;
+  type: TransactionType;
   amount: number;
   referenceTable: string;
   referenceId: string;

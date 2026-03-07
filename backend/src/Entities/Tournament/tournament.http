@@ -31,7 +31,7 @@ Content-Type: application/json
   "leagueId": "1",
   "initialBudget": 60000100,
   "squadSize": 125,
-  "status": "active actualizado",
+  "status": "inactive",
   "clauseEnableDate": "2026-02-20T12:00:00.000Z"
 }
 
@@ -42,7 +42,7 @@ Content-Type: application/json
 {
   "name": "Liga Profesional actualizado",
   "leagueId": "1",
-  "status": "active actualizado"
+  "status": "inactive"
 }
 
 ### eliminar un registro de Tournament por id

@@ -7,6 +7,7 @@ import { finalize } from 'rxjs/operators';
 import { ApiService } from '../../servicios/api.service';
 import { LoadingSpinnerComponent } from '../../components/loading-spinner/loading-spinner.component';
 import { tournamentI } from '../../modelos/tournament.interface';
+import { TournamentStatus } from '../../modelos/domain-enums.types';
 
 @Component({
   selector: 'app-landing-page',
@@ -166,7 +167,7 @@ export class LandingPageComponent implements OnInit {
       creationDate,
       initialBudget: Number(formValue.initialBudget),
       squadSize: 16,
-      status: formValue.status,
+      status: formValue.status as TournamentStatus,
       clauseEnableDate,
       creatorUserId: userId,
     }).pipe(

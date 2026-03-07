@@ -16,7 +16,7 @@ Content-Type: application/json
   "homeTeam": "River Plate",
   "awayTeam": "Boca Juniors",
   "startDateTime": "2026-02-15T18:00:00.000Z",
-  "status": "active"
+  "status": "scheduled"
 }
 
 ### actualizar un registro de Match por id
@@ -32,7 +32,7 @@ Content-Type: application/json
   "homeTeam": "River Plate actualizado",
   "awayTeam": "Boca Juniors actualizado",
   "startDateTime": "2026-02-15T18:00:00.000Z",
-  "status": "active actualizado"
+  "status": "finalizado"
 }
 
 ### actualizar parcialmente un registro de Match por id
@@ -43,7 +43,7 @@ Content-Type: application/json
   "matchdayId": "1",
   "externalApiId": "1",
   "homeTeam": "River Plate actualizado",
-  "status": "active actualizado"
+  "status": "finalizado"
 }
 
 ### eliminar un registro de Match por id

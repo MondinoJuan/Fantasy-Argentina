@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { Negotiation } from './negotiation.entity.js';
 import { orm } from '../../shared/db/orm.js';
+import { NEGOTIATION_STATUSES, isEnumValue } from '../../shared/domain-enums.js';
 
 const em = orm.em;
 
@@ -51,6 +52,11 @@ async function findOne(req: Request, res: Response) {
 
 async function add(req: Request, res: Response) {
   try {
+    if (req.body.sanitizeNegotiationInput.status !== undefined && !isEnumValue(NEGOTIATION_STATUSES, req.body.sanitizeNegotiationInput.status)) {
+      res.status(400).json({ message: `status must be one of: ${NEGOTIATION_STATUSES.join(', ')}` });
+      return;
+    }
+
     const item = em.create(Negotiation, req.body.sanitizeNegotiationInput);
     await em.flush();
     res.status(201).json({ message: 'negotiation created', data: item });
@@ -61,6 +67,11 @@ async function add(req: Request, res: Response) {
 
 async function update(req: Request, res: Response) {
   try {
+    if (req.body.sanitizeNegotiationInput.status !== undefined && !isEnumValue(NEGOTIATION_STATUSES, req.body.sanitizeNegotiationInput.status)) {
+      res.status(400).json({ message: `status must be one of: ${NEGOTIATION_STATUSES.join(', ')}` });
+      return;
+    }
+
     const id = parseId(req.params.id);
     const itemToUpdate = await em.getReference(Negotiation, id);
     em.assign(itemToUpdate, req.body.sanitizeNegotiationInput);

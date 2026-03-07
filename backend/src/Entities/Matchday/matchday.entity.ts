@@ -6,6 +6,7 @@ import { MatchdayMarket } from '../MatchdayMarket/matchdayMarket.entity.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
 import { ParticipantMatchdayPoints } from '../ParticipantMatchdayPoints/participantMatchdayPoints.entity.js';
 import { PlayerPointsBreakdown } from '../PlayerPointsBreakdown/playerPointsBreakdown.entity.js';
+import { MatchdayStatus } from '../../shared/domain-enums.js';
 
 @Entity()
 @Unique({ properties: ['league', 'season', 'matchdayNumber'] })
@@ -26,7 +27,7 @@ export class Matchday extends BaseEntity {
   endDate!: Date;
 
   @Property({ nullable: false })
-  status!: string;
+  status!: MatchdayStatus;
 
   @OneToMany(() => Match, (match) => match.matchday, { cascade: [Cascade.ALL] })
   matches = new Collection<Match>(this);

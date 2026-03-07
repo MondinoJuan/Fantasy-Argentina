@@ -1,8 +1,9 @@
+import { PlayerPosition } from './domain-enums.types';
 export interface realPlayerI {
   id?: number;
   idEnApi: number;
   name: string;
-  position: string;
+  position: PlayerPosition;
   realTeam: number;
   active: boolean;
   lastUpdate: Date;

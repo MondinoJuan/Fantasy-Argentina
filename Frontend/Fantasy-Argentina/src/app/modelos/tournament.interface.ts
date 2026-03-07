@@ -1,3 +1,4 @@
+import { TournamentStatus } from './domain-enums.types';
 import { leagueI } from './league.interface';
 
 export interface tournamentI {
@@ -8,7 +9,7 @@ export interface tournamentI {
   creationDate: Date;
   initialBudget: number;
   squadSize: number;
-  status: string;
+  status: TournamentStatus;
   publicCode?: string;
   clauseEnableDate?: Date;
 }

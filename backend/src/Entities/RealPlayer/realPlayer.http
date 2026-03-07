@@ -11,7 +11,7 @@ Content-Type: application/json
 {
   "idEnApi": "1",
   "name": "Liga Profesional",
-  "position": "DEL",
+  "position": "forward",
   "realTeamId": "1",
   "active": true
 }
@@ -23,7 +23,7 @@ Content-Type: application/json
 {
   "idEnApi": "1",
   "name": "Liga Profesional actualizado",
-  "position": "DEL actualizado",
+  "position": "midfielder",
   "realTeamId": "1",
   "active": true
 }
@@ -35,7 +35,7 @@ Content-Type: application/json
 {
   "idEnApi": "1",
   "name": "Liga Profesional actualizado",
-  "position": "DEL actualizado",
+  "position": "midfielder",
 }
 
 ### eliminar un registro de RealPlayer por id

@@ -1,3 +1,4 @@
+import { TournamentStatus } from './domain-enums.types';
 export interface tournamentPatchI {
   id: number;
   name?: string;
@@ -6,6 +7,6 @@ export interface tournamentPatchI {
   creationDate?: Date;
   initialBudget?: number;
   squadSize?: number;
-  status?: string;
+  status?: TournamentStatus;
   clauseEnableDate?: Date;
 }

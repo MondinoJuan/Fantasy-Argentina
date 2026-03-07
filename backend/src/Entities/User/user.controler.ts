@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { User } from './user.entity.js';
 import { orm } from '../../shared/db/orm.js';
+import { USER_TYPES, isEnumValue } from '../../shared/domain-enums.js';
 
 const em = orm.em;
 
@@ -48,7 +49,7 @@ async function add(req: Request, res: Response) {
   try {
     const userInput = {
       ...req.body.sanitizeUserInput,
-      type: req.body.sanitizeUserInput.type === 'SUPERADMIN' ? 'SUPERADMIN' : 'USER',
+      type: isEnumValue(USER_TYPES, req.body.sanitizeUserInput.type) ? req.body.sanitizeUserInput.type : 'USER',
     };
 
     const item = em.create(User, userInput);
@@ -66,7 +67,7 @@ async function update(req: Request, res: Response) {
     const userInput = {
       ...req.body.sanitizeUserInput,
       ...(req.body.sanitizeUserInput.type !== undefined
-        ? { type: req.body.sanitizeUserInput.type === 'SUPERADMIN' ? 'SUPERADMIN' : 'USER' }
+        ? { type: isEnumValue(USER_TYPES, req.body.sanitizeUserInput.type) ? req.body.sanitizeUserInput.type : 'USER' }
         : {}),
     };
 

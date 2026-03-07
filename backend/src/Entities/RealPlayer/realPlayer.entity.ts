@@ -5,6 +5,7 @@ import { ParticipantSquad } from '../ParticipantSquad/participantSquad.entity.js
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
 import { PlayerPointsBreakdown } from '../PlayerPointsBreakdown/playerPointsBreakdown.entity.js';
 import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
+import { PlayerPosition } from '../../shared/domain-enums.js';
 
 @Entity()
 export class RealPlayer extends BaseEntity {
@@ -15,7 +16,7 @@ export class RealPlayer extends BaseEntity {
   name!: string;
 
   @Property({ nullable: false })
-  position!: string;
+  position!: PlayerPosition;
 
   @ManyToOne(() => RealTeam, { nullable: false, deleteRule: 'cascade' })
   realTeam!: Rel<RealTeam>;

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { MatchdayMarket } from './matchdayMarket.entity.js';
 import { orm } from '../../shared/db/orm.js';
+import { MARKET_ORIGINS, isEnumValue } from '../../shared/domain-enums.js';
 
 const em = orm.em;
 
@@ -48,6 +49,11 @@ async function findOne(req: Request, res: Response) {
 
 async function add(req: Request, res: Response) {
   try {
+    if (req.body.sanitizeMatchdayMarketInput.origin !== undefined && !isEnumValue(MARKET_ORIGINS, req.body.sanitizeMatchdayMarketInput.origin)) {
+      res.status(400).json({ message: `origin must be one of: ${MARKET_ORIGINS.join(', ')}` });
+      return;
+    }
+
     const item = em.create(MatchdayMarket, req.body.sanitizeMatchdayMarketInput);
     await em.flush();
     res.status(201).json({ message: 'matchday market created', data: item });
@@ -58,6 +64,11 @@ async function add(req: Request, res: Response) {
 
 async function update(req: Request, res: Response) {
   try {
+    if (req.body.sanitizeMatchdayMarketInput.origin !== undefined && !isEnumValue(MARKET_ORIGINS, req.body.sanitizeMatchdayMarketInput.origin)) {
+      res.status(400).json({ message: `origin must be one of: ${MARKET_ORIGINS.join(', ')}` });
+      return;
+    }
+
     const id = parseId(req.params.id);
     const itemToUpdate = await em.getReference(MatchdayMarket, id);
     em.assign(itemToUpdate, req.body.sanitizeMatchdayMarketInput);

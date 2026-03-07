@@ -7,6 +7,7 @@ import { PlayerClause } from '../PlayerClause/playerClause.entity.js';
 import { Transaction } from '../Transaction/transaction.entity.js';
 import { Negotiation } from '../Negotiation/negotiation.entity.js';
 import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
+import { TournamentStatus } from '../../shared/domain-enums.js';
 
 @Entity()
 export class Tournament extends BaseEntity {
@@ -29,7 +30,10 @@ export class Tournament extends BaseEntity {
   squadSize!: number;
 
   @Property({ nullable: false })
-  status!: string;
+  status!: TournamentStatus;
+
+  @Property({ nullable: false, unique: true })
+  publicCode!: string;
 
   @Property({ nullable: false, unique: true })
   publicCode!: string;

@@ -5,6 +5,7 @@ import { Matchday } from '../Matchday/matchday.entity.js';
 import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
 import { Participant } from '../Participant/participant.entity.js';
 import { Bid } from '../Bid/bid.entity.js';
+import { MarketOrigin } from '../../shared/domain-enums.js';
 
 @Entity()
 @Unique({ properties: ['tournament', 'matchday', 'dependantPlayer'] })
@@ -22,7 +23,7 @@ export class MatchdayMarket extends BaseEntity {
   minimumPrice!: number;
 
   @Property({ nullable: false })
-  origin!: string;
+  origin!: MarketOrigin;
 
   @ManyToOne(() => Participant, { nullable: true, deleteRule: 'cascade' })
   sellerParticipant?: Rel<Participant>;

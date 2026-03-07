@@ -3,6 +3,7 @@ import { RealPlayer } from './realPlayer.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { RealTeam } from '../RealTeam/realTeam.entity.js';
 import { getSportsApiProPlayersByTeamService } from '../ExternalApi/services/index.js';
+import { PLAYER_POSITIONS, isEnumValue } from '../../shared/domain-enums.js';
 
 const em = orm.em;
 
@@ -66,6 +67,11 @@ async function findOne(req: Request, res: Response) {
 
 async function add(req: Request, res: Response) {
   try {
+    if (req.body.sanitizeRealPlayerInput.position !== undefined && !isEnumValue(PLAYER_POSITIONS, req.body.sanitizeRealPlayerInput.position)) {
+      res.status(400).json({ message: `position must be one of: ${PLAYER_POSITIONS.join(', ')}` });
+      return;
+    }
+
     const item = em.create(RealPlayer, req.body.sanitizeRealPlayerInput);
     await em.flush();
     res.status(201).json({ message: 'real player created', data: item });
@@ -78,6 +84,12 @@ async function update(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
     const itemToUpdate = await em.getReference(RealPlayer, id);
+
+    if (req.body.sanitizeRealPlayerInput.position !== undefined && !isEnumValue(PLAYER_POSITIONS, req.body.sanitizeRealPlayerInput.position)) {
+      res.status(400).json({ message: `position must be one of: ${PLAYER_POSITIONS.join(', ')}` });
+      return;
+    }
+
     em.assign(itemToUpdate, req.body.sanitizeRealPlayerInput);
     await em.flush();
     res.status(200).json({ message: 'real player updated', data: itemToUpdate });
@@ -117,7 +129,7 @@ function extractPlayerRows(payload: any): any[] {
   return [];
 }
 
-function normalizePosition(positionRaw: unknown): string {
+function normalizePosition(positionRaw: unknown): "goalkeeper" | "defender" | "midfielder" | "forward" {
   const value = String(positionRaw ?? '').toLowerCase();
   if (value.includes('goal')) return 'goalkeeper';
   if (value.includes('def')) return 'defender';
