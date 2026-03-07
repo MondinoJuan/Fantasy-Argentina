@@ -24,7 +24,7 @@ Content-Type: application/json
   "matchdayMarketId": "1",
   "participantId": "1",
   "offeredAmount": 2500100,
-  "status": "active actualizado",
+  "status": "won",
   "cancellationDate": "2026-02-10T12:00:00.000Z"
 }
 
@@ -36,7 +36,7 @@ Content-Type: application/json
   "matchdayMarketId": "1",
   "participantId": "1",
   "offeredAmount": 2500100,
-  "status": "active actualizado"
+  "status": "won"
 }
 
 ### eliminar un registro de Bid por id

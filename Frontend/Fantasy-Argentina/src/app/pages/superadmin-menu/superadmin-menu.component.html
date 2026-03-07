@@ -1,1 +1,50 @@
-<p>superadmin-menu works!</p>
+<section class="superadmin-page">
+  <header>
+    <h1>Menú de Superadministrador</h1>
+    <button (click)="logout()">Cerrar sesión</button>
+  </header>
+
+  <div class="actions-grid">
+    <button (click)="openAction('persistPlayers')">Persistir jugadores</button>
+    <button (click)="openAction('persistTeams')">Persistir equipos</button>
+    <button (click)="openAction('persistSport')">Persistir deporte</button>
+    <button (click)="openAction('persistLeague')">Persistir liga</button>
+    <button (click)="openAction('persistFixture')">Persistir fixture</button>
+    <button (click)="openAction('rankingsByDate')">Recuperar rankings por jugador/fecha</button>
+    <button (click)="openAction('updateTeamSquad')">Actualizar plantilla de equipo</button>
+  </div>
+
+  @if (currentAction) {
+    <div class="modal-backdrop">
+      <div class="modal-card">
+        <h2>Configurar acción</h2>
+
+        <form [formGroup]="actionForm" (ngSubmit)="submitAction()">
+          <label>Sport ID <input type="number" formControlName="sportId"></label>
+          <label>Competition ID <input type="number" formControlName="competitionId"></label>
+          <label>League ID en API <input type="number" formControlName="leagueIdEnApi"></label>
+          <label>League idEnApi (alta liga) <input type="number" formControlName="idEnApi"></label>
+          <label>Descripción deporte <input type="text" formControlName="descripcion"></label>
+          <label>Cupo titular <input type="number" formControlName="cupoTitular"></label>
+          <label>Cupo suplente <input type="number" formControlName="cupoSuplente"></label>
+          <label>Team ID en API (traspasos) <input type="number" formControlName="teamIdEnApi"></label>
+
+          <div class="modal-actions">
+            <button type="button" class="secondary" (click)="closeModal()">Cancelar</button>
+            <button type="submit" [disabled]="isLoading">{{ isLoading ? 'Ejecutando...' : 'Ejecutar' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+  @if (successMessage) { <p class="success">{{ successMessage }}</p> }
+
+  @if (result) {
+    <section class="result-box">
+      <h3>Respuesta</h3>
+      <pre>{{ result | json }}</pre>
+    </section>
+  }
+</section>

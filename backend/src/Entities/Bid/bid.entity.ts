@@ -2,6 +2,7 @@ import { Entity, ManyToOne, Property, Unique, Rel } from '@mikro-orm/core';
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { MatchdayMarket } from '../MatchdayMarket/matchdayMarket.entity.js';
 import { Participant } from '../Participant/participant.entity.js';
+import { BidStatus } from '../../shared/domain-enums.js';
 
 @Entity()
 @Unique({ properties: ['matchdayMarket', 'participant', 'status'] })
@@ -16,7 +17,7 @@ export class Bid extends BaseEntity {
   offeredAmount!: number;
 
   @Property({ nullable: false })
-  status!: string;
+  status!: BidStatus;
 
   @Property({ nullable: false })
   bidDate: Date = new Date();

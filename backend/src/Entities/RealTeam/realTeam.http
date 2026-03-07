@@ -39,3 +39,12 @@ DELETE http://127.0.0.1:3000/api/real-teams/1
 
 ### buscar por idEnApi
 GET http://127.0.0.1:3000/api/real-teams/by-id-en-api/1
+
+
+### sincronizar equipos por leagueIdEnApi
+POST http://127.0.0.1:3000/api/real-teams/sync/by-league-id-en-api
+Content-Type: application/json
+
+{
+  "leagueIdEnApi": 72
+}

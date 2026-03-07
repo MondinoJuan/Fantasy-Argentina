@@ -3,6 +3,7 @@ import { BaseEntity } from '../../shared/db/base.entity.js';
 import { Tournament } from '../Tournament/tournament.entity.js';
 import { Participant } from '../Participant/participant.entity.js';
 import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
+import { NegotiationStatus } from '../../shared/domain-enums.js';
 
 @Entity()
 export class Negotiation extends BaseEntity {
@@ -22,7 +23,7 @@ export class Negotiation extends BaseEntity {
   agreedAmount!: number;
 
   @Property({ nullable: false })
-  status!: string;
+  status!: NegotiationStatus;
 
   @Property({ nullable: false })
   creationDate: Date = new Date();

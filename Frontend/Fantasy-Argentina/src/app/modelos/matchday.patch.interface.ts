@@ -1,3 +1,4 @@
+import { MatchdayStatus } from './domain-enums.types';
 export interface matchdayPatchI {
   id: number;
   league?: number;
@@ -5,5 +6,5 @@ export interface matchdayPatchI {
   matchdayNumber?: number;
   startDate?: Date;
   endDate?: Date;
-  status?: string;
+  status?: MatchdayStatus;
 }

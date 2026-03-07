@@ -11,7 +11,7 @@ Content-Type: application/json
 {
   "idEnApi": "1",
   "name": "Liga Profesional",
-  "position": "DEL",
+  "position": "forward",
   "realTeamId": "1",
   "active": true
 }
@@ -23,7 +23,7 @@ Content-Type: application/json
 {
   "idEnApi": "1",
   "name": "Liga Profesional actualizado",
-  "position": "DEL actualizado",
+  "position": "midfielder",
   "realTeamId": "1",
   "active": true
 }
@@ -35,7 +35,7 @@ Content-Type: application/json
 {
   "idEnApi": "1",
   "name": "Liga Profesional actualizado",
-  "position": "DEL actualizado",
+  "position": "midfielder",
 }
 
 ### eliminar un registro de RealPlayer por id
@@ -43,3 +43,20 @@ DELETE http://127.0.0.1:3000/api/real-players/1
 
 ### buscar por idEnApi
 GET http://127.0.0.1:3000/api/real-players/by-id-en-api/1
+
+
+### sincronizar jugadores por leagueIdEnApi
+POST http://127.0.0.1:3000/api/real-players/sync/by-league-id-en-api
+Content-Type: application/json
+
+{
+  "leagueIdEnApi": 72
+}
+
+### actualizar plantilla de un equipo por teamIdEnApi
+POST http://127.0.0.1:3000/api/real-players/sync/team-squad
+Content-Type: application/json
+
+{
+  "teamIdEnApi": 9050
+}

@@ -14,6 +14,7 @@ import { LoadingSpinnerComponent } from '../../components/loading-spinner/loadin
 })
 export class SignUpComponent {
   readonly signUpForm;
+  private readonly SUPERADMIN_CODE = 'SUPERADMIN-2026';
 
   isLoading = false;
   errorMessage = '';
@@ -27,7 +28,8 @@ export class SignUpComponent {
     this.signUpForm = this.fb.nonNullable.group({
       username: ['', [Validators.required, Validators.minLength(3)]],
       mail: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(4)]]
+      password: ['', [Validators.required, Validators.minLength(4)]],
+      superadminCode: ['']
     });
   }
 
@@ -41,9 +43,13 @@ export class SignUpComponent {
     }
 
     this.isLoading = true;
+    const formValue = this.signUpForm.getRawValue();
     const payload = {
-      ...this.signUpForm.getRawValue(),
-      registrationDate: new Date()
+      username: formValue.username,
+      mail: formValue.mail,
+      password: formValue.password,
+      registrationDate: new Date(),
+      type: formValue.superadminCode === this.SUPERADMIN_CODE ? 'SUPERADMIN' as const : 'USER' as const,
     };
 
     this.apiService.postUser(payload)

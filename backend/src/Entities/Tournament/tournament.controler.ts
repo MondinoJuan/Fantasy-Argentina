@@ -11,17 +11,39 @@ import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
 import { League } from '../League/league.entity.js';
 import { RealTeam } from '../RealTeam/realTeam.entity.js';
 import { Match } from '../Match/match.entity.js';
-import {
-  buildFixtureFromEventRefsService,
-  collectFixtureEventRefsFromTeamsService,
-  getCompetitionTeamsBySportAndCompetitionService,
-} from '../ExternalApi/services/index.js';
+import { getCompetitionTeamsBySportAndCompetitionService } from '../ExternalApi/services/index.js';
 import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
+import { TOURNAMENT_STATUSES, MATCHDAY_STATUSES, MATCH_STATUSES, MARKET_ORIGINS, SQUAD_ACQUISITION_TYPES, PLAYER_POSITIONS, isEnumValue } from '../../shared/domain-enums.js';
 
 const em = orm.em;
 const DEFAULT_FORMATION = '4-4-2';
 const POSTPONED_MATCHES_PATH = 'src/Entities/Tournament/data/postponedMatches.json';
+
+
+function generateTournamentPublicCodeCandidate(): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let token = '';
+
+  for (let index = 0; index < 8; index += 1) {
+    token += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+
+  return `T-${token}`;
+}
+
+async function generateUniqueTournamentPublicCode(): Promise<string> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const candidate = generateTournamentPublicCodeCandidate();
+    const existing = await em.findOne(Tournament, { publicCode: candidate });
+
+    if (!existing) {
+      return candidate;
+    }
+  }
+
+  throw new Error('could not generate unique tournament public code');
+}
 
 function parseId(idParam: string | string[] | undefined) {
   const rawId = Array.isArray(idParam) ? idParam[0] : idParam;
@@ -80,7 +102,7 @@ function normalizePosition(position: string): string {
   if (value.includes('def')) return 'defender';
   if (value.includes('mid')) return 'midfielder';
   if (value.includes('for') || value.includes('strik') || value.includes('att')) return 'forward';
-  return value;
+  return 'midfielder';
 }
 
 function pickRandom<T>(values: T[], limit: number): T[] {
@@ -291,7 +313,7 @@ async function persistFixtureAsMatchdaysAndMatches(
         matchdayNumber: index + 1,
         startDate,
         endDate,
-        status: 'scheduled',
+        status: MATCHDAY_STATUSES[0],
       } as any);
     }
 
@@ -309,7 +331,7 @@ async function persistFixtureAsMatchdaysAndMatches(
           homeTeam: String(asRecord(fixtureMatch.home).name ?? 'TBD'),
           awayTeam: String(asRecord(fixtureMatch.away).name ?? 'TBD'),
           startDateTime: new Date(String(fixtureMatch.startTime ?? `${group.key}T00:00:00.000Z`)),
-          status: String(fixtureMatch.statusText ?? 'scheduled'),
+          status: isEnumValue(MATCH_STATUSES, fixtureMatch.statusText) ? fixtureMatch.statusText : MATCH_STATUSES[0],
         } as any);
       }
 
@@ -352,7 +374,7 @@ async function bootstrapCreatorTeam(tournament: Tournament, creatorParticipant: 
     matchdayNumber: 1,
     startDate: new Date(),
     endDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
-    status: 'upcoming',
+    status: MATCHDAY_STATUSES[1],
   } as any);
   em.persist(firstMatchday);
 
@@ -383,7 +405,7 @@ async function bootstrapCreatorTeam(tournament: Tournament, creatorParticipant: 
       formation: DEFAULT_FORMATION,
       acquisitionDate: new Date(),
       purchasePrice: 0,
-      acquisitionType: 'initial_assignment',
+      acquisitionType: SQUAD_ACQUISITION_TYPES[0],
     } as any);
   }
 
@@ -416,7 +438,7 @@ async function bootstrapCreatorTeam(tournament: Tournament, creatorParticipant: 
       matchday: firstMatchday,
       dependantPlayer,
       minimumPrice: 100,
-      origin: 'system_initial_market',
+      origin: MARKET_ORIGINS[0],
       creationDate: new Date(),
     } as any);
   }
@@ -533,40 +555,35 @@ async function add(req: Request, res: Response) {
       return;
     }
 
-    const resolvedSportId = toInt(sportId);
-    const resolvedCompetitionId = toInt(competitionId ?? rawLeagueId);
-
-    if (resolvedSportId === null || resolvedCompetitionId === null) {
-      res.status(400).json({ message: 'sportId and competitionId (or leagueId) are required numbers' });
+    if (!isEnumValue(TOURNAMENT_STATUSES, tournamentInput.status)) {
+      res.status(400).json({ message: `status must be one of: ${TOURNAMENT_STATUSES.join(', ')}` });
       return;
     }
 
-    const { league, competitionData } = await ensureLeagueAndSportPersistence(
-      resolvedSportId,
-      resolvedCompetitionId,
-      tournamentInput.sport,
-    );
+    const localLeagueId = toInt(rawLeagueId);
+    const competitionLeagueIdEnApi = toInt(competitionId);
 
-    const fixtureRefs = await collectFixtureEventRefsFromTeamsService({
-      competitionId: resolvedCompetitionId,
-      seasonNum: competitionData.seasonNum ?? new Date().getUTCFullYear(),
-      stageNum: competitionData.stageNum ?? 1,
-      teams: competitionData.teams.map((team) => ({ id: team.id, name: team.name ?? undefined })),
-    });
+    let league = null;
 
-    const fixture = await buildFixtureFromEventRefsService(fixtureRefs.eventRefs);
-    const postponedMatches: UnknownRecord[] = [];
+    if (localLeagueId !== null) {
+      league = await em.findOne(League, { id: localLeagueId });
+    }
 
-    await persistFixtureAsMatchdaysAndMatches(
-      league,
-      asArray(fixture.fixture).map((item) => asRecord(item)),
-      competitionData.seasonNum ?? new Date().getUTCFullYear(),
-      postponedMatches,
-    );
+    if (!league && competitionLeagueIdEnApi !== null) {
+      league = await em.findOne(League, { idEnApi: competitionLeagueIdEnApi });
+    }
+
+    if (!league) {
+      res.status(400).json({ message: 'league must exist locally. Use superadmin sync first.' });
+      return;
+    }
+
+    const publicCode = await generateUniqueTournamentPublicCode();
 
     const item = em.create(Tournament, {
       ...tournamentInput,
       league,
+      publicCode,
     });
 
     const creatorParticipant = em.create(Participant, {
@@ -586,6 +603,8 @@ async function add(req: Request, res: Response) {
 
     await bootstrapCreatorTeam(item, creatorParticipant);
 
+    const postponedMatches: UnknownRecord[] = [];
+
     await em.flush();
 
     if (item.id) {
@@ -595,8 +614,6 @@ async function add(req: Request, res: Response) {
     res.status(201).json({
       message: 'tournament created',
       data: item,
-      fixtureStats: fixtureRefs.stats,
-      postponedMatches: postponedMatches.length,
     });
   } catch (error: any) {
     res.status(500).json({ message: error.message, sqlMessage: error?.sqlMessage, code: error?.code });
@@ -625,6 +642,12 @@ async function update(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
     const itemToUpdate = await em.getReference(Tournament, id);
+
+    if (req.body.sanitizeTournamentInput.status !== undefined && !isEnumValue(TOURNAMENT_STATUSES, req.body.sanitizeTournamentInput.status)) {
+      res.status(400).json({ message: `status must be one of: ${TOURNAMENT_STATUSES.join(', ')}` });
+      return;
+    }
+
     em.assign(itemToUpdate, req.body.sanitizeTournamentInput);
     await em.flush();
     res.status(200).json({ message: 'tournament updated', data: itemToUpdate });

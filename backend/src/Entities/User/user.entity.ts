@@ -1,6 +1,7 @@
 import { Cascade, Collection, Entity, OneToMany, Property } from '@mikro-orm/core';
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { Participant } from '../Participant/participant.entity.js';
+import { UserType } from '../../shared/domain-enums.js';
 
 @Entity()
 export class User extends BaseEntity {
@@ -15,6 +16,9 @@ export class User extends BaseEntity {
 
   @Property({ nullable: false })
   registrationDate: Date = new Date();
+
+  @Property({ nullable: false, default: 'USER' })
+  type: UserType = 'USER';
 
   @OneToMany(() => Participant, (participant) => participant.user, {
     cascade: [Cascade.ALL],

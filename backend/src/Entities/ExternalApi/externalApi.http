@@ -65,3 +65,16 @@ Content-Type: application/json
     "sleepMsBetweenRequests": 0
   }
 }
+
+
+### SportsApiPro - build fixture completo por competencia
+POST http://127.0.0.1:3000/api/external/sportsapipro/fixture/build-competition
+Content-Type: application/json
+
+{
+  "sportId": 1,
+  "competitionId": 72
+}
+
+### SportsApiPro - rankings mapeados a playerPerformance local
+GET http://127.0.0.1:3000/api/external/sportsapipro/rankings/player-performances?sportId=1&competitionId=72

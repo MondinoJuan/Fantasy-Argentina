@@ -2,12 +2,12 @@ import { Component, OnInit } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { forkJoin, of, throwError } from 'rxjs';
-import { catchError, finalize } from 'rxjs/operators';
-import { map, switchMap } from 'rxjs';
+import { forkJoin } from 'rxjs';
+import { finalize } from 'rxjs/operators';
 import { ApiService } from '../../servicios/api.service';
 import { LoadingSpinnerComponent } from '../../components/loading-spinner/loading-spinner.component';
 import { tournamentI } from '../../modelos/tournament.interface';
+import { TournamentStatus } from '../../modelos/domain-enums.types';
 
 @Component({
   selector: 'app-landing-page',
@@ -49,7 +49,7 @@ export class LandingPageComponent implements OnInit {
       return this.tournaments;
     }
 
-    return this.tournaments.filter((tournament) => tournament.name.toLowerCase().includes(value));
+    return this.tournaments.filter((tournament: any) => tournament.name.toLowerCase().includes(value));
   }
 
   constructor(
@@ -102,6 +102,7 @@ export class LandingPageComponent implements OnInit {
     this.closeMenu();
     localStorage.removeItem('currentUserId');
     localStorage.removeItem('currentUsername');
+    localStorage.removeItem('currentUserType');
     this.router.navigate(['/logIn']);
   }
 
@@ -125,10 +126,6 @@ export class LandingPageComponent implements OnInit {
     const creationDate = new Date();
     const clauseEnableDate = new Date(creationDate);
     clauseEnableDate.setDate(clauseEnableDate.getDate() + 14);
-
-    // API-EXTERNA: antes de crear el torneo garantizamos que exista la liga en BD local.
-    // Si la liga existe la busca en la base de datos local, si no existe la busca en la API externa con el endpoint y persiste los datos de la misma
-    // y de los equipos en la base de datos local.
 
     let idLeague_ExternalAPI = Number();
 
@@ -159,34 +156,24 @@ export class LandingPageComponent implements OnInit {
       return;
     }
 
-    // 1) Garantizar deporte local (si no existe por idEnApi, se crea).
-    // 2) Consultar endpoint externo de competition-teams para validar la competencia.
-    // 3) Crear torneo delegando al backend la persistencia de liga/equipos/jugadores y fixture.
     const selectedSport = this.sportOptions.find((sport) => sport.idEnApi === Number(formValue.sportIdEnApi));
 
-    this.ensureSportInLocalDb(formValue.sportIdEnApi).pipe(
-      switchMap(() => this.apiService.searchExternalCompetitionTeams(formValue.sportIdEnApi, idLeague_ExternalAPI)),
-      switchMap(() => this.apiService.postTournament({
-        name: formValue.name.trim(),
-        league: idLeague_ExternalAPI,
-        sport: selectedSport?.descripcion ?? 'Football',
-        sportId: Number(formValue.sportIdEnApi),
-        competitionId: idLeague_ExternalAPI,
-        creationDate,
-        initialBudget: Number(formValue.initialBudget),
-        squadSize: 16,
-        status: formValue.status,
-        clauseEnableDate,
-        creatorUserId: userId,
-      })),
+    this.apiService.postTournament({
+      name: formValue.name.trim(),
+      league: idLeague_ExternalAPI,
+      sport: selectedSport?.descripcion ?? 'Football',
+      sportId: Number(formValue.sportIdEnApi),
+      competitionId: idLeague_ExternalAPI,
+      creationDate,
+      initialBudget: Number(formValue.initialBudget),
+      squadSize: 16,
+      status: formValue.status as TournamentStatus,
+      clauseEnableDate,
+      creatorUserId: userId,
+    }).pipe(
       finalize(() => this.isCreating = false),
-      catchError((error) => {
-        const backendMessage = error?.error?.message;
-        this.errorMessage = backendMessage ?? error?.message ?? 'No pudimos crear el torneo.';
-        return throwError(() => error);
-      })
-    ).subscribe({
-      next: () => {
+        ).subscribe({
+      next: (response) => {
         this.showCreateForm = false;
         this.createTournamentForm.reset({
           name: '',
@@ -198,46 +185,26 @@ export class LandingPageComponent implements OnInit {
 
         // Debo recuperar de la base de datos los players que perteneceran al equipo del participant.
 
+        const createdTournamentId = response?.data?.id;
+        if (createdTournamentId) {
+          this.router.navigate(['/inside-tournament'], { queryParams: { tournamentId: createdTournamentId } });
+          return;
+        }
+
         this.loadTournaments(userId);
       },
-      error: () => {
-        // El mensaje ya se setea en catchError.
+      error: (error) => {
+        this.errorMessage = error?.error?.message ?? 'No pudimos crear el torneo.';
       }
     });
   }
 
-  private ensureSportInLocalDb(sportIdEnApi: number) {
-    const sportSeed = this.sportOptions.find((sport) => sport.idEnApi === Number(sportIdEnApi));
 
-    if (!sportSeed) {
-      return throwError(() => new Error('Deporte inválido. Elegí una opción del selector.'));
-    }
 
-    return this.apiService.searchSports().pipe(
-      map((sportsResponse) => sportsResponse.data.find((sport) => sport.idEnApi === sportSeed.idEnApi)),
-      switchMap((existingSport) => {
-        if (existingSport?.id) {
-          return of(existingSport.id);
-        }
-
-        return this.apiService.postSport({
-          idEnApi: sportSeed.idEnApi,
-          descripcion: sportSeed.descripcion,
-          cupoTitular: sportSeed.cupoTitular,
-          cupoSuplente: sportSeed.cupoSuplente,
-        }).pipe(
-          map((createResponse) => {
-            if (!createResponse.data?.id) {
-              throw new Error('No se pudo persistir el deporte seleccionado en la BD local.');
-            }
-
-            return createResponse.data.id;
-          })
-        );
-      })
-    );
+  openTournament(tournamentId?: number): void {
+    if (!tournamentId) return;
+    this.router.navigate(['/inside-tournament'], { queryParams: { tournamentId } });
   }
-
 
   private extractEntityId(value: number | { id?: number } | undefined | null): number | null {
     if (typeof value === 'number') {
@@ -263,15 +230,15 @@ export class LandingPageComponent implements OnInit {
       participants: this.apiService.searchParticipants(),
       tournaments: this.apiService.searchTournaments()
     }).pipe(finalize(() => this.isLoading = false)).subscribe({
-      next: ({ participants, tournaments }) => {
+      next: ({ participants, tournaments }: any) => {
         const joinedTournamentIds = new Set(
           participants.data
-            .filter((participant) => this.extractEntityId(participant.user) === userId)
-            .map((participant) => this.extractEntityId(participant.tournament))
-            .filter((tournamentId): tournamentId is number => tournamentId !== null)
+            .filter((participant: any) => this.extractEntityId(participant.user) === userId)
+            .map((participant: any) => this.extractEntityId(participant.tournament))
+            .filter((tournamentId: any): tournamentId is number => tournamentId !== null)
         );
 
-        this.tournaments = tournaments.data.filter((tournament) =>
+        this.tournaments = tournaments.data.filter((tournament: any) =>
           tournament.id ? joinedTournamentIds.has(tournament.id) : false
         );
       },

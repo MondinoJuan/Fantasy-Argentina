@@ -2,6 +2,7 @@ import { Entity, ManyToOne, Property, Rel } from '@mikro-orm/core';
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { Participant } from '../Participant/participant.entity.js';
 import { Tournament } from '../Tournament/tournament.entity.js';
+import { TransactionType } from '../../shared/domain-enums.js';
 
 @Entity()
 export class Transaction extends BaseEntity {
@@ -15,7 +16,7 @@ export class Transaction extends BaseEntity {
   tournament!: Rel<Tournament>;
 
   @Property({ nullable: false })
-  type!: string;
+  type!: TransactionType;
 
   @Property({ nullable: false })
   amount!: number;

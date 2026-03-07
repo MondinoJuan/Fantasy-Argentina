@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { Match } from './match.entity.js';
 import { orm } from '../../shared/db/orm.js';
+import { MATCH_STATUSES, isEnumValue } from '../../shared/domain-enums.js';
 
 const em = orm.em;
 
@@ -48,6 +49,11 @@ async function findOne(req: Request, res: Response) {
 
 async function add(req: Request, res: Response) {
   try {
+    if (req.body.sanitizeMatchInput.status !== undefined && !isEnumValue(MATCH_STATUSES, req.body.sanitizeMatchInput.status)) {
+      res.status(400).json({ message: `status must be one of: ${MATCH_STATUSES.join(', ')}` });
+      return;
+    }
+
     const item = em.create(Match, req.body.sanitizeMatchInput);
     await em.flush();
     res.status(201).json({ message: 'match created', data: item });
@@ -58,6 +64,11 @@ async function add(req: Request, res: Response) {
 
 async function update(req: Request, res: Response) {
   try {
+    if (req.body.sanitizeMatchInput.status !== undefined && !isEnumValue(MATCH_STATUSES, req.body.sanitizeMatchInput.status)) {
+      res.status(400).json({ message: `status must be one of: ${MATCH_STATUSES.join(', ')}` });
+      return;
+    }
+
     const id = parseId(req.params.id);
     const itemToUpdate = await em.getReference(Match, id);
     em.assign(itemToUpdate, req.body.sanitizeMatchInput);

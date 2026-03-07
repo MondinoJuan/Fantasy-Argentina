@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { Transaction } from './transaction.entity.js';
 import { orm } from '../../shared/db/orm.js';
+import { TRANSACTION_TYPES, isEnumValue } from '../../shared/domain-enums.js';
 
 const em = orm.em;
 
@@ -51,6 +52,11 @@ async function findOne(req: Request, res: Response) {
 
 async function add(req: Request, res: Response) {
   try {
+    if (req.body.sanitizeTransactionInput.type !== undefined && !isEnumValue(TRANSACTION_TYPES, req.body.sanitizeTransactionInput.type)) {
+      res.status(400).json({ message: `type must be one of: ${TRANSACTION_TYPES.join(', ')}` });
+      return;
+    }
+
     const item = em.create(Transaction, req.body.sanitizeTransactionInput);
     await em.flush();
     res.status(201).json({ message: 'transaction created', data: item });
@@ -61,6 +67,11 @@ async function add(req: Request, res: Response) {
 
 async function update(req: Request, res: Response) {
   try {
+    if (req.body.sanitizeTransactionInput.type !== undefined && !isEnumValue(TRANSACTION_TYPES, req.body.sanitizeTransactionInput.type)) {
+      res.status(400).json({ message: `type must be one of: ${TRANSACTION_TYPES.join(', ')}` });
+      return;
+    }
+
     const id = parseId(req.params.id);
     const itemToUpdate = await em.getReference(Transaction, id);
     em.assign(itemToUpdate, req.body.sanitizeTransactionInput);

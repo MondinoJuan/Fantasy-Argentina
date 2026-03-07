@@ -1,6 +1,7 @@
 import { Entity, ManyToOne, Property, Unique, Rel } from '@mikro-orm/core';
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { Matchday } from '../Matchday/matchday.entity.js';
+import { MatchStatus } from '../../shared/domain-enums.js';
 
 @Entity()
 @Unique({ properties: ['externalApiId'] })
@@ -21,5 +22,5 @@ export class Match extends BaseEntity {
   startDateTime!: Date;
 
   @Property({ nullable: false })
-  status!: string;
+  status!: MatchStatus;
 }

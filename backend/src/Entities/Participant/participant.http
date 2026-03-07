@@ -42,3 +42,12 @@ Content-Type: application/json
 
 ### eliminar un registro de Participant por id
 DELETE http://127.0.0.1:3000/api/participants/1
+
+### unirse a torneo por codigo
+POST http://127.0.0.1:3000/api/participants/join-by-code
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "tournamentCode": "T-ABCDEFGH"
+}

@@ -14,7 +14,7 @@ Content-Type: application/json
   "matchdayNumber": 3,
   "startDate": "2026-02-15T18:00:00.000Z",
   "endDate": "2026-02-15T20:00:00.000Z",
-  "status": "active"
+  "status": "scheduled"
 }
 
 ### actualizar un registro de Matchday por id
@@ -27,7 +27,7 @@ Content-Type: application/json
   "matchdayNumber": 103,
   "startDate": "2026-02-15T18:00:00.000Z",
   "endDate": "2026-02-15T20:00:00.000Z",
-  "status": "active actualizado"
+  "status": "completed"
 }
 
 ### actualizar parcialmente un registro de Matchday por id
@@ -38,7 +38,7 @@ Content-Type: application/json
   "leagueId": "1",
   "season": "2025/2026 actualizado",
   "matchdayNumber": 103,
-  "status": "active actualizado"
+  "status": "completed"
 }
 
 ### eliminar un registro de Matchday por id

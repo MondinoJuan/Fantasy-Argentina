@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { User } from './user.entity.js';
 import { orm } from '../../shared/db/orm.js';
+import { USER_TYPES, isEnumValue } from '../../shared/domain-enums.js';
 
 const em = orm.em;
 
@@ -14,6 +15,7 @@ function sanitizeUserInput(req: Request, res: Response, next: NextFunction) {
         username: req.body.username,
         password: req.body.password,
         mail: req.body.mail,
+        type: req.body.type,
     };
 
   Object.keys(req.body.sanitizeUserInput).forEach((key) => {
@@ -45,7 +47,12 @@ async function findOne(req: Request, res: Response) {
 
 async function add(req: Request, res: Response) {
   try {
-    const item = em.create(User, req.body.sanitizeUserInput);
+    const userInput = {
+      ...req.body.sanitizeUserInput,
+      type: isEnumValue(USER_TYPES, req.body.sanitizeUserInput.type) ? req.body.sanitizeUserInput.type : 'USER',
+    };
+
+    const item = em.create(User, userInput);
     await em.flush();
     res.status(201).json({ message: 'user created', data: item });
   } catch (error: any) {
@@ -57,7 +64,14 @@ async function update(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
     const itemToUpdate = await em.getReference(User, id);
-    em.assign(itemToUpdate, req.body.sanitizeUserInput);
+    const userInput = {
+      ...req.body.sanitizeUserInput,
+      ...(req.body.sanitizeUserInput.type !== undefined
+        ? { type: isEnumValue(USER_TYPES, req.body.sanitizeUserInput.type) ? req.body.sanitizeUserInput.type : 'USER' }
+        : {}),
+    };
+
+    em.assign(itemToUpdate, userInput);
     await em.flush();
     res.status(200).json({ message: 'user updated', data: itemToUpdate });
   } catch (error: any) {

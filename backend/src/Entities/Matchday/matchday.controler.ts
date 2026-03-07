@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { Matchday } from './matchday.entity.js';
 import { orm } from '../../shared/db/orm.js';
+import { MATCHDAY_STATUSES, isEnumValue } from '../../shared/domain-enums.js';
 
 const em = orm.em;
 
@@ -48,6 +49,11 @@ async function findOne(req: Request, res: Response) {
 
 async function add(req: Request, res: Response) {
   try {
+    if (req.body.sanitizeMatchdayInput.status !== undefined && !isEnumValue(MATCHDAY_STATUSES, req.body.sanitizeMatchdayInput.status)) {
+      res.status(400).json({ message: `status must be one of: ${MATCHDAY_STATUSES.join(', ')}` });
+      return;
+    }
+
     const item = em.create(Matchday, req.body.sanitizeMatchdayInput);
     await em.flush();
     res.status(201).json({ message: 'matchday created', data: item });
@@ -58,6 +64,11 @@ async function add(req: Request, res: Response) {
 
 async function update(req: Request, res: Response) {
   try {
+    if (req.body.sanitizeMatchdayInput.status !== undefined && !isEnumValue(MATCHDAY_STATUSES, req.body.sanitizeMatchdayInput.status)) {
+      res.status(400).json({ message: `status must be one of: ${MATCHDAY_STATUSES.join(', ')}` });
+      return;
+    }
+
     const id = parseId(req.params.id);
     const itemToUpdate = await em.getReference(Matchday, id);
     em.assign(itemToUpdate, req.body.sanitizeMatchdayInput);

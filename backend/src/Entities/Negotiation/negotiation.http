@@ -30,7 +30,7 @@ Content-Type: application/json
   "buyerParticipantId": "1",
   "dependantPlayerId": "1",
   "agreedAmount": 3200100,
-  "status": "active actualizado",
+  "status": "accepted",
   "publicationDate": "2026-02-10T12:00:00.000Z",
   "effectiveDate": "2026-02-11T12:00:00.000Z",
   "rejectionDate": "2026-02-20T12:00:00.000Z"
@@ -44,7 +44,7 @@ Content-Type: application/json
   "tournamentId": "1",
   "sellerParticipantId": "1",
   "buyerParticipantId": "1",
-  "status": "active actualizado"
+  "status": "accepted"
 }
 
 ### eliminar un registro de Negotiation por id
