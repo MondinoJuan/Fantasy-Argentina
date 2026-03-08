@@ -14,6 +14,50 @@ type SuperadminAction =
   | 'rankingsByDate'
   | 'updateTeamSquad';
 
+type ActionField = 'sportId' | 'competitionId' | 'leagueIdEnApi' | 'idEnApi' | 'descripcion' | 'cupoTitular' | 'cupoSuplente' | 'teamIdEnApi';
+
+const FIELD_LABELS: Record<ActionField, string> = {
+  sportId: 'Sport ID',
+  competitionId: 'Competition ID',
+  leagueIdEnApi: 'League ID en API',
+  idEnApi: 'League idEnApi (alta liga)',
+  descripcion: 'Descripción deporte',
+  cupoTitular: 'Cupo titular',
+  cupoSuplente: 'Cupo suplente',
+  teamIdEnApi: 'Team ID en API',
+};
+
+const ACTION_CONFIG: Record<SuperadminAction, { title: string; fields: ActionField[] }> = {
+  persistPlayers: {
+    title: 'Persistir jugadores',
+    fields: ['leagueIdEnApi'],
+  },
+  persistTeams: {
+    title: 'Persistir equipos',
+    fields: ['leagueIdEnApi'],
+  },
+  persistSport: {
+    title: 'Persistir deporte',
+    fields: ['sportId', 'descripcion', 'cupoTitular', 'cupoSuplente'],
+  },
+  persistLeague: {
+    title: 'Persistir liga',
+    fields: ['sportId', 'idEnApi'],
+  },
+  persistFixture: {
+    title: 'Persistir fixture',
+    fields: ['sportId', 'competitionId'],
+  },
+  rankingsByDate: {
+    title: 'Recuperar rankings por jugador/fecha',
+    fields: ['sportId', 'competitionId'],
+  },
+  updateTeamSquad: {
+    title: 'Actualizar plantilla de equipo',
+    fields: ['teamIdEnApi'],
+  },
+};
+
 @Component({
   selector: 'app-superadmin-menu',
   standalone: true,
@@ -28,6 +72,8 @@ export class SuperadminMenuComponent {
   errorMessage = '';
   successMessage = '';
   result: any = null;
+  readonly actionConfig = ACTION_CONFIG;
+  readonly fieldLabels = FIELD_LABELS;
 
   constructor(
     private readonly fb: FormBuilder,
@@ -51,6 +97,16 @@ export class SuperadminMenuComponent {
     this.errorMessage = '';
     this.successMessage = '';
     this.result = null;
+  }
+
+  get currentActionTitle(): string {
+    if (!this.currentAction) return 'Configurar acción';
+    return this.actionConfig[this.currentAction].title;
+  }
+
+  get currentFields(): ActionField[] {
+    if (!this.currentAction) return [];
+    return this.actionConfig[this.currentAction].fields;
   }
 
   closeModal(): void {

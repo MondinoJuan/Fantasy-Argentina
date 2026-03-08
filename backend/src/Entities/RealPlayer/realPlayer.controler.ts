@@ -12,6 +12,11 @@ function parseId(idParam: string | string[] | undefined) {
   return Number.parseInt(rawId ?? '', 10);
 }
 
+function parseOptionalBodyNumber(value: unknown): number | null {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function sanitizeRealPlayerInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeRealPlayerInput = {
         idEnApi: req.body.idEnApi,
@@ -131,11 +136,36 @@ function extractPlayerRows(payload: any): any[] {
 
 function normalizePosition(positionRaw: unknown): "goalkeeper" | "defender" | "midfielder" | "forward" {
   const value = String(positionRaw ?? '').toLowerCase();
-  if (value.includes('goal')) return 'goalkeeper';
-  if (value.includes('def')) return 'defender';
+  if (value.includes('goal') || value.includes('keeper') || value.includes('gk')) return 'goalkeeper';
+  if (value.includes('def') || value.includes('back')) return 'defender';
   if (value.includes('mid')) return 'midfielder';
-  if (value.includes('for') || value.includes('att') || value.includes('strik')) return 'forward';
+  if (value.includes('for') || value.includes('att') || value.includes('strik') || value.includes('wing')) return 'forward';
   return 'midfielder';
+}
+
+function readAthleteId(row: any): number | null {
+  const athleteId = Number.parseInt(String(
+    row?.athleteId
+      ?? row?.athlete_id
+      ?? row?.player_id
+      ?? row?.playerId
+      ?? row?.player_key
+      ?? row?.id
+      ?? '',
+  ), 10);
+
+  return Number.isFinite(athleteId) ? athleteId : null;
+}
+
+function readPlayerName(row: any, athleteId: number): string {
+  return String(
+    row?.player_name
+      ?? row?.playerName
+      ?? row?.name
+      ?? row?.athleteName
+      ?? row?.athlete_name
+      ?? `Player ${athleteId}`,
+  ).trim();
 }
 
 async function syncPlayersForTeam(team: RealTeam) {
@@ -145,11 +175,13 @@ async function syncPlayersForTeam(team: RealTeam) {
   let updated = 0;
 
   for (const row of rows) {
-    const idEnApi = Number.parseInt(String(row?.player_id ?? row?.athleteId ?? row?.id ?? ''), 10);
-    if (!Number.isFinite(idEnApi)) continue;
+    const athleteId = readAthleteId(row);
+    if (athleteId === null) continue;
 
-    const name = String(row?.player_name ?? row?.name ?? row?.athleteName ?? `Player ${idEnApi}`);
-    const position = normalizePosition(row?.position ?? row?.position_name ?? row?.positionText);
+    const idEnApi = athleteId;
+
+    const name = readPlayerName(row, athleteId);
+    const position = normalizePosition(row?.position ?? row?.position_name ?? row?.positionText ?? row?.player_type);
 
     const existing = await em.findOne(RealPlayer, { idEnApi });
     if (existing) {
@@ -166,7 +198,27 @@ async function syncPlayersForTeam(team: RealTeam) {
     created += 1;
   }
 
-  return { rows: rows.length, created, updated };
+  return { rows: rows.length, created, updated, teamIdEnApi: team.idEnApi, teamName: team.name };
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let index = 0;
+
+  const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    while (index < items.length) {
+      const current = index;
+      index += 1;
+      out[current] = await mapper(items[current]);
+    }
+  });
+
+  await Promise.all(workers);
+  return out;
 }
 
 async function syncTeamSquadByTeamIdEnApi(req: Request, res: Response) {
@@ -179,7 +231,12 @@ async function syncTeamSquadByTeamIdEnApi(req: Request, res: Response) {
 
     const team = await em.findOne(RealTeam, { idEnApi: teamIdEnApi });
     if (!team) {
-      res.status(404).json({ message: 'real team not found locally' });
+      const sampleTeams = await em.find(RealTeam, {}, { fields: ['idEnApi', 'name'], limit: 15, orderBy: { id: 'asc' } as any });
+      res.status(404).json({
+        message: 'real team not found locally',
+        hint: 'Verificá que el Team ID en API sea correcto y que el equipo esté sincronizado localmente.',
+        sampleLocalTeams: sampleTeams.map((item: any) => ({ idEnApi: item.idEnApi, name: item.name })),
+      });
       return;
     }
 
@@ -193,31 +250,43 @@ async function syncTeamSquadByTeamIdEnApi(req: Request, res: Response) {
 
 async function syncByLeagueIdEnApi(req: Request, res: Response) {
   try {
-    const leagueIdEnApi = Number.parseInt(String(req.body?.leagueIdEnApi ?? ''), 10);
-    if (!Number.isFinite(leagueIdEnApi)) {
-      res.status(400).json({ message: 'leagueIdEnApi is required number' });
+    const leagueId = parseOptionalBodyNumber(req.body?.leagueId);
+    const leagueIdEnApi = parseOptionalBodyNumber(req.body?.leagueIdEnApi);
+
+    if (leagueId === null && leagueIdEnApi === null) {
+      res.status(400).json({ message: 'leagueId or leagueIdEnApi is required number' });
       return;
     }
 
-    const teams = await em.find(RealTeam, { league: { idEnApi: leagueIdEnApi } });
+    const whereClause = leagueId !== null ? { league: { id: leagueId } } : { league: { idEnApi: leagueIdEnApi! } };
+    const teams = await em.find(RealTeam, whereClause as any, { populate: ['league'] });
+
     if (teams.length === 0) {
-      res.status(404).json({ message: 'no local teams found for league. Sync teams first.' });
+      res.status(404).json({
+        message: 'no local teams found for league. Sync teams first.',
+        filters: { leagueId, leagueIdEnApi },
+      });
       return;
     }
 
-    let rows = 0;
-    let created = 0;
-    let updated = 0;
-
-    for (const team of teams) {
-      const teamStats = await syncPlayersForTeam(team);
-      rows += teamStats.rows;
-      created += teamStats.created;
-      updated += teamStats.updated;
-    }
+    const perTeamStats = await mapWithConcurrency(teams, 6, async (team) => syncPlayersForTeam(team));
+    const rows = perTeamStats.reduce((acc, item) => acc + item.rows, 0);
+    const created = perTeamStats.reduce((acc, item) => acc + item.created, 0);
+    const updated = perTeamStats.reduce((acc, item) => acc + item.updated, 0);
 
     await em.flush();
-    res.status(200).json({ message: 'real players synced by league', data: { teams: teams.length, rows, created, updated } });
+    res.status(200).json({
+      message: 'real players synced by league',
+      data: {
+        leagueId,
+        leagueIdEnApi,
+        teams: teams.length,
+        rows,
+        created,
+        updated,
+        teamsProcessed: perTeamStats,
+      },
+    });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }

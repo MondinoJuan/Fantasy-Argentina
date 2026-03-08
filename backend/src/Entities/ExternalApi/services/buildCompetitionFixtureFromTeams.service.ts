@@ -85,6 +85,26 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let index = 0;
+
+  const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    while (index < items.length) {
+      const current = index;
+      index += 1;
+      out[current] = await mapper(items[current], current);
+    }
+  });
+
+  await Promise.all(workers);
+  return out;
+}
+
 function getNewCursors(
   payload: UnknownRecord,
   endpoint: 'fixtures' | 'results',
@@ -272,8 +292,8 @@ export async function collectFixtureEventRefsFromTeamsService(
 ) {
   getSportsApiProApiKeys();
 
-  const maxPagesPerTeam = options.maxPagesPerTeam ?? 80;
-  const sleepMsBetweenRequests = options.sleepMsBetweenRequests ?? 200;
+  const maxPagesPerTeam = options.maxPagesPerTeam ?? 40;
+  const sleepMsBetweenRequests = options.sleepMsBetweenRequests ?? 0;
 
   const teamIds = [...new Set(config.teams.map((team) => team.id))];
   const expectedPerTeam = Math.max(1, teamIds.length - 1);
@@ -333,14 +353,15 @@ export async function buildFixtureFromEventRefsService(
   eventRefs: FixtureEventRef[],
   options: {
     sleepMsBetweenRequests?: number;
+    concurrency?: number;
   } = {},
 ) {
   getSportsApiProApiKeys();
 
   const sleepMsBetweenRequests = options.sleepMsBetweenRequests ?? 0;
-  const fixture = [] as UnknownRecord[];
+  const concurrency = options.concurrency ?? 8;
 
-  for (const eventRef of eventRefs) {
+  const fixture = await mapWithConcurrency(eventRefs, concurrency, async (eventRef) => {
     const matchupId = matchupIdFromEventRef(eventRef);
 
     if (sleepMsBetweenRequests > 0) {
@@ -359,7 +380,7 @@ export async function buildFixtureFromEventRefsService(
     const homeScore = toInt(home.score);
     const awayScore = toInt(away.score);
 
-    fixture.push({
+    return {
       gameId: eventRef.gameId,
       matchupId,
       competitionId: eventRef.competitionId,
@@ -381,8 +402,14 @@ export async function buildFixtureFromEventRefsService(
       },
       result: homeScore !== null && awayScore !== null ? `${homeScore}-${awayScore}` : null,
       source: eventRef.source,
-    });
-  }
+    };
+  });
+
+  fixture.sort((a, b) => {
+    const ta = typeof a.startTime === 'string' ? new Date(a.startTime).getTime() : 0;
+    const tb = typeof b.startTime === 'string' ? new Date(b.startTime).getTime() : 0;
+    return ta - tb;
+  });
 
   return {
     totalEvents: fixture.length,
