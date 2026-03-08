@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { RealPlayer } from './realPlayer.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { RealTeam } from '../RealTeam/realTeam.entity.js';
-import { getSportsApiProPlayersByTeamService } from '../ExternalApi/services/index.js';
+import { getSportsApiProSquadByTeamService } from '../ExternalApi/services/index.js';
 import { PLAYER_POSITIONS, isEnumValue } from '../../shared/domain-enums.js';
 
 const em = orm.em;
@@ -117,21 +117,54 @@ async function remove(req: Request, res: Response) {
 
 
 
-function extractPlayerRows(payload: any): any[] {
-  if (Array.isArray(payload)) return payload;
-  if (!payload || typeof payload !== 'object') return [];
+type UnknownRecord = Record<string, unknown>;
 
-  const keys = ['result', 'data', 'players', 'athletes', 'response'];
-  for (const key of keys) {
-    if (Array.isArray((payload as any)[key])) return (payload as any)[key];
+function asRecord(value: unknown): UnknownRecord {
+  return value && typeof value === 'object' ? (value as UnknownRecord) : {};
+}
+
+function toInt(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number.parseInt(value.trim(), 10);
+    return Number.isFinite(parsed) ? parsed : null;
   }
 
-  for (const value of Object.values(payload)) {
-    const nested = extractPlayerRows(value);
-    if (nested.length) return nested;
-  }
+  return null;
+}
 
-  return [];
+function extractSquadMembers(payload: unknown): UnknownRecord[] {
+  const members: UnknownRecord[] = [];
+
+  const visit = (node: unknown) => {
+    if (Array.isArray(node)) {
+      node.forEach(visit);
+      return;
+    }
+
+    if (!node || typeof node !== 'object') return;
+
+    const record = node as UnknownRecord;
+    const athleteId = toInt(record.id ?? record.athleteId ?? record.playerId);
+    const clubId = toInt(record.clubId ?? record.competitorId ?? asRecord(record.club).id);
+    const hasPosition = typeof asRecord(record.position).name === 'string' || typeof record.position === 'string';
+
+    if (
+      athleteId !== null
+      && clubId !== null
+      && typeof record.name === 'string'
+      && record.name.trim().length > 0
+      && hasPosition
+    ) {
+      members.push(record);
+    }
+
+    for (const child of Object.values(record)) visit(child);
+  };
+
+  visit(payload);
+  return members;
 }
 
 function normalizePosition(positionRaw: unknown): "goalkeeper" | "defender" | "midfielder" | "forward" {
@@ -143,34 +176,17 @@ function normalizePosition(positionRaw: unknown): "goalkeeper" | "defender" | "m
   return 'midfielder';
 }
 
-function readAthleteId(row: any): number | null {
-  const athleteId = Number.parseInt(String(
-    row?.athleteId
-      ?? row?.athlete_id
-      ?? row?.player_id
-      ?? row?.playerId
-      ?? row?.player_key
-      ?? row?.id
-      ?? '',
-  ), 10);
-
-  return Number.isFinite(athleteId) ? athleteId : null;
+function readAthleteId(row: UnknownRecord): number | null {
+  return toInt(row.id ?? row.athleteId ?? row.playerId ?? row.player_id ?? row.athlete_id ?? row.player_key);
 }
 
-function readPlayerName(row: any, athleteId: number): string {
-  return String(
-    row?.player_name
-      ?? row?.playerName
-      ?? row?.name
-      ?? row?.athleteName
-      ?? row?.athlete_name
-      ?? `Player ${athleteId}`,
-  ).trim();
+function readPlayerName(row: UnknownRecord, athleteId: number): string {
+  return String(row.name ?? row.player_name ?? row.playerName ?? row.athleteName ?? row.athlete_name ?? `Player ${athleteId}`).trim();
 }
 
 async function syncPlayersForTeam(team: RealTeam) {
-  const payload = await getSportsApiProPlayersByTeamService(team.idEnApi);
-  const rows = extractPlayerRows(payload);
+  const payload = await getSportsApiProSquadByTeamService(team.idEnApi);
+  const rows = extractSquadMembers(payload);
   let created = 0;
   let updated = 0;
 
@@ -181,7 +197,8 @@ async function syncPlayersForTeam(team: RealTeam) {
     const idEnApi = athleteId;
 
     const name = readPlayerName(row, athleteId);
-    const position = normalizePosition(row?.position ?? row?.position_name ?? row?.positionText ?? row?.player_type);
+    const positionRecord = asRecord(row.position);
+    const position = normalizePosition(positionRecord.name ?? row.position_name ?? row.positionText ?? row.player_type);
 
     const existing = await em.findOne(RealPlayer, { idEnApi });
     if (existing) {

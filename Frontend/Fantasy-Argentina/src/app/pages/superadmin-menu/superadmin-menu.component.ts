@@ -14,11 +14,12 @@ type SuperadminAction =
   | 'rankingsByDate'
   | 'updateTeamSquad';
 
-type ActionField = 'sportId' | 'competitionId' | 'leagueIdEnApi' | 'idEnApi' | 'descripcion' | 'cupoTitular' | 'cupoSuplente' | 'teamIdEnApi';
+type ActionField = 'sportId' | 'competitionId' | 'leagueId' | 'leagueIdEnApi' | 'idEnApi' | 'descripcion' | 'cupoTitular' | 'cupoSuplente' | 'teamIdEnApi';
 
 const FIELD_LABELS: Record<ActionField, string> = {
   sportId: 'Sport ID',
   competitionId: 'Competition ID',
+  leagueId: 'League ID local (BDD)',
   leagueIdEnApi: 'League ID en API',
   idEnApi: 'League idEnApi (alta liga)',
   descripcion: 'Descripción deporte',
@@ -30,7 +31,7 @@ const FIELD_LABELS: Record<ActionField, string> = {
 const ACTION_CONFIG: Record<SuperadminAction, { title: string; fields: ActionField[] }> = {
   persistPlayers: {
     title: 'Persistir jugadores',
-    fields: ['leagueIdEnApi'],
+    fields: ['leagueId'],
   },
   persistTeams: {
     title: 'Persistir equipos',
@@ -83,6 +84,7 @@ export class SuperadminMenuComponent {
     this.actionForm = this.fb.group({
       sportId: [1, [Validators.required, Validators.min(1)]],
       competitionId: [72, [Validators.required, Validators.min(1)]],
+      leagueId: [1, [Validators.required, Validators.min(1)]],
       leagueIdEnApi: [72, [Validators.required, Validators.min(1)]],
       idEnApi: [72, [Validators.required, Validators.min(1)]],
       descripcion: ['Football', Validators.required],
@@ -130,7 +132,7 @@ export class SuperadminMenuComponent {
     this.isLoading = true;
 
     const requests: Record<SuperadminAction, () => any> = {
-      persistPlayers: () => this.apiService.syncPlayersByLeagueIdEnApi({ leagueIdEnApi: Number(form.leagueIdEnApi) }),
+      persistPlayers: () => this.apiService.syncPlayersByLeagueIdEnApi({ leagueId: Number(form.leagueId) }),
       persistTeams: () => this.apiService.syncTeamsByLeagueIdEnApi({ leagueIdEnApi: Number(form.leagueIdEnApi) }),
       persistSport: () => this.apiService.postSport({
         idEnApi: Number(form.sportId),
