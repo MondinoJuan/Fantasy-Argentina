@@ -194,8 +194,21 @@ async function fetchAndIngestTeam(
   seenCursors: Set<string>,
   maxPagesPerTeam: number,
   sleepMsBetweenRequests: number,
+  expectedPerTeam: number,
 ): Promise<number> {
   let added = 0;
+
+  const countGamesForTeam = () => {
+    let count = 0;
+
+    for (const game of games.values()) {
+      if (game.homeCompetitorId === teamId || game.awayCompetitorId === teamId) {
+        count += 1;
+      }
+    }
+
+    return count;
+  };
 
   const ingestPayload = (payload: UnknownRecord, source: 'fixtures' | 'results') => {
     for (const gameUnknown of asArray(payload.games)) {
@@ -216,14 +229,24 @@ async function fetchAndIngestTeam(
   };
 
   for (const endpoint of ['fixtures', 'results'] as const) {
+    if (countGamesForTeam() >= expectedPerTeam) {
+      break;
+    }
+
     const endpointPath = endpoint === 'fixtures' ? '/games/fixtures' : '/games/results';
     const firstPayload = (await requestSportsApiPro(endpointPath, { competitors: teamId })) as UnknownRecord;
+    const beforeFirstIngest = added;
     ingestPayload(firstPayload, endpoint);
+
+    if (countGamesForTeam() >= expectedPerTeam) {
+      continue;
+    }
 
     const queue = getNewCursors(firstPayload, endpoint, seenCursors);
     let pages = 1;
+    let pagesWithoutNewGames = added === beforeFirstIngest ? 1 : 0;
 
-    while (queue.length > 0 && pages < maxPagesPerTeam) {
+    while (queue.length > 0 && pages < maxPagesPerTeam && countGamesForTeam() < expectedPerTeam) {
       const cursor = queue.shift()!;
 
       if (sleepMsBetweenRequests > 0) {
@@ -235,8 +258,20 @@ async function fetchAndIngestTeam(
         ...cursor,
       })) as UnknownRecord;
 
+      const beforePageIngest = added;
       ingestPayload(payload, endpoint);
       queue.push(...getNewCursors(payload, endpoint, seenCursors));
+
+      if (added === beforePageIngest) {
+        pagesWithoutNewGames += 1;
+      } else {
+        pagesWithoutNewGames = 0;
+      }
+
+      if (pagesWithoutNewGames >= 4) {
+        break;
+      }
+
       pages += 1;
     }
   }
@@ -292,7 +327,7 @@ export async function collectFixtureEventRefsFromTeamsService(
 ) {
   getSportsApiProApiKeys();
 
-  const maxPagesPerTeam = options.maxPagesPerTeam ?? 40;
+  const maxPagesPerTeam = options.maxPagesPerTeam ?? 30;
   const sleepMsBetweenRequests = options.sleepMsBetweenRequests ?? 0;
 
   const teamIds = [...new Set(config.teams.map((team) => team.id))];
@@ -324,7 +359,15 @@ export async function collectFixtureEventRefsFromTeamsService(
     }
 
     consultedTeams += 1;
-    await fetchAndIngestTeam(teamId, config, games, seenCursors, maxPagesPerTeam, sleepMsBetweenRequests);
+    await fetchAndIngestTeam(
+      teamId,
+      config,
+      games,
+      seenCursors,
+      maxPagesPerTeam,
+      sleepMsBetweenRequests,
+      expectedPerTeam,
+    );
   }
 
   const eventRefs = [...games.values()].sort((a, b) => {
