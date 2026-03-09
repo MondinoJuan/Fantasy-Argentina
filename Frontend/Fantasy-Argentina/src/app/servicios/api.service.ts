@@ -323,6 +323,11 @@ export class ApiService {
     return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/build-competition`, payload);
   }
 
+
+  postExternalSyncPlayedResults(payload: { competitionId?: number }) {
+    return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/sync-played-results`, payload);
+  }
+
   searchExternalRankingsWithLocalPerformances(sportId: number | string, competitionId: number | string) {
     return this.http.get<any>(`${this.url}/external/sportsapipro/rankings/player-performances?sportId=${sportId}&competitionId=${competitionId}`);
   }

@@ -11,6 +11,8 @@ interface MatchView {
   startDateTime: Date;
   result: string;
   status: string;
+  homeScore: number | null;
+  awayScore: number | null;
 }
 
 interface MatchdayGroup {
@@ -67,7 +69,9 @@ export class FixtureComponent implements OnInit {
                 homeTeam: String(match.homeTeam ?? 'TBD'),
                 awayTeam: String(match.awayTeam ?? 'TBD'),
                 startDateTime: new Date(String(match.startDateTime ?? new Date().toISOString())),
-                result: this.resolveResult(String(match.status ?? '')),
+                homeScore: this.parseNullableInt(match.homeScore),
+                awayScore: this.parseNullableInt(match.awayScore),
+                result: this.resolveResult(match.homeScore, match.awayScore, String(match.status ?? '')),
                 status: String(match.status ?? 'scheduled'),
               }))
               .sort((a: MatchView, b: MatchView) => a.startDateTime.getTime() - b.startDateTime.getTime()),
@@ -110,14 +114,24 @@ export class FixtureComponent implements OnInit {
     return null;
   }
 
-  private resolveResult(status: string): string {
-    const normalized = String(status ?? '').trim();
-    const scoreMatch = normalized.match(/(\d+)\s*[-:]\s*(\d+)/);
+  private parseNullableInt(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
+    if (typeof value === 'string') {
+      const parsed = Number.parseInt(value, 10);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  }
 
-    if (scoreMatch) {
-      return `${scoreMatch[1]} - ${scoreMatch[2]}`;
+  private resolveResult(homeScoreRaw: unknown, awayScoreRaw: unknown, status: string): string {
+    const homeScore = this.parseNullableInt(homeScoreRaw);
+    const awayScore = this.parseNullableInt(awayScoreRaw);
+
+    if (homeScore !== null && awayScore !== null) {
+      return `${homeScore} - ${awayScore}`;
     }
 
+    const normalized = String(status ?? '').trim();
     if (['finished', 'finalizado', 'final', 'ended'].includes(normalized.toLowerCase())) {
       return 'Finalizado (sin marcador cargado)';
     }
@@ -125,3 +139,4 @@ export class FixtureComponent implements OnInit {
     return 'Pendiente';
   }
 }
+

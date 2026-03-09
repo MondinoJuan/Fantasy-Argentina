@@ -13,6 +13,7 @@ import {
   postSportsApiProBuildCompetitionFixture,
   getSportsApiProLocalPersistedFixture,
   getSportsApiProRankingsWithLocalPerformances,
+  postSportsApiProSyncPlayedMatchesResults,
 } from './externalApi.controler.js';
 
 export const ExternalApiRouter = Router();
@@ -30,6 +31,7 @@ ExternalApiRouter.post('/sportsapipro/fixture/build', postSportsApiProFixtureBui
 ExternalApiRouter.post('/sportsapipro/fixture/build-competition', postSportsApiProBuildCompetitionFixture);
 ExternalApiRouter.get('/sportsapipro/fixture/local', getSportsApiProLocalPersistedFixture);
 ExternalApiRouter.get('/sportsapipro/rankings/player-performances', getSportsApiProRankingsWithLocalPerformances);
+ExternalApiRouter.post('/sportsapipro/fixture/sync-played-results', postSportsApiProSyncPlayedMatchesResults);
 
 // Compatibilidad temporal mientras se migran consumidores existentes.
 ExternalApiRouter.get('/rapidapi/player', getSportsApiProPlayerById);
