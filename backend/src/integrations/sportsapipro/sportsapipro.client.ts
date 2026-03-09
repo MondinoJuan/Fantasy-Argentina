@@ -31,16 +31,34 @@ export class SportsApiProHttpError extends Error {
   }
 }
 
+function getSequentialSportsApiProKeys(): string[] {
+  const keys: string[] = [];
+
+  for (let index = 1; ; index += 1) {
+    const envKey = `SPORTSAPIPRO_API_KEY${index}`;
+    const rawValue = process.env[envKey];
+
+    if (typeof rawValue !== 'string') {
+      break;
+    }
+
+    const trimmedValue = rawValue.trim();
+    if (!trimmedValue) {
+      break;
+    }
+
+    keys.push(trimmedValue);
+  }
+
+  return keys;
+}
+
 function getSportsApiProConfig() {
   const baseUrl = process.env.SPORTSAPIPRO_BASE_URL;
-  const apiKeys = [
-    process.env.SPORTSAPIPRO_API_KEY1,
-    process.env.SPORTSAPIPRO_API_KEY2,
-    process.env.SPORTSAPIPRO_API_KEY3,
-  ].filter((key): key is string => typeof key === 'string' && key.trim().length > 0);
+  const apiKeys = getSequentialSportsApiProKeys();
 
   if (apiKeys.length === 0) {
-    throw new Error('Missing SPORTSAPIPRO_API_KEY1 environment variable');
+    throw new Error('Missing sequential SPORTSAPIPRO_API_KEY{n} environment variables (starting at SPORTSAPIPRO_API_KEY1)');
   }
 
   if (!baseUrl) {
