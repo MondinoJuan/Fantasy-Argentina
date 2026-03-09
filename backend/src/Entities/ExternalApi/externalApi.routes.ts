@@ -11,6 +11,7 @@ import {
   postSportsApiProFixtureEventRefs,
   postSportsApiProFixtureBuild,
   postSportsApiProBuildCompetitionFixture,
+  getSportsApiProLocalPersistedFixture,
   getSportsApiProRankingsWithLocalPerformances,
 } from './externalApi.controler.js';
 
@@ -27,6 +28,7 @@ ExternalApiRouter.get('/sportsapipro/latest-matchday-ratings', getSportsApiProLa
 ExternalApiRouter.post('/sportsapipro/fixture/event-refs', postSportsApiProFixtureEventRefs);
 ExternalApiRouter.post('/sportsapipro/fixture/build', postSportsApiProFixtureBuild);
 ExternalApiRouter.post('/sportsapipro/fixture/build-competition', postSportsApiProBuildCompetitionFixture);
+ExternalApiRouter.get('/sportsapipro/fixture/local', getSportsApiProLocalPersistedFixture);
 ExternalApiRouter.get('/sportsapipro/rankings/player-performances', getSportsApiProRankingsWithLocalPerformances);
 
 // Compatibilidad temporal mientras se migran consumidores existentes.

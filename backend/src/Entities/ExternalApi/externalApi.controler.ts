@@ -3,6 +3,9 @@ import { orm } from '../../shared/db/orm.js';
 import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
 import { Matchday } from '../Matchday/matchday.entity.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
+import { Match } from '../Match/match.entity.js';
+import { League } from '../League/league.entity.js';
+import { MATCHDAY_STATUSES, MATCH_STATUSES, isEnumValue } from '../../shared/domain-enums.js';
 import {
   buildFixtureFromEventRefsService,
   collectFixtureEventRefsFromTeamsService,
@@ -17,6 +20,86 @@ import {
 } from './services/index.js';
 
 const em = orm.em;
+
+type UnknownRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): UnknownRecord {
+  return value && typeof value === 'object' ? (value as UnknownRecord) : {};
+}
+
+function groupFixtureByDate(fixture: UnknownRecord[]): Array<{ key: string; games: UnknownRecord[] }> {
+  const byDate = new Map<string, UnknownRecord[]>();
+
+  for (const game of fixture) {
+    const startTime = typeof game.startTime === 'string' ? game.startTime : null;
+    const parsed = startTime ? new Date(startTime) : new Date();
+    const key = `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, '0')}-${String(parsed.getUTCDate()).padStart(2, '0')}`;
+
+    const current = byDate.get(key) ?? [];
+    current.push(game);
+    byDate.set(key, current);
+  }
+
+  return [...byDate.entries()]
+    .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+    .map(([key, games]) => ({ key, games }));
+}
+
+async function persistFixtureCompetitionInDb(competitionId: number, seasonNum: number, fixtureData: UnknownRecord[]) {
+  const league = await em.findOne(League, { idEnApi: competitionId });
+  if (!league) {
+    throw new Error('league must exist locally. Use superadmin sync first.');
+  }
+
+  const groupedByDate = groupFixtureByDate(fixtureData);
+  let createdMatchdays = 0;
+  let createdMatches = 0;
+
+  for (let index = 0; index < groupedByDate.length; index += 1) {
+    const group = groupedByDate[index];
+    const startDate = new Date(`${group.key}T00:00:00.000Z`);
+    const endDate = new Date(`${group.key}T23:59:59.999Z`);
+
+    let matchday = await em.findOne(Matchday, {
+      league,
+      season: String(seasonNum),
+      matchdayNumber: index + 1,
+    });
+
+    if (!matchday) {
+      matchday = em.create(Matchday, {
+        league,
+        season: String(seasonNum),
+        matchdayNumber: index + 1,
+        startDate,
+        endDate,
+        status: MATCHDAY_STATUSES[0],
+      } as any);
+      createdMatchdays += 1;
+    }
+
+    for (const fixtureMatch of group.games) {
+      const gameId = Number.parseInt(String(fixtureMatch.gameId ?? ''), 10);
+      if (!Number.isFinite(gameId)) continue;
+
+      const existing = await em.findOne(Match, { externalApiId: String(gameId) });
+      if (existing) continue;
+
+      em.create(Match, {
+        matchday,
+        externalApiId: String(gameId),
+        homeTeam: String(asRecord(fixtureMatch.home).name ?? 'TBD'),
+        awayTeam: String(asRecord(fixtureMatch.away).name ?? 'TBD'),
+        startDateTime: new Date(String(fixtureMatch.startTime ?? `${group.key}T00:00:00.000Z`)),
+        status: isEnumValue(MATCH_STATUSES, fixtureMatch.statusText) ? fixtureMatch.statusText : MATCH_STATUSES[0],
+      } as any);
+      createdMatches += 1;
+    }
+  }
+
+  await em.flush();
+  return { createdMatchdays, createdMatches };
+}
 
 function parseRequiredNumber(value: string | string[] | undefined): number | null {
   const raw = Array.isArray(value) ? value[0] : value;
@@ -200,8 +283,96 @@ async function postSportsApiProBuildCompetitionFixture(req: Request, res: Respon
       teams: competitionData.teams.map((team) => ({ id: team.id, name: team.name ?? undefined })),
     });
 
-    const data = await buildFixtureFromEventRefsService(fixtureRefs.eventRefs);
-    return res.status(200).json({ message: 'sportsapipro competition fixture built', data, fixtureStats: fixtureRefs.stats });
+    // Evitamos llamar /game por cada evento: usamos directamente lo recolectado en /games/fixtures y /games/results.
+    const fixture = fixtureRefs.eventRefs.map((eventRef) => ({
+      gameId: eventRef.gameId,
+      matchupId: `${eventRef.homeCompetitorId ?? 'na'}-${eventRef.awayCompetitorId ?? 'na'}-${eventRef.competitionId}`,
+      competitionId: eventRef.competitionId,
+      seasonNum: eventRef.seasonNum,
+      stageNum: eventRef.stageNum,
+      statusGroup: eventRef.statusGroup,
+      statusText: eventRef.statusText,
+      startTime: eventRef.startTime,
+      home: {
+        id: eventRef.homeCompetitorId,
+        name: eventRef.homeCompetitorName,
+        score: eventRef.homeCompetitorScore,
+      },
+      away: {
+        id: eventRef.awayCompetitorId,
+        name: eventRef.awayCompetitorName,
+        score: eventRef.awayCompetitorScore,
+      },
+      result: eventRef.homeCompetitorScore !== null && eventRef.awayCompetitorScore !== null
+        ? `${eventRef.homeCompetitorScore}-${eventRef.awayCompetitorScore}`
+        : null,
+      source: eventRef.source,
+    }));
+
+    const persistStats = await persistFixtureCompetitionInDb(
+      competitionId,
+      competitionData.seasonNum ?? new Date().getUTCFullYear(),
+      fixture as UnknownRecord[],
+    );
+
+    const data = { totalEvents: fixture.length, fixture };
+    return res.status(200).json({
+      message: 'sportsapipro competition fixture built and persisted',
+      data,
+      fixtureStats: fixtureRefs.stats,
+      persistStats,
+    });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
+async function getSportsApiProLocalPersistedFixture(req: Request, res: Response) {
+  const competitionId = parseRequiredNumber(req.query.competitionId as string | undefined);
+
+  try {
+    const matchdaysWhere = competitionId ? { league: { idEnApi: competitionId } } : {};
+    const matchesWhere = competitionId ? { matchday: { league: { idEnApi: competitionId } } } : {};
+
+    const matchdays = await em.find(Matchday, matchdaysWhere as any, { populate: ['league'] });
+    const matches = await em.find(Match, matchesWhere as any, { populate: ['matchday', 'matchday.league'] });
+
+    const groups = matchdays
+      .map((matchday: any) => ({
+        matchdayId: matchday.id,
+        matchdayNumber: matchday.matchdayNumber,
+        season: matchday.season,
+        startDate: matchday.startDate,
+        endDate: matchday.endDate,
+        status: matchday.status,
+        league: {
+          id: matchday.league?.id,
+          idEnApi: matchday.league?.idEnApi,
+          name: matchday.league?.name,
+        },
+        matches: matches
+          .filter((match: any) => match.matchday?.id === matchday.id)
+          .sort((a: any, b: any) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
+          .map((match: any) => ({
+            id: match.id,
+            externalApiId: match.externalApiId,
+            homeTeam: match.homeTeam,
+            awayTeam: match.awayTeam,
+            startDateTime: match.startDateTime,
+            status: match.status,
+          })),
+      }))
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+    return res.status(200).json({
+      message: 'local persisted fixture recovered',
+      data: {
+        competitionId: competitionId ?? null,
+        totalMatchdays: groups.length,
+        totalMatches: matches.length,
+        matchdays: groups,
+      },
+    });
   } catch (error: any) {
     return res.status(500).json({ message: error.message });
   }
@@ -300,5 +471,6 @@ export {
   postSportsApiProFixtureEventRefs,
   postSportsApiProFixtureBuild,
   postSportsApiProBuildCompetitionFixture,
+  getSportsApiProLocalPersistedFixture,
   getSportsApiProRankingsWithLocalPerformances,
 };

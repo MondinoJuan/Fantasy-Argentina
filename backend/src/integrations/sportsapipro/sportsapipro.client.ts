@@ -37,10 +37,12 @@ function getSportsApiProConfig() {
     process.env.SPORTSAPIPRO_API_KEY1,
     process.env.SPORTSAPIPRO_API_KEY2,
     process.env.SPORTSAPIPRO_API_KEY3,
+    process.env.SPORTSAPIPRO_API_KEY4,
+    process.env.SPORTSAPIPRO_API_KEY5,
   ].filter((key): key is string => typeof key === 'string' && key.trim().length > 0);
 
   if (apiKeys.length === 0) {
-    throw new Error('Missing SPORTSAPIPRO_API_KEY1 environment variable');
+    throw new Error('Missing SPORTSAPIPRO_API_KEY1..SPORTSAPIPRO_API_KEY5 environment variables');
   }
 
   if (!baseUrl) {

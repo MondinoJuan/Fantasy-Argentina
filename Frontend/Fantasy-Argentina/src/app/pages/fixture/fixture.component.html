@@ -1,5 +1,8 @@
 <section class="fixture-page">
-  <h1>Fixture (base de datos local)</h1>
+  <header class="top-bar">
+    <h1>Fixture (base de datos local)</h1>
+    <button type="button" class="back-btn" (click)="goBack()">Volver</button>
+  </header>
 
   @if (isLoading) {
     <p>Cargando fechas y partidos...</p>
@@ -14,7 +17,7 @@
   }
 
   @if (!isLoading && !errorMessage && matchdayGroups.length > 0) {
-    @for (group of matchdayGroups; track group.matchdayId ?? $index) {
+    @for (group of matchdayGroups; track $index) {
       <section class="matchday-block">
         <header class="matchday-header">
           <h2>Fecha {{ group.matchdayNumber }} - Temporada {{ group.season }}</h2>
@@ -31,7 +34,7 @@
 
         @if (group.matches.length > 0) {
           <div class="grid">
-            @for (match of group.matches; track match.id ?? $index) {
+            @for (match of group.matches; track $index) {
               <article class="match-card">
                 <div class="meta">
                   <span>#{{ match.gameId || 'N/A' }}</span>

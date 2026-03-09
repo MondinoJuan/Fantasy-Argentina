@@ -88,6 +88,7 @@ input {
   background: #fff8f4;
 }
 input:focus { outline: none; border-color: var(--mauve); box-shadow: 0 0 0 3px rgba(133, 79, 108, 0.22); }
+.hint { margin: 0.15rem 0 0; font-size: 0.85rem; color: #5f3a67; }
 
 .modal-actions { display: flex; justify-content: flex-end; gap: 0.55rem; margin-top: 0.7rem; }
 
