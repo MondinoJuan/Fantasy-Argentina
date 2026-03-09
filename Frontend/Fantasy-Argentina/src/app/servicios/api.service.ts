@@ -311,7 +311,7 @@ export class ApiService {
     return this.http.post<any>(`${this.url}/real-teams/sync/by-league-id-en-api`, payload);
   }
 
-  syncPlayersByLeagueIdEnApi(payload: { leagueIdEnApi: number }) {
+  syncPlayersByLeagueIdEnApi(payload: { leagueId?: number; leagueIdEnApi?: number }) {
     return this.http.post<any>(`${this.url}/real-players/sync/by-league-id-en-api`, payload);
   }
 
@@ -323,8 +323,21 @@ export class ApiService {
     return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/build-competition`, payload);
   }
 
+
+  postExternalSyncPlayedResults(payload: { competitionId?: number }) {
+    return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/sync-played-results`, payload);
+  }
+
   searchExternalRankingsWithLocalPerformances(sportId: number | string, competitionId: number | string) {
     return this.http.get<any>(`${this.url}/external/sportsapipro/rankings/player-performances?sportId=${sportId}&competitionId=${competitionId}`);
+  }
+
+  searchExternalLocalPersistedFixture(competitionId?: number | string) {
+    const query = competitionId !== undefined && competitionId !== null
+      ? `?competitionId=${competitionId}`
+      : '';
+
+    return this.http.get<any>(`${this.url}/external/sportsapipro/fixture/local${query}`);
   }
 
 }
