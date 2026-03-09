@@ -25,6 +25,7 @@ export interface FixtureEventRef {
   competitionId: number;
   seasonNum: number;
   stageNum: number;
+  roundNum: number | null;
   homeCompetitorId: number | null;
   homeCompetitorName: string | null;
   homeCompetitorScore: number | null;
@@ -159,6 +160,7 @@ function toEventRef(game: UnknownRecord, source: 'fixtures' | 'results'): Fixtur
     competitionId: toInt(game.competitionId) ?? -1,
     seasonNum: toInt(game.seasonNum) ?? -1,
     stageNum: toInt(game.stageNum) ?? -1,
+    roundNum: toInt(game.roundNum),
     homeCompetitorId,
     homeCompetitorName: typeof home.name === 'string' ? home.name : null,
     homeCompetitorScore: toInt(home.score),

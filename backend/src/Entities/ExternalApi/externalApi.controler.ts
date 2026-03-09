@@ -27,55 +27,93 @@ function asRecord(value: unknown): UnknownRecord {
   return value && typeof value === 'object' ? (value as UnknownRecord) : {};
 }
 
-function groupFixtureByDate(fixture: UnknownRecord[]): Array<{ key: string; games: UnknownRecord[] }> {
-  const byDate = new Map<string, UnknownRecord[]>();
-
-  for (const game of fixture) {
-    const startTime = typeof game.startTime === 'string' ? game.startTime : null;
-    const parsed = startTime ? new Date(startTime) : new Date();
-    const key = `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, '0')}-${String(parsed.getUTCDate()).padStart(2, '0')}`;
-
-    const current = byDate.get(key) ?? [];
-    current.push(game);
-    byDate.set(key, current);
+function toInt(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number.parseInt(value.trim(), 10);
+    return Number.isFinite(parsed) ? parsed : null;
   }
-
-  return [...byDate.entries()]
-    .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
-    .map(([key, games]) => ({ key, games }));
+  return null;
 }
 
-async function persistFixtureCompetitionInDb(competitionId: number, seasonNum: number, fixtureData: UnknownRecord[]) {
+function groupFixtureByRound(fixture: UnknownRecord[]): Array<{ roundNum: number; games: UnknownRecord[] }> {
+  const byRound = new Map<number, UnknownRecord[]>();
+
+  for (const game of fixture) {
+    const roundNum = toInt(game.roundNum);
+    if (roundNum === null) {
+      continue;
+    }
+
+    const current = byRound.get(roundNum) ?? [];
+    current.push(game);
+    byRound.set(roundNum, current);
+  }
+
+  return [...byRound.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([roundNum, games]) => ({ roundNum, games }));
+}
+
+async function persistFixtureCompetitionInDb(
+  competitionId: number,
+  seasonNum: number,
+  fixtureData: UnknownRecord[],
+  totalTeamsInCompetition: number,
+) {
   const league = await em.findOne(League, { idEnApi: competitionId });
   if (!league) {
     throw new Error('league must exist locally. Use superadmin sync first.');
   }
 
-  const groupedByDate = groupFixtureByDate(fixtureData);
+  const groupedByRound = groupFixtureByRound(fixtureData);
   let createdMatchdays = 0;
   let createdMatches = 0;
+  const roundsWithUnexpectedMatchCount: Array<{ roundNum: number; totalMatches: number; expectedMatches: number }> = [];
 
-  for (let index = 0; index < groupedByDate.length; index += 1) {
-    const group = groupedByDate[index];
-    const startDate = new Date(`${group.key}T00:00:00.000Z`);
-    const endDate = new Date(`${group.key}T23:59:59.999Z`);
+  const expectedMatchesPerRound = Math.floor(totalTeamsInCompetition / 2);
+
+  for (const group of groupedByRound) {
+    const orderedByStartTime = [...group.games].sort(
+      (a, b) => new Date(String(a.startTime ?? '')).getTime() - new Date(String(b.startTime ?? '')).getTime(),
+    );
+
+    const firstStart = String(orderedByStartTime[0]?.startTime ?? '');
+    const lastStart = String(orderedByStartTime[orderedByStartTime.length - 1]?.startTime ?? '');
+
+    const firstDate = firstStart ? new Date(firstStart) : new Date();
+    const lastDate = lastStart ? new Date(lastStart) : firstDate;
+
+    const startDate = new Date(Date.UTC(firstDate.getUTCFullYear(), firstDate.getUTCMonth(), firstDate.getUTCDate(), 0, 0, 0, 0));
+    const endDate = new Date(Date.UTC(lastDate.getUTCFullYear(), lastDate.getUTCMonth(), lastDate.getUTCDate(), 23, 59, 59, 999));
 
     let matchday = await em.findOne(Matchday, {
       league,
       season: String(seasonNum),
-      matchdayNumber: index + 1,
+      matchdayNumber: group.roundNum,
     });
 
     if (!matchday) {
       matchday = em.create(Matchday, {
         league,
         season: String(seasonNum),
-        matchdayNumber: index + 1,
+        matchdayNumber: group.roundNum,
         startDate,
         endDate,
         status: MATCHDAY_STATUSES[0],
       } as any);
       createdMatchdays += 1;
+    } else {
+      matchday.startDate = startDate;
+      matchday.endDate = endDate;
+    }
+
+    if (expectedMatchesPerRound > 0 && group.games.length !== expectedMatchesPerRound) {
+      roundsWithUnexpectedMatchCount.push({
+        roundNum: group.roundNum,
+        totalMatches: group.games.length,
+        expectedMatches: expectedMatchesPerRound,
+      });
     }
 
     for (const fixtureMatch of group.games) {
@@ -90,7 +128,7 @@ async function persistFixtureCompetitionInDb(competitionId: number, seasonNum: n
         externalApiId: String(gameId),
         homeTeam: String(asRecord(fixtureMatch.home).name ?? 'TBD'),
         awayTeam: String(asRecord(fixtureMatch.away).name ?? 'TBD'),
-        startDateTime: new Date(String(fixtureMatch.startTime ?? `${group.key}T00:00:00.000Z`)),
+        startDateTime: new Date(String(fixtureMatch.startTime ?? startDate.toISOString())),
         status: isEnumValue(MATCH_STATUSES, fixtureMatch.statusText) ? fixtureMatch.statusText : MATCH_STATUSES[0],
       } as any);
       createdMatches += 1;
@@ -98,7 +136,7 @@ async function persistFixtureCompetitionInDb(competitionId: number, seasonNum: n
   }
 
   await em.flush();
-  return { createdMatchdays, createdMatches };
+  return { createdMatchdays, createdMatches, expectedMatchesPerRound, roundsWithUnexpectedMatchCount };
 }
 
 function parseRequiredNumber(value: string | string[] | undefined): number | null {
@@ -290,6 +328,7 @@ async function postSportsApiProBuildCompetitionFixture(req: Request, res: Respon
       competitionId: eventRef.competitionId,
       seasonNum: eventRef.seasonNum,
       stageNum: eventRef.stageNum,
+      roundNum: eventRef.roundNum,
       statusGroup: eventRef.statusGroup,
       statusText: eventRef.statusText,
       startTime: eventRef.startTime,
@@ -313,6 +352,7 @@ async function postSportsApiProBuildCompetitionFixture(req: Request, res: Respon
       competitionId,
       competitionData.seasonNum ?? new Date().getUTCFullYear(),
       fixture as UnknownRecord[],
+      competitionData.teams.length,
     );
 
     const data = { totalEvents: fixture.length, fixture };
