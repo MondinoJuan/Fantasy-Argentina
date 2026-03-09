@@ -26,7 +26,11 @@ export interface FixtureEventRef {
   seasonNum: number;
   stageNum: number;
   homeCompetitorId: number | null;
+  homeCompetitorName: string | null;
+  homeCompetitorScore: number | null;
   awayCompetitorId: number | null;
+  awayCompetitorName: string | null;
+  awayCompetitorScore: number | null;
   startTime: string | null;
   statusGroup: number | null;
   statusText: string | null;
@@ -147,13 +151,20 @@ function toEventRef(game: UnknownRecord, source: 'fixtures' | 'results'): Fixtur
 
   const [homeCompetitorId, awayCompetitorId] = getHomeAwayIds(game);
 
+  const home = asRecord(game.homeCompetitor);
+  const away = asRecord(game.awayCompetitor);
+
   return {
     gameId,
     competitionId: toInt(game.competitionId) ?? -1,
     seasonNum: toInt(game.seasonNum) ?? -1,
     stageNum: toInt(game.stageNum) ?? -1,
     homeCompetitorId,
+    homeCompetitorName: typeof home.name === 'string' ? home.name : null,
+    homeCompetitorScore: toInt(home.score),
     awayCompetitorId,
+    awayCompetitorName: typeof away.name === 'string' ? away.name : null,
+    awayCompetitorScore: toInt(away.score),
     startTime: typeof game.startTime === 'string' ? game.startTime : null,
     statusGroup: toInt(game.statusGroup),
     statusText: typeof game.statusText === 'string' ? game.statusText : null,
