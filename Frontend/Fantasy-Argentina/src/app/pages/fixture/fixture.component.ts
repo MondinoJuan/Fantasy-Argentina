@@ -2,6 +2,7 @@ import { CommonModule, DatePipe } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { forkJoin } from 'rxjs';
 import { ApiService } from '../../servicios/api.service';
+import { Location } from '@angular/common';
 
 interface MatchView {
   id?: number;
@@ -34,7 +35,10 @@ export class FixtureComponent implements OnInit {
   isLoading = true;
   errorMessage = '';
 
-  constructor(private readonly apiService: ApiService) {}
+  constructor(
+    private readonly apiService: ApiService,
+    private readonly location: Location,
+  ) {}
 
   ngOnInit(): void {
     this.loadFixtureFromLocalDb();
@@ -91,9 +95,26 @@ export class FixtureComponent implements OnInit {
     });
   }
 
-  private extractId(value: number | { id?: number } | undefined | null): number | null {
+  goBack(): void {
+    this.location.back();
+  }
+
+  private extractId(value: number | string | { id?: number | string } | undefined | null): number | null {
     if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-    if (value && typeof value === 'object' && typeof value.id === 'number') return value.id;
+    if (typeof value === 'string') {
+      const parsed = Number.parseInt(value, 10);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    if (value && typeof value === 'object') {
+      const id = value.id;
+      if (typeof id === 'number' && Number.isFinite(id)) return id;
+      if (typeof id === 'string') {
+        const parsed = Number.parseInt(id, 10);
+        return Number.isFinite(parsed) ? parsed : null;
+      }
+    }
+
     return null;
   }
 
