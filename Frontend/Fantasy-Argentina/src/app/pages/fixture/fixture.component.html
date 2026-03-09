@@ -1,5 +1,8 @@
 <section class="fixture-page">
-  <h1>Fixture (base de datos local)</h1>
+  <header class="top-bar">
+    <h1>Fixture (base de datos local)</h1>
+    <button type="button" class="back-btn" (click)="goBack()">Volver</button>
+  </header>
 
   @if (isLoading) {
     <p>Cargando fechas y partidos...</p>

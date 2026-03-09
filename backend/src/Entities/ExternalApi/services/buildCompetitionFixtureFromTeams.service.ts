@@ -26,7 +26,11 @@ export interface FixtureEventRef {
   seasonNum: number;
   stageNum: number;
   homeCompetitorId: number | null;
+  homeCompetitorName: string | null;
+  homeCompetitorScore: number | null;
   awayCompetitorId: number | null;
+  awayCompetitorName: string | null;
+  awayCompetitorScore: number | null;
   startTime: string | null;
   statusGroup: number | null;
   statusText: string | null;
@@ -85,6 +89,26 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let index = 0;
+
+  const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    while (index < items.length) {
+      const current = index;
+      index += 1;
+      out[current] = await mapper(items[current], current);
+    }
+  });
+
+  await Promise.all(workers);
+  return out;
+}
+
 function getNewCursors(
   payload: UnknownRecord,
   endpoint: 'fixtures' | 'results',
@@ -127,13 +151,20 @@ function toEventRef(game: UnknownRecord, source: 'fixtures' | 'results'): Fixtur
 
   const [homeCompetitorId, awayCompetitorId] = getHomeAwayIds(game);
 
+  const home = asRecord(game.homeCompetitor);
+  const away = asRecord(game.awayCompetitor);
+
   return {
     gameId,
     competitionId: toInt(game.competitionId) ?? -1,
     seasonNum: toInt(game.seasonNum) ?? -1,
     stageNum: toInt(game.stageNum) ?? -1,
     homeCompetitorId,
+    homeCompetitorName: typeof home.name === 'string' ? home.name : null,
+    homeCompetitorScore: toInt(home.score),
     awayCompetitorId,
+    awayCompetitorName: typeof away.name === 'string' ? away.name : null,
+    awayCompetitorScore: toInt(away.score),
     startTime: typeof game.startTime === 'string' ? game.startTime : null,
     statusGroup: toInt(game.statusGroup),
     statusText: typeof game.statusText === 'string' ? game.statusText : null,
@@ -174,8 +205,21 @@ async function fetchAndIngestTeam(
   seenCursors: Set<string>,
   maxPagesPerTeam: number,
   sleepMsBetweenRequests: number,
+  expectedPerTeam: number,
 ): Promise<number> {
   let added = 0;
+
+  const countGamesForTeam = () => {
+    let count = 0;
+
+    for (const game of games.values()) {
+      if (game.homeCompetitorId === teamId || game.awayCompetitorId === teamId) {
+        count += 1;
+      }
+    }
+
+    return count;
+  };
 
   const ingestPayload = (payload: UnknownRecord, source: 'fixtures' | 'results') => {
     for (const gameUnknown of asArray(payload.games)) {
@@ -196,14 +240,24 @@ async function fetchAndIngestTeam(
   };
 
   for (const endpoint of ['fixtures', 'results'] as const) {
+    if (countGamesForTeam() >= expectedPerTeam) {
+      break;
+    }
+
     const endpointPath = endpoint === 'fixtures' ? '/games/fixtures' : '/games/results';
     const firstPayload = (await requestSportsApiPro(endpointPath, { competitors: teamId })) as UnknownRecord;
+    const beforeFirstIngest = added;
     ingestPayload(firstPayload, endpoint);
+
+    if (countGamesForTeam() >= expectedPerTeam) {
+      continue;
+    }
 
     const queue = getNewCursors(firstPayload, endpoint, seenCursors);
     let pages = 1;
+    let pagesWithoutNewGames = added === beforeFirstIngest ? 1 : 0;
 
-    while (queue.length > 0 && pages < maxPagesPerTeam) {
+    while (queue.length > 0 && pages < maxPagesPerTeam && countGamesForTeam() < expectedPerTeam) {
       const cursor = queue.shift()!;
 
       if (sleepMsBetweenRequests > 0) {
@@ -215,8 +269,20 @@ async function fetchAndIngestTeam(
         ...cursor,
       })) as UnknownRecord;
 
+      const beforePageIngest = added;
       ingestPayload(payload, endpoint);
       queue.push(...getNewCursors(payload, endpoint, seenCursors));
+
+      if (added === beforePageIngest) {
+        pagesWithoutNewGames += 1;
+      } else {
+        pagesWithoutNewGames = 0;
+      }
+
+      if (pagesWithoutNewGames >= 4) {
+        break;
+      }
+
       pages += 1;
     }
   }
@@ -272,8 +338,8 @@ export async function collectFixtureEventRefsFromTeamsService(
 ) {
   getSportsApiProApiKeys();
 
-  const maxPagesPerTeam = options.maxPagesPerTeam ?? 80;
-  const sleepMsBetweenRequests = options.sleepMsBetweenRequests ?? 200;
+  const maxPagesPerTeam = options.maxPagesPerTeam ?? 30;
+  const sleepMsBetweenRequests = options.sleepMsBetweenRequests ?? 0;
 
   const teamIds = [...new Set(config.teams.map((team) => team.id))];
   const expectedPerTeam = Math.max(1, teamIds.length - 1);
@@ -304,7 +370,15 @@ export async function collectFixtureEventRefsFromTeamsService(
     }
 
     consultedTeams += 1;
-    await fetchAndIngestTeam(teamId, config, games, seenCursors, maxPagesPerTeam, sleepMsBetweenRequests);
+    await fetchAndIngestTeam(
+      teamId,
+      config,
+      games,
+      seenCursors,
+      maxPagesPerTeam,
+      sleepMsBetweenRequests,
+      expectedPerTeam,
+    );
   }
 
   const eventRefs = [...games.values()].sort((a, b) => {
@@ -333,14 +407,15 @@ export async function buildFixtureFromEventRefsService(
   eventRefs: FixtureEventRef[],
   options: {
     sleepMsBetweenRequests?: number;
+    concurrency?: number;
   } = {},
 ) {
   getSportsApiProApiKeys();
 
   const sleepMsBetweenRequests = options.sleepMsBetweenRequests ?? 0;
-  const fixture = [] as UnknownRecord[];
+  const concurrency = options.concurrency ?? 8;
 
-  for (const eventRef of eventRefs) {
+  const fixture = await mapWithConcurrency(eventRefs, concurrency, async (eventRef) => {
     const matchupId = matchupIdFromEventRef(eventRef);
 
     if (sleepMsBetweenRequests > 0) {
@@ -359,7 +434,7 @@ export async function buildFixtureFromEventRefsService(
     const homeScore = toInt(home.score);
     const awayScore = toInt(away.score);
 
-    fixture.push({
+    return {
       gameId: eventRef.gameId,
       matchupId,
       competitionId: eventRef.competitionId,
@@ -381,8 +456,14 @@ export async function buildFixtureFromEventRefsService(
       },
       result: homeScore !== null && awayScore !== null ? `${homeScore}-${awayScore}` : null,
       source: eventRef.source,
-    });
-  }
+    };
+  });
+
+  fixture.sort((a, b) => {
+    const ta = typeof a.startTime === 'string' ? new Date(a.startTime).getTime() : 0;
+    const tb = typeof b.startTime === 'string' ? new Date(b.startTime).getTime() : 0;
+    return ta - tb;
+  });
 
   return {
     totalEvents: fixture.length,
