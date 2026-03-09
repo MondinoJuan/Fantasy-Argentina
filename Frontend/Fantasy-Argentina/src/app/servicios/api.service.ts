@@ -311,7 +311,7 @@ export class ApiService {
     return this.http.post<any>(`${this.url}/real-teams/sync/by-league-id-en-api`, payload);
   }
 
-  syncPlayersByLeagueIdEnApi(payload: { leagueIdEnApi: number }) {
+  syncPlayersByLeagueIdEnApi(payload: { leagueId?: number; leagueIdEnApi?: number }) {
     return this.http.post<any>(`${this.url}/real-players/sync/by-league-id-en-api`, payload);
   }
 
