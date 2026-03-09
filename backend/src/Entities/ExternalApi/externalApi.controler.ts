@@ -327,6 +327,57 @@ async function postSportsApiProBuildCompetitionFixture(req: Request, res: Respon
   }
 }
 
+async function getSportsApiProLocalPersistedFixture(req: Request, res: Response) {
+  const competitionId = parseRequiredNumber(req.query.competitionId as string | undefined);
+
+  try {
+    const matchdaysWhere = competitionId ? { league: { idEnApi: competitionId } } : {};
+    const matchesWhere = competitionId ? { matchday: { league: { idEnApi: competitionId } } } : {};
+
+    const matchdays = await em.find(Matchday, matchdaysWhere as any, { populate: ['league'] });
+    const matches = await em.find(Match, matchesWhere as any, { populate: ['matchday', 'matchday.league'] });
+
+    const groups = matchdays
+      .map((matchday: any) => ({
+        matchdayId: matchday.id,
+        matchdayNumber: matchday.matchdayNumber,
+        season: matchday.season,
+        startDate: matchday.startDate,
+        endDate: matchday.endDate,
+        status: matchday.status,
+        league: {
+          id: matchday.league?.id,
+          idEnApi: matchday.league?.idEnApi,
+          name: matchday.league?.name,
+        },
+        matches: matches
+          .filter((match: any) => match.matchday?.id === matchday.id)
+          .sort((a: any, b: any) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
+          .map((match: any) => ({
+            id: match.id,
+            externalApiId: match.externalApiId,
+            homeTeam: match.homeTeam,
+            awayTeam: match.awayTeam,
+            startDateTime: match.startDateTime,
+            status: match.status,
+          })),
+      }))
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+    return res.status(200).json({
+      message: 'local persisted fixture recovered',
+      data: {
+        competitionId: competitionId ?? null,
+        totalMatchdays: groups.length,
+        totalMatches: matches.length,
+        matchdays: groups,
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
 function extractRankedPlayersFromRatingsPayload(matchResult: any): Array<{ athleteId: number; ranking: number | null; matchDate: string | null; gameId: number | null; }> {
   const lineups = matchResult?.lineupsAndPlayerRankings;
   const matchDate = typeof matchResult?.match?.startTime === 'string' ? matchResult.match.startTime : null;
@@ -420,5 +471,6 @@ export {
   postSportsApiProFixtureEventRefs,
   postSportsApiProFixtureBuild,
   postSportsApiProBuildCompetitionFixture,
+  getSportsApiProLocalPersistedFixture,
   getSportsApiProRankingsWithLocalPerformances,
 };

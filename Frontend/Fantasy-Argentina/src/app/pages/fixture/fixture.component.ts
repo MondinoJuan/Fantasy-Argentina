@@ -1,6 +1,5 @@
 import { CommonModule, DatePipe } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
-import { forkJoin } from 'rxjs';
 import { ApiService } from '../../servicios/api.service';
 import { Location } from '@angular/common';
 
@@ -22,6 +21,8 @@ interface MatchdayGroup {
   endDate: Date;
   matches: MatchView[];
 }
+
+const DEFAULT_COMPETITION_ID = 72;
 
 @Component({
   selector: 'app-fixture',
@@ -48,44 +49,35 @@ export class FixtureComponent implements OnInit {
     this.isLoading = true;
     this.errorMessage = '';
 
-    forkJoin({
-      matchdaysResponse: this.apiService.searchMatchdays(),
-      matchesResponse: this.apiService.searchMatches(),
-    }).subscribe({
-      next: ({ matchdaysResponse, matchesResponse }) => {
-        const matchdays = [...matchdaysResponse.data]
-          .sort((a, b) => {
-            const byDate = new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+    this.apiService.searchExternalLocalPersistedFixture(DEFAULT_COMPETITION_ID).subscribe({
+      next: (response: any) => {
+        const groups = Array.isArray(response?.data?.matchdays) ? response.data.matchdays : [];
+
+        this.matchdayGroups = groups
+          .map((group: any) => ({
+            matchdayId: this.extractId(group.matchdayId),
+            matchdayNumber: Number(group.matchdayNumber ?? 0),
+            season: String(group.season ?? '-'),
+            startDate: new Date(String(group.startDate ?? new Date().toISOString())),
+            endDate: new Date(String(group.endDate ?? new Date().toISOString())),
+            matches: (Array.isArray(group.matches) ? group.matches : [])
+              .map((match: any) => ({
+                id: this.extractId(match.id) ?? undefined,
+                gameId: String(match.externalApiId ?? ''),
+                homeTeam: String(match.homeTeam ?? 'TBD'),
+                awayTeam: String(match.awayTeam ?? 'TBD'),
+                startDateTime: new Date(String(match.startDateTime ?? new Date().toISOString())),
+                result: this.resolveResult(String(match.status ?? '')),
+                status: String(match.status ?? 'scheduled'),
+              }))
+              .sort((a: MatchView, b: MatchView) => a.startDateTime.getTime() - b.startDateTime.getTime()),
+          }))
+          .sort((a: MatchdayGroup, b: MatchdayGroup) => {
+            const byDate = a.startDate.getTime() - b.startDate.getTime();
             if (byDate !== 0) return byDate;
             return (a.matchdayNumber ?? 0) - (b.matchdayNumber ?? 0);
           });
 
-        const grouped = matchdays.map((matchday) => {
-          const matchdayId = matchday.id;
-          const matches = matchesResponse.data
-            .filter((match) => this.extractId(match.matchday) === matchdayId)
-            .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
-            .map((match) => ({
-              id: match.id,
-              gameId: match.externalApiId,
-              homeTeam: match.homeTeam,
-              awayTeam: match.awayTeam,
-              startDateTime: new Date(match.startDateTime),
-              result: this.resolveResult(match.status),
-              status: match.status,
-            }));
-
-          return {
-            matchdayId,
-            matchdayNumber: matchday.matchdayNumber,
-            season: matchday.season,
-            startDate: new Date(matchday.startDate),
-            endDate: new Date(matchday.endDate),
-            matches,
-          } satisfies MatchdayGroup;
-        });
-
-        this.matchdayGroups = grouped;
         this.isLoading = false;
       },
       error: () => {

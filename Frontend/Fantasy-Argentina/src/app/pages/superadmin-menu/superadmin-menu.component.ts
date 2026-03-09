@@ -122,6 +122,10 @@ export class SuperadminMenuComponent {
     this.router.navigate(['/logIn']);
   }
 
+  goToFixture(): void {
+    this.router.navigate(['/fixture']);
+  }
+
   submitAction(): void {
     if (!this.currentAction) return;
     this.errorMessage = '';

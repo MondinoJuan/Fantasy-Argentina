@@ -327,4 +327,12 @@ export class ApiService {
     return this.http.get<any>(`${this.url}/external/sportsapipro/rankings/player-performances?sportId=${sportId}&competitionId=${competitionId}`);
   }
 
+  searchExternalLocalPersistedFixture(competitionId?: number | string) {
+    const query = competitionId !== undefined && competitionId !== null
+      ? `?competitionId=${competitionId}`
+      : '';
+
+    return this.http.get<any>(`${this.url}/external/sportsapipro/fixture/local${query}`);
+  }
+
 }
