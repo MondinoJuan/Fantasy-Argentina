@@ -11,3 +11,5 @@ export {
 } from './buildCompetitionFixtureFromTeams.service.js';
 export { getCompetitionTeamsBySportAndCompetitionService } from './getCompetitionTeamsBySportAndCompetition.service.js';
 export { getPlayersByAthleteIdService } from './getPlayersByAthleteId.service.js';
+
+export { getSportsApiProSquadByTeamService } from './getSportsApiProSquadByTeam.service.js';
