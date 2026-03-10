@@ -3,6 +3,10 @@ import { orm } from '../../shared/db/orm.js';
 import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
 import { Matchday } from '../Matchday/matchday.entity.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
+import { Match } from '../Match/match.entity.js';
+import { League } from '../League/league.entity.js';
+import { MATCHDAY_STATUSES, MATCH_STATUSES, isEnumValue } from '../../shared/domain-enums.js';
+import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
 import {
   buildFixtureFromEventRefsService,
   collectFixtureEventRefsFromTeamsService,
@@ -17,6 +21,152 @@ import {
 } from './services/index.js';
 
 const em = orm.em;
+
+type UnknownRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): UnknownRecord {
+  return value && typeof value === 'object' ? (value as UnknownRecord) : {};
+}
+
+function toInt(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number.parseInt(value.trim(), 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+
+function toNullableScore(value: unknown): number | null {
+  const parsed = toInt(value);
+  return parsed === null ? null : parsed;
+}
+
+function groupFixtureByRound(fixture: UnknownRecord[]): Array<{ roundNum: number; games: UnknownRecord[] }> {
+  const byRound = new Map<number, UnknownRecord[]>();
+
+  for (const game of fixture) {
+    const roundNum = toInt(game.roundNum);
+    if (roundNum === null) {
+      continue;
+    }
+
+    const current = byRound.get(roundNum) ?? [];
+    current.push(game);
+    byRound.set(roundNum, current);
+  }
+
+  return [...byRound.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([roundNum, games]) => ({ roundNum, games }));
+}
+
+async function persistFixtureCompetitionInDb(
+  competitionId: number,
+  seasonNum: number,
+  fixtureData: UnknownRecord[],
+  totalTeamsInCompetition: number,
+) {
+  const league = await em.findOne(League, { idEnApi: competitionId });
+  if (!league) {
+    throw new Error('league must exist locally. Use superadmin sync first.');
+  }
+
+  const groupedByRound = groupFixtureByRound(fixtureData);
+  let createdMatchdays = 0;
+  let createdMatches = 0;
+  const roundsWithUnexpectedMatchCount: Array<{ roundNum: number; totalMatches: number; expectedMatches: number }> = [];
+
+  const expectedMatchesPerRound = Math.floor(totalTeamsInCompetition / 2);
+
+  for (const group of groupedByRound) {
+    const orderedByStartTime = [...group.games].sort(
+      (a, b) => new Date(String(a.startTime ?? '')).getTime() - new Date(String(b.startTime ?? '')).getTime(),
+    );
+
+    const firstStart = String(orderedByStartTime[0]?.startTime ?? '');
+    const lastStart = String(orderedByStartTime[orderedByStartTime.length - 1]?.startTime ?? '');
+
+    const firstDate = firstStart ? new Date(firstStart) : new Date();
+    const lastDate = lastStart ? new Date(lastStart) : firstDate;
+
+    const startDate = new Date(Date.UTC(firstDate.getUTCFullYear(), firstDate.getUTCMonth(), firstDate.getUTCDate(), 0, 0, 0, 0));
+    const endDate = new Date(Date.UTC(lastDate.getUTCFullYear(), lastDate.getUTCMonth(), lastDate.getUTCDate(), 23, 59, 59, 999));
+
+    let matchday = await em.findOne(Matchday, {
+      league,
+      season: String(seasonNum),
+      matchdayNumber: group.roundNum,
+    });
+
+    if (!matchday) {
+      matchday = em.create(Matchday, {
+        league,
+        season: String(seasonNum),
+        matchdayNumber: group.roundNum,
+        startDate,
+        endDate,
+        status: MATCHDAY_STATUSES[0],
+      } as any);
+      createdMatchdays += 1;
+    } else {
+      matchday.startDate = startDate;
+      matchday.endDate = endDate;
+    }
+
+    if (expectedMatchesPerRound > 0 && group.games.length !== expectedMatchesPerRound) {
+      roundsWithUnexpectedMatchCount.push({
+        roundNum: group.roundNum,
+        totalMatches: group.games.length,
+        expectedMatches: expectedMatchesPerRound,
+      });
+    }
+
+    for (const fixtureMatch of group.games) {
+      const gameId = Number.parseInt(String(fixtureMatch.gameId ?? ''), 10);
+      if (!Number.isFinite(gameId)) continue;
+
+      const homeScore = toNullableScore(asRecord(fixtureMatch.home).score);
+      const awayScore = toNullableScore(asRecord(fixtureMatch.away).score);
+
+      const existing = await em.findOne(Match, { externalApiId: String(gameId) });
+      if (existing) {
+        existing.matchday = matchday;
+        existing.homeTeam = String(asRecord(fixtureMatch.home).name ?? existing.homeTeam ?? 'TBD');
+        existing.awayTeam = String(asRecord(fixtureMatch.away).name ?? existing.awayTeam ?? 'TBD');
+        existing.startDateTime = new Date(String(fixtureMatch.startTime ?? existing.startDateTime?.toISOString?.() ?? startDate.toISOString()));
+        existing.homeScore = homeScore;
+        existing.awayScore = awayScore;
+        existing.status = homeScore !== null && awayScore !== null
+          ? 'finalizado'
+          : isEnumValue(MATCH_STATUSES, fixtureMatch.statusText)
+            ? fixtureMatch.statusText
+            : existing.status;
+        continue;
+      }
+
+      em.create(Match, {
+        matchday,
+        externalApiId: String(gameId),
+        homeTeam: String(asRecord(fixtureMatch.home).name ?? 'TBD'),
+        awayTeam: String(asRecord(fixtureMatch.away).name ?? 'TBD'),
+        startDateTime: new Date(String(fixtureMatch.startTime ?? startDate.toISOString())),
+        status: homeScore !== null && awayScore !== null
+          ? 'finalizado'
+          : isEnumValue(MATCH_STATUSES, fixtureMatch.statusText)
+            ? fixtureMatch.statusText
+            : MATCH_STATUSES[0],
+        homeScore,
+        awayScore,
+      } as any);
+      createdMatches += 1;
+    }
+  }
+
+  await em.flush();
+  return { createdMatchdays, createdMatches, expectedMatchesPerRound, roundsWithUnexpectedMatchCount };
+}
 
 function parseRequiredNumber(value: string | string[] | undefined): number | null {
   const raw = Array.isArray(value) ? value[0] : value;
@@ -200,8 +350,176 @@ async function postSportsApiProBuildCompetitionFixture(req: Request, res: Respon
       teams: competitionData.teams.map((team) => ({ id: team.id, name: team.name ?? undefined })),
     });
 
-    const data = await buildFixtureFromEventRefsService(fixtureRefs.eventRefs);
-    return res.status(200).json({ message: 'sportsapipro competition fixture built', data, fixtureStats: fixtureRefs.stats });
+    // Evitamos llamar /game por cada evento: usamos directamente lo recolectado en /games/fixtures y /games/results.
+    const fixture = fixtureRefs.eventRefs.map((eventRef) => ({
+      gameId: eventRef.gameId,
+      matchupId: `${eventRef.homeCompetitorId ?? 'na'}-${eventRef.awayCompetitorId ?? 'na'}-${eventRef.competitionId}`,
+      competitionId: eventRef.competitionId,
+      seasonNum: eventRef.seasonNum,
+      stageNum: eventRef.stageNum,
+      roundNum: eventRef.roundNum,
+      statusGroup: eventRef.statusGroup,
+      statusText: eventRef.statusText,
+      startTime: eventRef.startTime,
+      home: {
+        id: eventRef.homeCompetitorId,
+        name: eventRef.homeCompetitorName,
+        score: eventRef.homeCompetitorScore,
+      },
+      away: {
+        id: eventRef.awayCompetitorId,
+        name: eventRef.awayCompetitorName,
+        score: eventRef.awayCompetitorScore,
+      },
+      result: eventRef.homeCompetitorScore !== null && eventRef.awayCompetitorScore !== null
+        ? `${eventRef.homeCompetitorScore}-${eventRef.awayCompetitorScore}`
+        : null,
+      source: eventRef.source,
+    }));
+
+    const persistStats = await persistFixtureCompetitionInDb(
+      competitionId,
+      competitionData.seasonNum ?? new Date().getUTCFullYear(),
+      fixture as UnknownRecord[],
+      competitionData.teams.length,
+    );
+
+    const data = { totalEvents: fixture.length, fixture };
+    return res.status(200).json({
+      message: 'sportsapipro competition fixture built and persisted',
+      data,
+      fixtureStats: fixtureRefs.stats,
+      persistStats,
+    });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
+async function getSportsApiProLocalPersistedFixture(req: Request, res: Response) {
+  const competitionId = parseRequiredNumber(req.query.competitionId as string | undefined);
+
+  try {
+    const matchdaysWhere = competitionId ? { league: { idEnApi: competitionId } } : {};
+    const matchesWhere = competitionId ? { matchday: { league: { idEnApi: competitionId } } } : {};
+
+    const matchdays = await em.find(Matchday, matchdaysWhere as any, { populate: ['league'] });
+    const matches = await em.find(Match, matchesWhere as any, { populate: ['matchday', 'matchday.league'] });
+
+    const groups = matchdays
+      .map((matchday: any) => ({
+        matchdayId: matchday.id,
+        matchdayNumber: matchday.matchdayNumber,
+        season: matchday.season,
+        startDate: matchday.startDate,
+        endDate: matchday.endDate,
+        status: matchday.status,
+        league: {
+          id: matchday.league?.id,
+          idEnApi: matchday.league?.idEnApi,
+          name: matchday.league?.name,
+        },
+        matches: matches
+          .filter((match: any) => match.matchday?.id === matchday.id)
+          .sort((a: any, b: any) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
+          .map((match: any) => ({
+            id: match.id,
+            externalApiId: match.externalApiId,
+            homeTeam: match.homeTeam,
+            awayTeam: match.awayTeam,
+            startDateTime: match.startDateTime,
+            status: match.status,
+            homeScore: match.homeScore ?? null,
+            awayScore: match.awayScore ?? null,
+          })),
+      }))
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+    return res.status(200).json({
+      message: 'local persisted fixture recovered',
+      data: {
+        competitionId: competitionId ?? null,
+        totalMatchdays: groups.length,
+        totalMatches: matches.length,
+        matchdays: groups,
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
+
+async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Response) {
+  const competitionId = parseRequiredNumber(req.body?.competitionId as string | undefined)
+    ?? parseRequiredNumber(req.query.competitionId as string | undefined);
+
+  try {
+    const now = new Date();
+    const where = competitionId
+      ? {
+        startDateTime: { $lt: now },
+        matchday: { league: { idEnApi: competitionId } },
+      }
+      : { startDateTime: { $lt: now } };
+
+    const matches = await em.find(Match, where as any, { populate: ['matchday', 'matchday.league'] });
+
+    let updated = 0;
+    let skippedAlreadyScored = 0;
+    let skippedWithoutScore = 0;
+    const errors: Array<{ gameId: string; message: string }> = [];
+
+    for (const match of matches) {
+      const gameId = Number.parseInt(String(match.externalApiId ?? ''), 10);
+
+      if (!Number.isFinite(gameId)) {
+        skippedWithoutScore += 1;
+        continue;
+      }
+
+      if (match.homeScore !== null && match.homeScore !== undefined && match.awayScore !== null && match.awayScore !== undefined) {
+        skippedAlreadyScored += 1;
+        continue;
+      }
+
+      try {
+        // 1 request por partido: usamos solo el gameId guardado en la BD local.
+        const gamePayload = (await requestSportsApiPro('/game', { gameId })) as UnknownRecord;
+        const game = asRecord(gamePayload.game);
+        const home = asRecord(game.homeCompetitor);
+        const away = asRecord(game.awayCompetitor);
+
+        const homeScore = toNullableScore(home.score);
+        const awayScore = toNullableScore(away.score);
+
+        if (homeScore === null || awayScore === null) {
+          skippedWithoutScore += 1;
+          continue;
+        }
+
+        match.homeScore = homeScore;
+        match.awayScore = awayScore;
+        match.status = 'finalizado';
+        updated += 1;
+      } catch (error: any) {
+        errors.push({ gameId: String(match.externalApiId), message: error?.message ?? 'unknown error' });
+      }
+    }
+
+    await em.flush();
+
+    return res.status(200).json({
+      message: 'played matches results synced',
+      data: {
+        competitionId: competitionId ?? null,
+        scannedMatches: matches.length,
+        updatedMatches: updated,
+        skippedAlreadyScored,
+        skippedWithoutScore,
+        errors,
+      },
+    });
   } catch (error: any) {
     return res.status(500).json({ message: error.message });
   }
@@ -300,5 +618,7 @@ export {
   postSportsApiProFixtureEventRefs,
   postSportsApiProFixtureBuild,
   postSportsApiProBuildCompetitionFixture,
+  getSportsApiProLocalPersistedFixture,
   getSportsApiProRankingsWithLocalPerformances,
+  postSportsApiProSyncPlayedMatchesResults,
 };
