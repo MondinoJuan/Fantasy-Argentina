@@ -465,47 +465,27 @@ async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Respo
 
     const matches = await em.find(Match, where as any, { populate: ['matchday', 'matchday.league'] });
 
-    const matchupByGameId = new Map<number, string>();
-
-    if (competitionId !== null) {
-      const competitionData = await getCompetitionTeamsBySportAndCompetitionService(1, competitionId);
-      const fixtureRefs = await collectFixtureEventRefsFromTeamsService({
-        competitionId,
-        seasonNum: competitionData.seasonNum ?? new Date().getUTCFullYear(),
-        stageNum: competitionData.stageNum ?? 1,
-        teams: competitionData.teams.map((team) => ({ id: team.id, name: team.name ?? undefined })),
-      });
-
-      for (const eventRef of fixtureRefs.eventRefs) {
-        if (
-          eventRef.homeCompetitorId !== null
-          && eventRef.awayCompetitorId !== null
-          && eventRef.competitionId !== null
-        ) {
-          matchupByGameId.set(
-            eventRef.gameId,
-            `${eventRef.homeCompetitorId}-${eventRef.awayCompetitorId}-${eventRef.competitionId}`,
-          );
-        }
-      }
-    }
-
     let updated = 0;
+    let skippedAlreadyScored = 0;
     let skippedWithoutScore = 0;
     const errors: Array<{ gameId: string; message: string }> = [];
 
     for (const match of matches) {
       const gameId = Number.parseInt(String(match.externalApiId ?? ''), 10);
-      const competitionIdForMatch = toInt((match as any).matchday?.league?.idEnApi);
 
-      if (!Number.isFinite(gameId) || competitionIdForMatch === null) {
+      if (!Number.isFinite(gameId)) {
         skippedWithoutScore += 1;
         continue;
       }
 
+      if (match.homeScore !== null && match.homeScore !== undefined && match.awayScore !== null && match.awayScore !== undefined) {
+        skippedAlreadyScored += 1;
+        continue;
+      }
+
       try {
-        const matchupId = matchupByGameId.get(gameId);
-        const gamePayload = (await requestSportsApiPro('/game', matchupId ? { gameId, matchupId } : { gameId })) as UnknownRecord;
+        // 1 request por partido: usamos solo el gameId guardado en la BD local.
+        const gamePayload = (await requestSportsApiPro('/game', { gameId })) as UnknownRecord;
         const game = asRecord(gamePayload.game);
         const home = asRecord(game.homeCompetitor);
         const away = asRecord(game.awayCompetitor);
@@ -535,6 +515,7 @@ async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Respo
         competitionId: competitionId ?? null,
         scannedMatches: matches.length,
         updatedMatches: updated,
+        skippedAlreadyScored,
         skippedWithoutScore,
         errors,
       },
