@@ -23,4 +23,11 @@ export class Match extends BaseEntity {
 
   @Property({ nullable: false })
   status!: MatchStatus;
+
+
+  @Property({ nullable: true })
+  homeScore?: number | null;
+
+  @Property({ nullable: true })
+  awayScore?: number | null;
 }
