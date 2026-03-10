@@ -4,7 +4,8 @@ El superadministrador debe ser el encargado de, aparte de poder realizar un CRUD
 
 # Creacion de Tournament
 Una persona ingresa a la página y puede hacerse una cuenta o ingresar con una ya creada.
-En la página principal debe poder consultar los torneos a los que pertenece o crear uno nuevo, la relacion entre User y Tournament se da a partir de Participant el cual contendra los datos propios del User y del Tournament al que pertenece. Cuando se crea el Tournament, se crea al mismo tiempo el Participant que linkea ambos, con algunos valores seteados por default (como bankBudget), y se le asignan 11 RealPlayers recuperados al azar desde la base de datos local (estos RealPlayer pueden existir una vez por Tournament, es decir, que para que otro Participant obtenga al RealPlayer, este debe realizar una Negotiation con el Participant dueño actual del RealPlayer y acordar un cierto dinero para la Transaction). 
+En la página principal un User debe poder consultar los torneos a los que pertenece o crear uno nuevo, la relacion entre User y Tournament se da a partir de Participant el cual contendra los datos propios del User y del Tournament al que pertenece. Cuando se crea el Tournament, se crea al mismo tiempo el Participant que linkea ambos, con algunos valores seteados por default (como bankBudget), y se le asignan 11 RealPlayers recuperados al azar desde la base de datos local (estos RealPlayer pueden existir una vez por Tournament, es decir, que para que otro Participant obtenga al RealPlayer, este debe realizar una Negotiation con el Participant dueño actual del RealPlayer y acordar un cierto dinero para la Transaction). 
+Estos RealPlayers recuperados deben pertenecer uno a cada posicion, por ejemplo, como la formación por default es '4-4-2', se deberían recuperar 1 goalkeeper, 4 defenders, 4 midfielders y 2 forwards. Total si despues el Participant decide cambiar la formación, va a tratar de cambiar los realPlayer el mismo mediante Bids o Negotiations.
 A su vez, cada vez que se cree un Participant para el Tournament, es decir que mas Users se linkeen a dicho Tournament, 4 RealPlayers que no estén ya en el Tournament (ya en el Market o perteneciente a un Participant) se deben recuperar al azar sin restriccion de posición y colocarse en el Market para que puedan realizarse Bids sobre ese RealPlayer. Las Bids consisten en que cada Participant ofrece una cantidad de plata por dicho RealPlayer, al final de cada Matchday (8hs despues del último Match jugado de dicha Matchday) se analizan las Bids y el Participant que haya ofertado la mayor cantidad de dinero se lleva el RealPlayer, los Participant no deben saber el valor de las Bids realizadas mientras el RealPlayer se encuentre en el Market (es decir mientras la puja siga activa).
 
 # Realizar una puja
@@ -38,3 +39,6 @@ Debe poder seleccionarse la fecha y ver un ranking ordenado tambien de manera de
 * Capaz se podria hacer con un trigger? que cada vez que se cree un PlayerPerformance se sume el puntaje almacenado en la propiedad pointsObtained al puntaje del Participant en totalScore.
 
 - ¿Cómo calcular bien las Bids?
+
+# A futuro
+* Que si un realPlayer no está en la posición que se supone que es, que en la suma
