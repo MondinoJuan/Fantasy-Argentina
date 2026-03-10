@@ -168,6 +168,67 @@ async function persistFixtureCompetitionInDb(
   return { createdMatchdays, createdMatches, expectedMatchesPerRound, roundsWithUnexpectedMatchCount };
 }
 
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function toNormalizedRanking(value: unknown): number {
+  const parsed = typeof value === 'number'
+    ? value
+    : typeof value === 'string'
+      ? Number.parseFloat(value)
+      : Number.NaN;
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 0;
+  }
+
+  return parsed;
+}
+
+function extractAthleteRankingRowsFromGamePayload(payload: UnknownRecord): Array<{ athleteId: number; ranking: number }> {
+  const game = asRecord(payload.game);
+  const players = asArray(game.players).map(asRecord);
+  const athleteIdByPlayerId = new Map<number, number>();
+
+  for (const player of players) {
+    const playerId = toInt(player.id);
+    const athleteId = toInt(player.athleteId);
+
+    if (playerId === null || athleteId === null) {
+      continue;
+    }
+
+    athleteIdByPlayerId.set(playerId, athleteId);
+  }
+
+  const rankingByAthleteId = new Map<number, number>();
+
+  const ingestCompetitor = (competitorNode: unknown) => {
+    const competitor = asRecord(competitorNode);
+    const lineups = asRecord(competitor.lineups);
+
+    for (const memberUnknown of asArray(lineups.members)) {
+      const member = asRecord(memberUnknown);
+      const memberId = toInt(member.id);
+      const athleteFromMember = toInt(member.athleteId);
+      const athleteId = athleteFromMember ?? (memberId !== null ? athleteIdByPlayerId.get(memberId) ?? null : null);
+
+      if (athleteId === null) {
+        continue;
+      }
+
+      rankingByAthleteId.set(athleteId, toNormalizedRanking(member.ranking));
+    }
+  };
+
+  ingestCompetitor(game.homeCompetitor);
+  ingestCompetitor(game.awayCompetitor);
+
+  return [...rankingByAthleteId.entries()].map(([athleteId, ranking]) => ({ athleteId, ranking }));
+}
+
 function parseRequiredNumber(value: string | string[] | undefined): number | null {
   const raw = Array.isArray(value) ? value[0] : value;
   const parsed = Number.parseInt(raw ?? '', 10);
@@ -466,8 +527,11 @@ async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Respo
     const matches = await em.find(Match, where as any, { populate: ['matchday', 'matchday.league'] });
 
     let updated = 0;
-    let skippedAlreadyScored = 0;
     let skippedWithoutScore = 0;
+    let createdPerformances = 0;
+    let updatedPerformances = 0;
+    let missingLocalPlayers = 0;
+    let processedAthleteRankings = 0;
     const errors: Array<{ gameId: string; message: string }> = [];
 
     for (const match of matches) {
@@ -477,12 +541,6 @@ async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Respo
         skippedWithoutScore += 1;
         continue;
       }
-
-      if (match.homeScore !== null && match.homeScore !== undefined && match.awayScore !== null && match.awayScore !== undefined) {
-        skippedAlreadyScored += 1;
-        continue;
-      }
-
       try {
         // 1 request por partido: usamos solo el gameId guardado en la BD local.
         const gamePayload = (await requestSportsApiPro('/game', { gameId })) as UnknownRecord;
@@ -501,6 +559,35 @@ async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Respo
         match.homeScore = homeScore;
         match.awayScore = awayScore;
         match.status = 'finalizado';
+
+        const rankingRows = extractAthleteRankingRowsFromGamePayload(gamePayload);
+        processedAthleteRankings += rankingRows.length;
+
+        for (const row of rankingRows) {
+          const realPlayer = await em.findOne(RealPlayer, { idEnApi: row.athleteId });
+          if (!realPlayer) {
+            missingLocalPlayers += 1;
+            continue;
+          }
+
+          let performance = await em.findOne(PlayerPerformance, { realPlayer, matchday: match.matchday });
+          if (!performance) {
+            performance = em.create(PlayerPerformance, {
+              realPlayer,
+              matchday: match.matchday,
+              pointsObtained: row.ranking,
+              played: true,
+              updateDate: new Date(),
+            } as any);
+            createdPerformances += 1;
+          } else {
+            performance.pointsObtained = row.ranking;
+            performance.played = true;
+            performance.updateDate = new Date();
+            updatedPerformances += 1;
+          }
+        }
+
         updated += 1;
       } catch (error: any) {
         errors.push({ gameId: String(match.externalApiId), message: error?.message ?? 'unknown error' });
@@ -515,8 +602,11 @@ async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Respo
         competitionId: competitionId ?? null,
         scannedMatches: matches.length,
         updatedMatches: updated,
-        skippedAlreadyScored,
         skippedWithoutScore,
+        processedAthleteRankings,
+        createdPerformances,
+        updatedPerformances,
+        missingLocalPlayers,
         errors,
       },
     });
