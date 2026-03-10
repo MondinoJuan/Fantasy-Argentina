@@ -187,12 +187,72 @@ function toNormalizedRanking(value: unknown): number {
   return parsed;
 }
 
+function collectLineupLikeNodes(value: unknown): UnknownRecord[] {
+  const out: UnknownRecord[] = [];
+
+  const walk = (node: unknown) => {
+    if (Array.isArray(node)) {
+      for (const child of node) {
+        walk(child);
+      }
+      return;
+    }
+
+    if (!node || typeof node !== 'object') {
+      return;
+    }
+
+    const record = node as UnknownRecord;
+    if (Array.isArray(record.members) && ('formation' in record || 'hasFieldPositions' in record || 'status' in record)) {
+      out.push(record);
+    }
+
+    for (const nested of Object.values(record)) {
+      walk(nested);
+    }
+  };
+
+  walk(value);
+  return out;
+}
+
+function collectPlayerCatalogNodes(value: unknown): UnknownRecord[] {
+  const out: UnknownRecord[] = [];
+
+  const walk = (node: unknown) => {
+    if (Array.isArray(node)) {
+      for (const child of node) {
+        walk(child);
+      }
+      return;
+    }
+
+    if (!node || typeof node !== 'object') {
+      return;
+    }
+
+    const record = node as UnknownRecord;
+
+    const id = toInt(record.id);
+    const athleteId = toInt(record.athleteId);
+    if (id !== null && athleteId !== null) {
+      out.push(record);
+    }
+
+    for (const nested of Object.values(record)) {
+      walk(nested);
+    }
+  };
+
+  walk(value);
+  return out;
+}
+
 function extractAthleteRankingRowsFromGamePayload(payload: UnknownRecord): Array<{ athleteId: number; ranking: number }> {
-  const game = asRecord(payload.game);
-  const players = asArray(game.players).map(asRecord);
+  const playerCatalog = collectPlayerCatalogNodes(payload);
   const athleteIdByPlayerId = new Map<number, number>();
 
-  for (const player of players) {
+  for (const player of playerCatalog) {
     const playerId = toInt(player.id);
     const athleteId = toInt(player.athleteId);
 
@@ -204,12 +264,10 @@ function extractAthleteRankingRowsFromGamePayload(payload: UnknownRecord): Array
   }
 
   const rankingByAthleteId = new Map<number, number>();
+  const lineupNodes = collectLineupLikeNodes(payload);
 
-  const ingestCompetitor = (competitorNode: unknown) => {
-    const competitor = asRecord(competitorNode);
-    const lineups = asRecord(competitor.lineups);
-
-    for (const memberUnknown of asArray(lineups.members)) {
+  for (const lineup of lineupNodes) {
+    for (const memberUnknown of asArray(lineup.members)) {
       const member = asRecord(memberUnknown);
       const memberId = toInt(member.id);
       const athleteFromMember = toInt(member.athleteId);
@@ -221,10 +279,7 @@ function extractAthleteRankingRowsFromGamePayload(payload: UnknownRecord): Array
 
       rankingByAthleteId.set(athleteId, toNormalizedRanking(member.ranking));
     }
-  };
-
-  ingestCompetitor(game.homeCompetitor);
-  ingestCompetitor(game.awayCompetitor);
+  }
 
   return [...rankingByAthleteId.entries()].map(([athleteId, ranking]) => ({ athleteId, ranking }));
 }
