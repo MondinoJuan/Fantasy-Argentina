@@ -7,6 +7,7 @@ import { finalize } from 'rxjs/operators';
 import { ApiService } from '../../servicios/api.service';
 import { LoadingSpinnerComponent } from '../../components/loading-spinner/loading-spinner.component';
 import { tournamentI } from '../../modelos/tournament.interface';
+import { leagueI } from '../../modelos/league.interface';
 import { TournamentStatus } from '../../modelos/domain-enums.types';
 
 @Component({
@@ -18,14 +19,7 @@ import { TournamentStatus } from '../../modelos/domain-enums.types';
 })
 export class LandingPageComponent implements OnInit {
   tournaments: tournamentI[] = [];
-  readonly allowedLeagues = [
-    'Liga Profesional',
-    'Premier League',
-    'La Liga',
-    'Bundesliga',
-    'Serie A',
-    'Ligue 1',
-  ];
+  leagues: leagueI[] = [];
   readonly sportOptions = [
     { idEnApi: 1, label: 'Football', descripcion: 'Football', cupoTitular: 11, cupoSuplente: 5 },
     { idEnApi: 2, label: 'Basket', descripcion: 'Basketball', cupoTitular: 5, cupoSuplente: 3 },
@@ -59,7 +53,7 @@ export class LandingPageComponent implements OnInit {
   ) {
     this.createTournamentForm = this.fb.nonNullable.group({
       name: ['', [Validators.required, Validators.minLength(4)]],
-      leagueName: ['', Validators.required],
+      leagueId: [0, [Validators.required, Validators.min(1)]],
       sportIdEnApi: [1, Validators.required],
       initialBudget: [1000000, [Validators.required, Validators.min(100000)]],
       status: ['active', Validators.required]
@@ -107,7 +101,74 @@ export class LandingPageComponent implements OnInit {
   }
 
   createTournament(): void {
+    this.errorMessage = '';
 
+    if (this.createTournamentForm.invalid) {
+      this.createTournamentForm.markAllAsTouched();
+      return;
+    }
+
+    const userId = Number(localStorage.getItem('currentUserId'));
+    if (!userId) {
+      this.router.navigate(['/logIn']);
+      return;
+    }
+
+    this.isCreating = true;
+
+    const formValue = this.createTournamentForm.getRawValue();
+    const creationDate = new Date();
+    const clauseEnableDate = new Date(creationDate);
+    clauseEnableDate.setDate(clauseEnableDate.getDate() + 14);
+
+    const selectedLeagueId = Number(formValue.leagueId);
+
+    if (!Number.isFinite(selectedLeagueId) || selectedLeagueId <= 0) {
+      this.errorMessage = 'Liga inválida. Elegí una liga de la lista.';
+      this.isCreating = false;
+      return;
+    }
+
+    const selectedSport = this.sportOptions.find((sport) => sport.idEnApi === Number(formValue.sportIdEnApi));
+
+    this.apiService.postTournament({
+      name: formValue.name.trim(),
+      league: selectedLeagueId,
+      sport: selectedSport?.descripcion ?? 'Football',
+      sportId: Number(formValue.sportIdEnApi),
+      creationDate,
+      initialBudget: Number(formValue.initialBudget),
+      squadSize: 16,
+      status: formValue.status as TournamentStatus,
+      clauseEnableDate,
+      creatorUserId: userId,
+    }).pipe(
+      finalize(() => this.isCreating = false),
+        ).subscribe({
+      next: (response) => {
+        this.showCreateForm = false;
+        this.createTournamentForm.reset({
+          name: '',
+          leagueId: this.leagues[0]?.id ?? 0,
+          sportIdEnApi: 1,
+          initialBudget: 1000000,
+          status: 'active',
+        });
+
+        // Debo recuperar de la base de datos los players que perteneceran al equipo del participant.
+
+        const createdTournamentId = response?.data?.id;
+        if (createdTournamentId) {
+          this.router.navigate(['/inside-tournament'], { queryParams: { tournamentId: createdTournamentId } });
+          return;
+        }
+
+        this.loadTournaments(userId);
+      },
+      error: (error) => {
+        this.errorMessage = error?.error?.message ?? 'No pudimos crear el torneo.';
+      }
+    });
   }
 
 
@@ -133,15 +194,17 @@ export class LandingPageComponent implements OnInit {
     this.isLoading = true;
     this.errorMessage = '';
 
-    if (!this.createTournamentForm.controls.leagueName.value && this.allowedLeagues.length > 0) {
-      this.createTournamentForm.patchValue({ leagueName: this.allowedLeagues[0] });
-    }
-
     forkJoin({
       participants: this.apiService.searchParticipants(),
-      tournaments: this.apiService.searchTournaments()
+      tournaments: this.apiService.searchTournaments(),
+      leagues: this.apiService.searchLeagues(),
     }).pipe(finalize(() => this.isLoading = false)).subscribe({
-      next: ({ participants, tournaments }: any) => {
+      next: ({ participants, tournaments, leagues }: any) => {
+        this.leagues = leagues?.data ?? [];
+
+        if (!this.createTournamentForm.controls.leagueId.value && this.leagues.length > 0) {
+          this.createTournamentForm.patchValue({ leagueId: this.leagues[0].id ?? 0 });
+        }
         const joinedTournamentIds = new Set(
           participants.data
             .filter((participant: any) => this.extractEntityId(participant.user) === userId)
