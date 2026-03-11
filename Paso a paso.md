@@ -1,6 +1,6 @@
 # SUPERADMIN
 El superadministrador debe ser el encargado de, aparte de poder realizar un CRUD de cada entity del proyecto, llenar la BdD local con las tuplas correspondientes a cada entidad y realizar actualizaciones o modificaciones de claves foráneas (por ejemplo en caso de traspasos).
-
+ 
 
 # Creacion de Tournament
 Una persona ingresa a la página y puede hacerse una cuenta o ingresar con una ya creada.
