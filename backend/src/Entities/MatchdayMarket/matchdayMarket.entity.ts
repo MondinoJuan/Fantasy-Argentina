@@ -2,13 +2,12 @@ import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property, Unique, Re
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { Tournament } from '../Tournament/tournament.entity.js';
 import { Matchday } from '../Matchday/matchday.entity.js';
-import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
 import { Participant } from '../Participant/participant.entity.js';
 import { Bid } from '../Bid/bid.entity.js';
 import { MarketOrigin } from '../../shared/domain-enums.js';
 
 @Entity()
-@Unique({ properties: ['tournament', 'matchday', 'dependantPlayer'] })
+@Unique({ properties: ['tournament', 'matchday', 'creationDate'] })
 export class MatchdayMarket extends BaseEntity {
   @ManyToOne(() => Tournament, { nullable: false, deleteRule: 'cascade' })
   tournament!: Rel<Tournament>;
@@ -16,8 +15,8 @@ export class MatchdayMarket extends BaseEntity {
   @ManyToOne(() => Matchday, { nullable: false, deleteRule: 'cascade' })
   matchday!: Rel<Matchday>;
 
-  @ManyToOne(() => DependantPlayer, { nullable: false, deleteRule: 'cascade' })
-  dependantPlayer!: Rel<DependantPlayer>;
+  @Property({ type: 'json', nullable: false })
+  dependantPlayerIds: number[] = [];
 
   @Property({ nullable: false })
   minimumPrice!: number;

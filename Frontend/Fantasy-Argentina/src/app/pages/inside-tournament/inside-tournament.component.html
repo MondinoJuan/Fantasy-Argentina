@@ -21,35 +21,30 @@
     <section class="panel">
       <h2>Squad titular (11 jugadores)</h2>
       <div class="formation-picker">
-        <label>Formación: <strong>{{ selectedFormation }}</strong></label>
-        <input type="range" min="0" max="3" step="1" [(ngModel)]="formationIndex" (input)="updateFormationFromSlider()" />
-        <div class="formation-labels">
-          @for (formation of formations; track formation) {
-            <span [class.active]="formation === selectedFormation">{{ formation }}</span>
-          }
+        <div>
+          <label>Formación: <strong>{{ selectedFormation }}</strong></label>
+          <input type="range" min="0" max="3" step="1" [(ngModel)]="formationIndex" (input)="updateFormationFromSlider()" />
+          <div class="formation-labels">
+            @for (formation of formations; track formation) {
+              <span [class.active]="formation === selectedFormation">{{ formation }}</span>
+            }
+          </div>
         </div>
-      </div>
 
-      <div class="grid">
-        @for (player of squadPlayers; track player.id ?? $index) {
-          <article class="card">
-            <h3>{{ player.name }}</h3>
-            <p>{{ player.position }}</p>
-            <small>{{ player.teamName }}</small>
-          </article>
-        }
+        <div>
+          <h3>Jugadores linkeados</h3>
+          <ul>
+            @for (player of squadPlayers; track player.id ?? $index) {
+              <li>{{ player.name }} - {{ player.position }} - {{ player.teamName }}</li>
+            }
+          </ul>
+        </div>
       </div>
     </section>
 
     <section class="panel">
       <h2>Market de la fecha</h2>
-      <div class="toolbar">
-        <label>
-          Cantidad aleatoria
-          <input type="number" min="1" max="30" [(ngModel)]="marketQuantity" />
-        </label>
-        <button (click)="regenerateMarket()">Generar market aleatorio</button>
-      </div>
+      <p>Total jugadores en market: {{ marketPlayers.length }}</p>
 
       <div class="grid">
         @for (player of marketPlayers; track player.id ?? $index) {
@@ -57,12 +52,10 @@
             <h3>{{ player.name }}</h3>
             <p>{{ player.position }}</p>
             <small>{{ player.teamName }}</small>
+            <button type="button" (click)="openBidModal(player)">Ofertar</button>
           </article>
         }
       </div>
-
-      <h3>Entradas actuales de mercado (BDD)</h3>
-      <p>Total: {{ existingMarketEntries.length }}</p>
     </section>
 
     <section class="panel split">
@@ -118,5 +111,25 @@
         }
       </ol>
     </section>
+  }
+
+  @if (showBidModal && selectedMarketPlayer) {
+    <div class="modal-backdrop">
+      <article class="panel">
+        <h3>Ofertar por {{ selectedMarketPlayer.name }}</h3>
+        <p>Dinero disponible: {{ availableMoney }}</p>
+        <label>
+          Monto
+          <input type="number" min="1" [(ngModel)]="bidAmount" />
+        </label>
+        @if (bidError) {
+          <p class="state error">{{ bidError }}</p>
+        }
+        <div class="toolbar">
+          <button type="button" (click)="submitBid()">Confirmar oferta</button>
+          <button type="button" (click)="closeBidModal()">Cancelar</button>
+        </div>
+      </article>
+    </div>
   }
 </section>

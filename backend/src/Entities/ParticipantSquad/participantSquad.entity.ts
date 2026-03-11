@@ -1,17 +1,16 @@
 import { Entity, ManyToOne, Property, Unique, Rel } from '@mikro-orm/core';
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { Participant } from '../Participant/participant.entity.js';
-import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
 import { ParticipantFormation, SquadAcquisitionType } from '../../shared/domain-enums.js';
 
 @Entity()
-@Unique({ properties: ['participant', 'realPlayer', 'acquisitionDate'] })
+@Unique({ properties: ['participant', 'acquisitionDate'] })
 export class ParticipantSquad extends BaseEntity {
   @ManyToOne(() => Participant, { nullable: false, deleteRule: 'cascade' })
   participant!: Rel<Participant>;
 
-  @ManyToOne(() => RealPlayer, { nullable: false, deleteRule: 'cascade' })
-  realPlayer!: Rel<RealPlayer>;
+  @Property({ type: 'json', nullable: false })
+  realPlayerIds: number[] = [];
 
   @Property({ nullable: false })
   formation: ParticipantFormation = '4-4-2';

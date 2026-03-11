@@ -216,6 +216,11 @@ export class ApiService {
   patchMatch(match: matchPatchI) { return this.http.patch<responseMatchI>(`${this.url}/matches/${match.id}`, match); }
   removeMatch(id: number | string) { return this.http.delete<responseMatchI>(`${this.url}/matches/${id}`); }
 
+
+  // Dependant Players
+  searchDependantPlayers() { return this.http.get<any>(`${this.url}/dependant-players`); }
+  searchDependantPlayerById(id: number | string) { return this.http.get<any>(`${this.url}/dependant-players/${id}`); }
+
   // Matchday Markets
   searchMatchdayMarkets() { return this.http.get<matchdayMarketCollectionI>(`${this.url}/matchday-markets`); }
   searchMatchdayMarketById(id: number | string) { return this.http.get<responseMatchdayMarketI>(`${this.url}/matchday-markets/${id}`); }

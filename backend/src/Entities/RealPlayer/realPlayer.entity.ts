@@ -1,7 +1,6 @@
 import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property, Rel } from '@mikro-orm/core';
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { RealTeam } from '../RealTeam/realTeam.entity.js';
-import { ParticipantSquad } from '../ParticipantSquad/participantSquad.entity.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
 import { PlayerPointsBreakdown } from '../PlayerPointsBreakdown/playerPointsBreakdown.entity.js';
 import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
@@ -26,11 +25,6 @@ export class RealPlayer extends BaseEntity {
 
   @Property({ nullable: false })
   lastUpdate: Date = new Date();
-
-  @OneToMany(() => ParticipantSquad, (participantSquad) => participantSquad.realPlayer, {
-    cascade: [Cascade.ALL],
-  })
-  participantSquads = new Collection<ParticipantSquad>(this);
 
   @OneToMany(() => PlayerPerformance, (playerPerformance) => playerPerformance.realPlayer, {
     cascade: [Cascade.ALL],
