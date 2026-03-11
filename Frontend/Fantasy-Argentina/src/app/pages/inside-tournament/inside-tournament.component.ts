@@ -197,7 +197,8 @@ export class InsideTournamentComponent implements OnInit {
           return;
         }
 
-        this.rivals = tournamentParticipants.filter((item: any) => this.extractId(item) !== this.extractId(this.participant));
+        const currentParticipantId = this.extractId(this.participant);
+        this.rivals = tournamentParticipants.filter((item: any) => this.extractId(item) !== currentParticipantId);
 
         this.allParticipantSquads = response.participantSquads.data;
         this.allRealPlayers = response.realPlayers.data;
@@ -230,6 +231,33 @@ export class InsideTournamentComponent implements OnInit {
     });
   }
 
+
+  private normalizeIdCollection(value: unknown): number[] {
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => Number.parseInt(String(item), 10))
+        .filter((item) => Number.isFinite(item) && item > 0);
+    }
+
+    if (typeof value === 'string' && value.trim()) {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((item) => Number.parseInt(String(item), 10))
+            .filter((item) => Number.isFinite(item) && item > 0);
+        }
+      } catch {
+        return value
+          .split(',')
+          .map((item) => Number.parseInt(item.replace(/[\[\]\s]/g, ''), 10))
+          .filter((item) => Number.isFinite(item) && item > 0);
+      }
+    }
+
+    return [];
+  }
+
   private rebuildSquadFromFormation(): void {
     const participantId = this.extractId(this.participant);
     if (!participantId) {
@@ -240,9 +268,7 @@ export class InsideTournamentComponent implements OnInit {
     const squadEntry = this.allParticipantSquads
       .find((item) => this.extractId(item.participant) === participantId);
 
-    const realPlayerIds: number[] = Array.isArray(squadEntry?.realPlayerIds)
-      ? squadEntry.realPlayerIds
-      : [];
+    const realPlayerIds = this.normalizeIdCollection(squadEntry?.realPlayerIds);
 
     const realPlayers = this.allRealPlayers
       .filter((player) => {
@@ -275,7 +301,8 @@ export class InsideTournamentComponent implements OnInit {
 
   private rebuildMarketFromDatabase(): void {
     const dependantIds = this.existingMarketEntries.flatMap((entry: any) =>
-      Array.isArray(entry.dependantPlayerIds) ? entry.dependantPlayerIds : []);
+      this.normalizeIdCollection(entry.dependantPlayerIds)
+    );
 
     if (dependantIds.length === 0) {
       this.marketPlayers = [];
@@ -294,9 +321,11 @@ export class InsideTournamentComponent implements OnInit {
 
         this.marketPlayers = marketDependants.map((dependant: any) => {
           const realPlayer = dependant.realPlayer;
-          const marketEntry = this.existingMarketEntries.find((entry: any) =>
-            Array.isArray(entry.dependantPlayerIds) && entry.dependantPlayerIds.includes(this.extractId(dependant))
-          );
+          const dependantId = this.extractId(dependant);
+          const marketEntry = this.existingMarketEntries.find((entry: any) => {
+            if (dependantId === null) return false;
+            return this.normalizeIdCollection(entry.dependantPlayerIds).includes(dependantId);
+          });
 
           return {
             id: this.extractId(realPlayer) ?? undefined,
@@ -332,6 +361,16 @@ export class InsideTournamentComponent implements OnInit {
     }
 
     const selectedMatchdayId = this.selectedMatchdayId;
+
+    if (!selectedMatchdayId) {
+      this.rankingRows = tournamentParticipants
+        .map((participant) => ({
+          participantName: this.resolveParticipantName(participant),
+          points: Number(participant?.totalScore ?? 0),
+        }))
+        .sort((a, b) => b.points - a.points);
+      return;
+    }
 
     this.rankingRows = tournamentParticipants
       .map((participant) => {
@@ -398,9 +437,32 @@ export class InsideTournamentComponent implements OnInit {
     return selected;
   }
 
-  private extractId(value: number | { id?: number } | undefined | null): number | null {
-    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-    if (value && typeof value === 'object' && typeof value.id === 'number') return value.id;
+  private extractId(value: unknown): number | null {
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : null;
+    }
+
+    if (typeof value === 'string' && value.trim()) {
+      const parsed = Number.parseInt(value.trim(), 10);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    if (value && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+
+      if (record.id !== undefined) {
+        return this.extractId(record.id);
+      }
+
+      if (record.userId !== undefined) {
+        return this.extractId(record.userId);
+      }
+
+      if (record.participantId !== undefined) {
+        return this.extractId(record.participantId);
+      }
+    }
+
     return null;
   }
 }
