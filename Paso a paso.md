@@ -33,8 +33,14 @@ El Participant puede aumentar el Shielding de cada uno de sus RealPlayer gastand
 Dentro de cada Tournament se debería poder observar en un apartado, una tabla que liste a los Users dentro de un Tournament (la relacion se da mediante Participant) ordenados de manera descendente por la cantidad de puntaje total de cada uno.
 Debe poder seleccionarse la fecha y ver un ranking ordenado tambien de manera descendete por los puntos de cada Participant, pero esta vez no por los puntos totales, sino que por los puntos obtenidos en dicha fecha por cada uno.
 
-# Dudas
+## Dudas
 - No se cómo invocar la función de suma de puntajes a los Participant. Tal vez hacerlo cada vez que se actualicen los puntajes de cada RealPlayer (si el Participant lo tiene referenciado, que se le sume dicho "ranking" al puntaje del mismo), pero como hago para que se sumen solamente los puntajes actualizados recientemente y no todos los previos. 
 * Capaz se podria hacer con un trigger? que cada vez que se cree un PlayerPerformance se sume el puntaje almacenado en la propiedad pointsObtained al puntaje del Participant en totalScore.
 
 - ¿Cómo calcular bien las Bids?
+
+## Futuro
+* Separar los realPlayers linkeados al Participant por titulares y suplentes. Los suplentes no deberían sumar puntos.
+* Permitir que un User se linkee a un Tournament a partir de la creación de un Participant mediante el codigo del Tournament.
+* Si un realPlayer no está en la posición que le corresponde, que se le resten 3 puntos al puntaje obtenido.
+* Si un realPlayer es elegido como capitán por un Participant, que los puntos que le sume al mismo al final de una fecha sea x3.

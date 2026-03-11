@@ -40,7 +40,13 @@ function toInt(value: unknown): number | null {
 
 function toNullableScore(value: unknown): number | null {
   const parsed = toInt(value);
-  return parsed === null ? null : parsed;
+
+  // En SportsApiPro, -1 suele representar marcador no disponible / no jugado aún.
+  if (parsed === null || parsed < 0) {
+    return null;
+  }
+
+  return parsed;
 }
 
 function groupFixtureByRound(fixture: UnknownRecord[]): Array<{ roundNum: number; games: UnknownRecord[] }> {
@@ -607,6 +613,7 @@ async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Respo
         const awayScore = toNullableScore(away.score);
 
         if (homeScore === null || awayScore === null) {
+          match.status = 'scheduled';
           skippedWithoutScore += 1;
           continue;
         }
