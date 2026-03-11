@@ -84,7 +84,7 @@ export class SuperadminMenuComponent {
     this.isLoading = true;
 
     const requests: Record<SuperadminAction, () => any> = {
-      persistPlayers: () => this.apiService.syncPlayersByLeagueIdEnApi({ leagueId: Number(form.leagueId) }),
+      persistPlayers: () => this.apiService.syncPlayersByLeagueIdEnApi({ leagueIdEnApi: Number(form.leagueIdEnApi) }),
       persistTeams: () => this.apiService.syncTeamsByLeagueIdEnApi({ leagueIdEnApi: Number(form.leagueIdEnApi) }),
       persistSport: () => this.apiService.postSport({
         idEnApi: Number(form.sportId),
