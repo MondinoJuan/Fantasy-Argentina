@@ -22,10 +22,8 @@
       <h2>Squad titular (11 jugadores)</h2>
       <div class="formation-picker">
         <div>
-          <label>
-            Formación: <strong>{{ selectedFormation }}</strong>
-            <input type="range" min="0" max="3" step="1" [(ngModel)]="formationIndex" (input)="updateFormationFromSlider()"/>
-          </label>
+          <label>Formación: <strong>{{ selectedFormation }}</strong></label>
+          <input type="range" min="0" max="3" step="1" [(ngModel)]="formationIndex" (input)="updateFormationFromSlider()" />
           <div class="formation-labels">
             @for (formation of formations; track formation) {
               <span [class.active]="formation === selectedFormation">{{ formation }}</span>
@@ -37,26 +35,16 @@
           <h3>Jugadores linkeados</h3>
           <ul>
             @for (slot of squadSlots; track $index) {
-              <div class="slot" 
-                   [class.empty]="!slot.player"
-                   [class.dragging]="draggedIndex === $index"
-                   [class.drag-over]="dragOverIndex === $index"
-                   draggable="true"
-                   (dragstart)="onDragStart($event, $index)"
-                   (dragend)="onDragEnd($event)"
-                   (dragover)="onDragOver($event, $index)"
-                   (dragleave)="onDragLeave($event)"
-                   (drop)="onDrop($event, $index)">
-                <strong>{{ slot.position }}</strong>
-                @if (slot.player) {
-                  <p>{{ slot.player.name }}</p>
-                  <small>{{ slot.player.teamName }}</small>
-                  <small style="color: var(--mauve); font-weight: 600;">{{ slot.player.lastPoints ?? 0 }} pts</small>
-                } @else {
-                  <p class="empty-slot">Vacío</p>
-                }
-              </div>
-            }
+            <div class="slot" [class.empty]="!slot.player">
+              <strong>{{ slot.position }}</strong>
+              @if (slot.player) {
+                <p>{{ slot.player.name }}</p>
+                <small>{{ slot.player.teamName }}</small>
+              } @else {
+                <p class="empty-slot">Vacío</p>
+              }
+            </div>
+          }
           </ul>
         </div>
       </div>
@@ -64,7 +52,7 @@
 
     <section class="panel">
       <h2>Market de la fecha</h2>
-      <p style="color: #522b5b; font-weight: 600;">Total jugadores en market: {{ marketPlayers.length }}</p>
+      <p>Total jugadores en market: {{ marketPlayers.length }}</p>
 
       <div class="grid">
         @for (player of marketPlayers; track player.id ?? $index) {
@@ -72,7 +60,6 @@
             <h3>{{ player.name }}</h3>
             <p>{{ player.position }}</p>
             <small>{{ player.teamName }}</small>
-            <small style="color: var(--mauve); font-weight: 600; margin-top: 0.3rem;">{{ player.lastPoints ?? 0 }} pts</small>
             <button type="button" (click)="openBidModal(player)">Ofertar</button>
           </article>
         }
@@ -93,7 +80,7 @@
     <section class="panel">
       <h2>Equipos rivales (otros participants)</h2>
       @if (rivals.length === 0) {
-        <p style="color: #7a557f;">Por ahora no hay rivales en este torneo.</p>
+        <p>Por ahora no hay rivales en este torneo.</p>
       } @else {
         <ul>
           @for (rival of rivals; track rival.id ?? $index) {
@@ -135,8 +122,8 @@
   }
 
   @if (showBidModal && selectedMarketPlayer) {
-    <div class="modal-backdrop" (click)="closeBidModal()">
-      <article class="panel" (click)="$event.stopPropagation()">
+    <div class="modal-backdrop">
+      <article class="panel">
         <h3>Ofertar por {{ selectedMarketPlayer.name }}</h3>
         <p>Dinero disponible: {{ availableMoney }}</p>
         <label>
