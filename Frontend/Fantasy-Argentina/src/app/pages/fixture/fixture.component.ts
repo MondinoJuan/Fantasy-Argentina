@@ -115,12 +115,17 @@ export class FixtureComponent implements OnInit {
   }
 
   private parseNullableInt(value: unknown): number | null {
-    if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
-    if (typeof value === 'string') {
-      const parsed = Number.parseInt(value, 10);
-      return Number.isFinite(parsed) ? parsed : null;
+    const parsed = typeof value === 'number' && Number.isFinite(value)
+      ? Math.trunc(value)
+      : typeof value === 'string'
+        ? Number.parseInt(value, 10)
+        : Number.NaN;
+
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return null;
     }
-    return null;
+
+    return parsed;
   }
 
   private resolveResult(homeScoreRaw: unknown, awayScoreRaw: unknown, status: string): string {
