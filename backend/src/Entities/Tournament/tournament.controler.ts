@@ -1,23 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
-import { writeFile, mkdir, readFile } from 'node:fs/promises';
+import { writeFile, readFile } from 'node:fs/promises';
 import { Tournament } from './tournament.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { Participant } from '../Participant/participant.entity.js';
 import { Matchday } from '../Matchday/matchday.entity.js';
 import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
-import { ParticipantSquad } from '../ParticipantSquad/participantSquad.entity.js';
-import { MatchdayMarket } from '../MatchdayMarket/matchdayMarket.entity.js';
-import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
 import { League } from '../League/league.entity.js';
 import { RealTeam } from '../RealTeam/realTeam.entity.js';
 import { Match } from '../Match/match.entity.js';
 import { getCompetitionTeamsBySportAndCompetitionService } from '../ExternalApi/services/index.js';
 import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
-import { TOURNAMENT_STATUSES, MATCHDAY_STATUSES, MATCH_STATUSES, MARKET_ORIGINS, SQUAD_ACQUISITION_TYPES, PLAYER_POSITIONS, isEnumValue } from '../../shared/domain-enums.js';
+import { TOURNAMENT_STATUSES, MATCHDAY_STATUSES, MATCH_STATUSES, isEnumValue } from '../../shared/domain-enums.js';
+import { setupParticipantAfterJoin } from './tournament-participation.service.js';
 
 const em = orm.em;
-const DEFAULT_FORMATION = '4-4-2';
 const POSTPONED_MATCHES_PATH = 'src/Entities/Tournament/data/postponedMatches.json';
 
 
@@ -94,28 +91,6 @@ function toInt(value: unknown): number | null {
   }
 
   return null;
-}
-
-function normalizePosition(position: string): string {
-  const value = position.toLowerCase();
-  if (value.includes('goal')) return 'goalkeeper';
-  if (value.includes('def')) return 'defender';
-  if (value.includes('mid')) return 'midfielder';
-  if (value.includes('for') || value.includes('strik') || value.includes('att')) return 'forward';
-  return 'midfielder';
-}
-
-function pickRandom<T>(values: T[], limit: number): T[] {
-  const clone = [...values];
-  const selected: T[] = [];
-
-  while (clone.length > 0 && selected.length < limit) {
-    const index = Math.floor(Math.random() * clone.length);
-    selected.push(clone[index]);
-    clone.splice(index, 1);
-  }
-
-  return selected;
 }
 
 function groupFixtureByDate(fixture: UnknownRecord[]): Array<{ key: string; games: UnknownRecord[] }> {
@@ -350,100 +325,6 @@ async function persistFixtureAsMatchdaysAndMatches(
   }
 }
 
-async function writePostponedMatchesFile(tournamentId: number, postponedMatches: UnknownRecord[]): Promise<void> {
-  await mkdir('src/Entities/Tournament/data', { recursive: true });
-  const payload = {
-    updatedAt: new Date().toISOString(),
-    tournaments: {
-      [String(tournamentId)]: postponedMatches,
-    },
-  };
-
-  await writeFile(POSTPONED_MATCHES_PATH, JSON.stringify(payload, null, 2), 'utf-8');
-}
-
-async function requestInitialPlayersFromExternalApi(_sport: string, _leagueId: number): Promise<RealPlayer[]> {
-  // TODO(API-EXTERNA): acá va la llamada real a API externa para traer 11 titulares aleatorios para el creador.
-  return [];
-}
-
-async function bootstrapCreatorTeam(tournament: Tournament, creatorParticipant: Participant): Promise<void> {
-  const firstMatchday = em.create(Matchday, {
-    league: tournament.league,
-    season: String(new Date().getFullYear()),
-    matchdayNumber: 1,
-    startDate: new Date(),
-    endDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
-    status: MATCHDAY_STATUSES[1],
-  } as any);
-  em.persist(firstMatchday);
-
-  const fromExternalApi = await requestInitialPlayersFromExternalApi(tournament.sport, 0);
-
-  const allPlayers = fromExternalApi.length > 0
-    ? fromExternalApi
-    : await em.find(RealPlayer, {}, { populate: ['realTeam'] });
-
-  const grouped = {
-    goalkeeper: allPlayers.filter((player) => normalizePosition(player.position) === 'goalkeeper'),
-    defender: allPlayers.filter((player) => normalizePosition(player.position) === 'defender'),
-    midfielder: allPlayers.filter((player) => normalizePosition(player.position) === 'midfielder'),
-    forward: allPlayers.filter((player) => normalizePosition(player.position) === 'forward'),
-  };
-
-  const squad = [
-    ...pickRandom(grouped.goalkeeper, 1),
-    ...pickRandom(grouped.defender, 4),
-    ...pickRandom(grouped.midfielder, 4),
-    ...pickRandom(grouped.forward, 2),
-  ];
-
-  for (const player of squad) {
-    em.create(ParticipantSquad, {
-      participant: creatorParticipant,
-      realPlayer: player,
-      formation: DEFAULT_FORMATION,
-      acquisitionDate: new Date(),
-      purchasePrice: 0,
-      acquisitionType: SQUAD_ACQUISITION_TYPES[0],
-    } as any);
-  }
-
-  const dependantByRealPlayerId = new Map<number, DependantPlayer>();
-
-  for (const player of allPlayers) {
-    if (!player.id) continue;
-
-    const dependantPlayer = em.create(DependantPlayer, {
-      tournament,
-      realPlayer: player,
-      marketValue: 0,
-    } as any);
-
-    dependantByRealPlayerId.set(player.id, dependantPlayer);
-  }
-
-  const selectedIds = new Set(squad.map((player) => player.id));
-  const marketCandidates = allPlayers.filter((player) => player.id && !selectedIds.has(player.id));
-
-  for (const player of pickRandom(marketCandidates, 3)) {
-    const dependantPlayer = player.id ? dependantByRealPlayerId.get(player.id) : undefined;
-
-    if (!dependantPlayer) {
-      continue;
-    }
-
-    em.create(MatchdayMarket, {
-      tournament,
-      matchday: firstMatchday,
-      dependantPlayer,
-      minimumPrice: 100,
-      origin: MARKET_ORIGINS[0],
-      creationDate: new Date(),
-    } as any);
-  }
-}
-
 async function syncPostponedMatchesAndPersistPlayerRatings(tournamentId: number): Promise<UnknownRecord[]> {
   let currentRaw = '';
 
@@ -523,6 +404,15 @@ async function syncPostponedMatchesAndPersistPlayerRatings(tournamentId: number)
 
 async function findAll(req: Request, res: Response) {
   try {
+    const userId = Number.parseInt(String(req.query.userId ?? ''), 10);
+
+    if (Number.isFinite(userId)) {
+      const participants = await em.find(Participant, { user: userId }, { populate: ['tournament', 'tournament.league'] });
+      const items = participants.map((participant) => participant.tournament);
+      res.status(200).json({ message: 'found tournaments for user', data: items });
+      return;
+    }
+
     const items = await em.find(Tournament, {}, { populate: ['league'] });
     res.status(200).json({ message: 'found all tournaments', data: items });
   } catch (error: any) {
@@ -544,8 +434,6 @@ async function add(req: Request, res: Response) {
   try {
     const {
       creatorUserId,
-      sportId,
-      competitionId,
       league: rawLeagueId,
       ...tournamentInput
     } = req.body.sanitizeTournamentInput;
@@ -561,20 +449,16 @@ async function add(req: Request, res: Response) {
     }
 
     const localLeagueId = toInt(rawLeagueId);
-    const competitionLeagueIdEnApi = toInt(competitionId);
 
-    let league = null;
-
-    if (localLeagueId !== null) {
-      league = await em.findOne(League, { id: localLeagueId });
+    if (localLeagueId === null) {
+      res.status(400).json({ message: 'league is required and must be a local league id' });
+      return;
     }
 
-    if (!league && competitionLeagueIdEnApi !== null) {
-      league = await em.findOne(League, { idEnApi: competitionLeagueIdEnApi });
-    }
+    const league = await em.findOne(League, { id: localLeagueId });
 
     if (!league) {
-      res.status(400).json({ message: 'league must exist locally. Use superadmin sync first.' });
+      res.status(400).json({ message: 'selected league does not exist locally. Use superadmin sync first.' });
       return;
     }
 
@@ -596,20 +480,9 @@ async function add(req: Request, res: Response) {
       joinDate: new Date(),
     } as any);
 
-    // TODO(TORNEO-CREACION): reservar acá la función que asigne de forma aleatoria al creator
-    // una cantidad de jugadores igual al cupo de titulares del deporte del torneo.
-    // TODO(TORNEO-CREACION): reservar acá la función que obtenga 4 jugadores al azar de la BdD
-    // para completar el market inicial cuando se agregue cada participant.
-
-    await bootstrapCreatorTeam(item, creatorParticipant);
-
-    const postponedMatches: UnknownRecord[] = [];
+    await setupParticipantAfterJoin(item, creatorParticipant, em);
 
     await em.flush();
-
-    if (item.id) {
-      await writePostponedMatchesFile(item.id, postponedMatches);
-    }
 
     res.status(201).json({
       message: 'tournament created',

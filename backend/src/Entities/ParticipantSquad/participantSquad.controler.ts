@@ -10,15 +10,30 @@ function parseId(idParam: string | string[] | undefined) {
   return Number.parseInt(rawId ?? '', 10);
 }
 
+function normalizeRealPlayerIds(value: unknown, fallbackValue: unknown): number[] | undefined {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => Number.parseInt(String(item), 10))
+      .filter((item) => Number.isFinite(item) && item > 0);
+  }
+
+  const single = Number.parseInt(String(fallbackValue ?? ''), 10);
+  if (Number.isFinite(single) && single > 0) {
+    return [single];
+  }
+
+  return undefined;
+}
+
 function sanitizeParticipantSquadInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeParticipantSquadInput = {
-        participant: req.body.participant ?? req.body.participantId,
-    realPlayer: req.body.realPlayer ?? req.body.realPlayerId,
+    participant: req.body.participant ?? req.body.participantId,
+    realPlayerIds: normalizeRealPlayerIds(req.body.realPlayerIds, req.body.realPlayer ?? req.body.realPlayerId),
     formation: req.body.formation,
     releaseDate: req.body.releaseDate,
     purchasePrice: req.body.purchasePrice,
     acquisitionType: req.body.acquisitionType,
-    };
+  };
 
   Object.keys(req.body.sanitizeParticipantSquadInput).forEach((key) => {
     if (req.body.sanitizeParticipantSquadInput[key] === undefined) {
@@ -30,7 +45,7 @@ function sanitizeParticipantSquadInput(req: Request, res: Response, next: NextFu
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(ParticipantSquad, {}, { populate: ['participant', 'realPlayer'] });
+    const items = await em.find(ParticipantSquad, {}, { populate: ['participant'] });
     res.status(200).json({ message: 'found all participant squads', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -40,7 +55,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(ParticipantSquad, { id }, { populate: ['participant', 'realPlayer'] });
+    const item = await em.findOneOrFail(ParticipantSquad, { id }, { populate: ['participant'] });
     res.status(200).json({ message: 'found participant squad', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

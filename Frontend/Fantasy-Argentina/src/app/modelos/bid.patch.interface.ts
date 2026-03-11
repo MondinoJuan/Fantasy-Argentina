@@ -3,6 +3,7 @@ export interface bidPatchI {
   id: number;
   matchdayMarket?: number;
   participant?: number;
+  realPlayer?: number;
   offeredAmount?: number;
   status?: BidStatus;
   bidDate?: Date;

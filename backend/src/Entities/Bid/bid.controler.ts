@@ -14,6 +14,7 @@ function sanitizeBidInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeBidInput = {
         matchdayMarket: req.body.matchdayMarket ?? req.body.matchdayMarketId,
     participant: req.body.participant ?? req.body.participantId,
+    realPlayer: req.body.realPlayer ?? req.body.realPlayerId,
     offeredAmount: req.body.offeredAmount,
     status: req.body.status,
     cancellationDate: req.body.cancellationDate,
@@ -29,7 +30,7 @@ function sanitizeBidInput(req: Request, res: Response, next: NextFunction) {
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(Bid, {}, { populate: ['matchdayMarket', 'participant'] });
+    const items = await em.find(Bid, {}, { populate: ['matchdayMarket', 'participant', 'realPlayer'] });
     res.status(200).json({ message: 'found all bids', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -39,7 +40,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(Bid, { id }, { populate: ['matchdayMarket', 'participant'] });
+    const item = await em.findOneOrFail(Bid, { id }, { populate: ['matchdayMarket', 'participant', 'realPlayer'] });
     res.status(200).json({ message: 'found bid', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

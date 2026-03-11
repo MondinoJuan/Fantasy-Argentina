@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { Participant } from './participant.entity.js';
 import { Tournament } from '../Tournament/tournament.entity.js';
 import { orm } from '../../shared/db/orm.js';
+import { setupParticipantAfterJoin } from '../Tournament/tournament-participation.service.js';
 
 const em = orm.em;
 
@@ -50,12 +51,21 @@ async function findOne(req: Request, res: Response) {
 async function add(req: Request, res: Response) {
   try {
     const item = em.create(Participant, req.body.sanitizeParticipantInput);
+    const tournamentId = Number.parseInt(String(req.body.sanitizeParticipantInput.tournament ?? ''), 10);
 
-    // TODO(TORNEO-JOIN): cuando un participant se une por idTournament, acá debe llamarse
-    // una función que asigne aleatoriamente una cantidad de jugadores igual al cupoTitular del deporte.
-    // TODO(TORNEO-JOIN): en este mismo punto también debe llamarse otra función que tome
-    // 4 jugadores al azar de la BdD para agregarlos al market de la fecha vigente.
+    if (!Number.isFinite(tournamentId)) {
+      res.status(400).json({ message: 'tournament is required' });
+      return;
+    }
 
+    const tournament = await em.findOne(Tournament, { id: tournamentId });
+
+    if (!tournament) {
+      res.status(404).json({ message: 'tournament not found' });
+      return;
+    }
+
+    await setupParticipantAfterJoin(tournament, item, em);
     await em.flush();
     res.status(201).json({ message: 'participant created', data: item });
   } catch (error: any) {
@@ -122,6 +132,7 @@ async function joinByTournamentCode(req: Request, res: Response) {
       joinDate: new Date(),
     } as any);
 
+    await setupParticipantAfterJoin(tournament, item, em);
     await em.flush();
     res.status(201).json({ message: 'participant joined by tournament code', data: item });
   } catch (error: any) {
