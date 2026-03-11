@@ -22,6 +22,7 @@ import { TransactionRouter } from './Entities/Transaction/transaction.routes.js'
 import { NegotiationRouter } from './Entities/Negotiation/negotiation.routes.js';
 import { ExternalApiRouter } from './Entities/ExternalApi/externalApi.routes.js';
 import { SportRouter } from './Entities/Sport/sport.routes.js';
+import { DependantPlayerRouter } from './Entities/DependantPlayer/dependantPlayer.routes.js';
 import "dotenv/config";
 
 const app = express();
@@ -39,6 +40,7 @@ app.use('/api/leagues', LeagueRouter)
 app.use('/api/participants', ParticipantRouter)
 app.use('/api/real-players', RealPlayerRouter)
 app.use('/api/real-teams', RealTeamRouter)
+app.use('/api/dependant-players', DependantPlayerRouter)
 app.use('/api/participant-squads', ParticipantSquadRouter)
 app.use('/api/matchdays', MatchdayRouter)
 app.use('/api/matches', MatchRouter)

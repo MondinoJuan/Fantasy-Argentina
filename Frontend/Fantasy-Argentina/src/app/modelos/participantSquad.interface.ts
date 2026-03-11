@@ -2,7 +2,7 @@ import { ParticipantFormation, SquadAcquisitionType } from './domain-enums.types
 export interface participantSquadI {
   id?: number;
   participant: number;
-  realPlayer: number;
+  realPlayerIds: number[];
   formation: ParticipantFormation;
   acquisitionDate: Date;
   releaseDate?: Date;
