@@ -61,6 +61,7 @@ export class InsideTournamentComponent implements OnInit {
   private tournamentId: number | null = null;
   private allParticipantSquads: any[] = [];
   private allRealPlayers: any[] = [];
+  private allTournamentParticipants: any[] = [];
   private allParticipantPoints: any[] = [];
   private allDependantPlayers: any[] = [];
   private allPlayerPerformances: any[] = [];
@@ -196,6 +197,7 @@ export class InsideTournamentComponent implements OnInit {
         }
 
         const tournamentParticipants = response.participants.data.filter((item: any) => this.extractId(item.tournament) === this.tournamentId);
+        this.allTournamentParticipants = tournamentParticipants;
 
         this.participant = tournamentParticipants.find((item: any) => this.extractId(item.user) === currentUserId) ?? null;
         if (!this.participant) {
@@ -291,11 +293,9 @@ export class InsideTournamentComponent implements OnInit {
       squadEntry?.realPlayerIds ?? squadEntry?.real_player_ids
     );
 
-    const realPlayers = this.allRealPlayers
-      .filter((player) => {
-        const id = this.extractId(player);
-        return id !== null && realPlayerIds.includes(id);
-      });
+    const realPlayers = realPlayerIds
+      .map((id) => this.resolveRealPlayerByAnyId(id))
+      .filter((player): player is any => Boolean(player));
 
     const grouped = {
       goalkeeper: realPlayers.filter((player) => this.normalizePosition(player.position) === 'goalkeeper'),
@@ -365,10 +365,10 @@ export class InsideTournamentComponent implements OnInit {
     });
 
     this.marketPlayers = marketDependants.map((dependant: any) => {
-      const realPlayerId = dependant.realPlayerId ?? dependant.real_player_id;
-      const realPlayer = this.allRealPlayers.find(
-        (p) => this.extractId(p) === Number(realPlayerId)
-      );
+      const realPlayerId = this.extractId(dependant.realPlayer)
+        ?? this.extractId(dependant.realPlayerId)
+        ?? this.extractId(dependant.real_player_id);
+      const realPlayer = this.resolveRealPlayerByAnyId(realPlayerId);
       const dependantId = this.extractId(dependant);
       const marketEntry = this.existingMarketEntries.find((entry: any) => {
         if (dependantId === null) return false;
@@ -389,7 +389,9 @@ export class InsideTournamentComponent implements OnInit {
   }
 
   private rebuildRanking(): void {
-    const tournamentParticipants = [this.participant, ...this.rivals].filter(Boolean);
+    const tournamentParticipants = this.allTournamentParticipants.length > 0
+      ? this.allTournamentParticipants
+      : [this.participant, ...this.rivals].filter(Boolean);
 
     if (tournamentParticipants.length === 0 && this.participant) {
       this.rankingRows = [{
@@ -448,6 +450,33 @@ export class InsideTournamentComponent implements OnInit {
     }
 
     return `Participant #${participantId ?? '?'}`;
+  }
+
+  private resolveRealPlayerByAnyId(rawId: unknown): any | null {
+    const normalizedId = this.extractId(rawId);
+    if (normalizedId === null) {
+      return null;
+    }
+
+    const directRealPlayer = this.allRealPlayers.find((player) => this.extractId(player) === normalizedId);
+    if (directRealPlayer) {
+      return directRealPlayer;
+    }
+
+    const dependant = this.allDependantPlayers.find((item) => this.extractId(item) === normalizedId);
+    if (!dependant) {
+      return null;
+    }
+
+    const dependantRealPlayerId = this.extractId(dependant.realPlayer)
+      ?? this.extractId(dependant.realPlayerId)
+      ?? this.extractId(dependant.real_player_id);
+
+    if (dependantRealPlayerId === null) {
+      return null;
+    }
+
+    return this.allRealPlayers.find((player) => this.extractId(player) === dependantRealPlayerId) ?? null;
   }
 
   private parseFormation(formation: string): { goalkeeper: number; defender: number; midfielder: number; forward: number; } {
