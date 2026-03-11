@@ -450,16 +450,16 @@ export class InsideTournamentComponent implements OnInit {
     if (value && typeof value === 'object') {
       const record = value as Record<string, unknown>;
 
-      if (record.id !== undefined) {
-        return this.extractId(record.id);
+      if (record['id'] !== undefined) {
+        return this.extractId(record['id']);
       }
 
-      if (record.userId !== undefined) {
-        return this.extractId(record.userId);
+      if (record['userId'] !== undefined) {
+        return this.extractId(record['userId']);
       }
 
-      if (record.participantId !== undefined) {
-        return this.extractId(record.participantId);
+      if (record['participantId'] !== undefined) {
+        return this.extractId(record['participantId']);
       }
     }
 
