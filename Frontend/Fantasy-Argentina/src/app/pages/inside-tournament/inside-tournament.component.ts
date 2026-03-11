@@ -14,6 +14,7 @@ interface SquadPlayerView {
 
 interface MarketPlayerView {
   id?: number;
+  marketId: number;
   name: string;
   position: string;
   teamName: string;
@@ -39,11 +40,15 @@ export class InsideTournamentComponent implements OnInit {
 
   squadPlayers: SquadPlayerView[] = [];
   marketPlayers: MarketPlayerView[] = [];
-  marketQuantity = 6;
 
   existingMarketEntries: any[] = [];
   negotiations: any[] = [];
   bids: any[] = [];
+
+  showBidModal = false;
+  selectedMarketPlayer: MarketPlayerView | null = null;
+  bidAmount = 0;
+  bidError = '';
 
   rankingMode: 'total' | 'byMatchday' = 'total';
   rankingRows: Array<{ participantName: string; points: number; }> = [];
@@ -86,28 +91,12 @@ export class InsideTournamentComponent implements OnInit {
     return this.tournament?.publicCode ?? 'Sin código';
   }
 
-  updateFormationFromSlider(): void {
-    this.rebuildSquadFromFormation();
+  get availableMoney(): number {
+    return Number(this.participant?.availableMoney ?? this.participant?.bankBudget ?? 0);
   }
 
-  regenerateMarket(): void {
-    if (this.marketQuantity < 1) {
-      this.marketQuantity = 1;
-    }
-
-    const squadIds = new Set(this.squadPlayers.map((player) => player.id).filter((id): id is number => Number.isFinite(id)));
-
-    const candidates = this.allRealPlayers.filter((player) => {
-      const id = this.extractId(player);
-      return id !== null && !squadIds.has(id);
-    });
-
-    this.marketPlayers = this.pickRandom(candidates, this.marketQuantity).map((player) => ({
-      id: this.extractId(player) ?? undefined,
-      name: player.name ?? `Player ${this.extractId(player) ?? '?'}`,
-      position: player.position ?? 'midfielder',
-      teamName: player.realTeam?.name ?? 'Sin equipo',
-    }));
+  updateFormationFromSlider(): void {
+    this.rebuildSquadFromFormation();
   }
 
   onRankingModeChange(): void {
@@ -120,6 +109,58 @@ export class InsideTournamentComponent implements OnInit {
 
   goBack(): void {
     this.router.navigate(['/landingPage']);
+  }
+
+  openBidModal(player: MarketPlayerView): void {
+    this.selectedMarketPlayer = player;
+    this.bidAmount = Number(player?.id ? 100 : 0);
+    this.bidError = '';
+    this.showBidModal = true;
+  }
+
+  closeBidModal(): void {
+    this.showBidModal = false;
+    this.selectedMarketPlayer = null;
+    this.bidAmount = 0;
+    this.bidError = '';
+  }
+
+  submitBid(): void {
+    const participantId = this.extractId(this.participant);
+
+    if (!this.selectedMarketPlayer || !participantId || !this.selectedMarketPlayer.id) {
+      this.bidError = 'No se pudo identificar el jugador para ofertar.';
+      return;
+    }
+
+    const amount = Number(this.bidAmount);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      this.bidError = 'Ingresá un monto válido.';
+      return;
+    }
+
+    if (amount > this.availableMoney) {
+      this.bidError = 'El monto supera tu dinero disponible.';
+      return;
+    }
+
+    this.apiService.postBid({
+      matchdayMarket: this.selectedMarketPlayer.marketId,
+      participant: participantId,
+      realPlayer: this.selectedMarketPlayer.id,
+      offeredAmount: amount,
+      status: 'active',
+      bidDate: new Date(),
+    }).subscribe({
+      next: () => {
+        this.closeBidModal();
+        this.loadTournamentPage();
+      },
+      error: (error) => {
+        this.bidError = error?.error?.message ?? 'No se pudo registrar la oferta.';
+      },
+    });
   }
 
   private loadTournamentPage(): void {
@@ -156,7 +197,8 @@ export class InsideTournamentComponent implements OnInit {
           return;
         }
 
-        this.rivals = tournamentParticipants.filter((item: any) => this.extractId(item) !== this.extractId(this.participant));
+        const currentParticipantId = this.extractId(this.participant);
+        this.rivals = tournamentParticipants.filter((item: any) => this.extractId(item) !== currentParticipantId);
 
         this.allParticipantSquads = response.participantSquads.data;
         this.allRealPlayers = response.realPlayers.data;
@@ -177,7 +219,7 @@ export class InsideTournamentComponent implements OnInit {
           : null;
 
         this.rebuildSquadFromFormation();
-        this.regenerateMarket();
+        this.rebuildMarketFromDatabase();
         this.rebuildRanking();
 
         this.isLoading = false;
@@ -189,6 +231,33 @@ export class InsideTournamentComponent implements OnInit {
     });
   }
 
+
+  private normalizeIdCollection(value: unknown): number[] {
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => Number.parseInt(String(item), 10))
+        .filter((item) => Number.isFinite(item) && item > 0);
+    }
+
+    if (typeof value === 'string' && value.trim()) {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((item) => Number.parseInt(String(item), 10))
+            .filter((item) => Number.isFinite(item) && item > 0);
+        }
+      } catch {
+        return value
+          .split(',')
+          .map((item) => Number.parseInt(item.replace(/[\[\]\s]/g, ''), 10))
+          .filter((item) => Number.isFinite(item) && item > 0);
+      }
+    }
+
+    return [];
+  }
+
   private rebuildSquadFromFormation(): void {
     const participantId = this.extractId(this.participant);
     if (!participantId) {
@@ -196,8 +265,16 @@ export class InsideTournamentComponent implements OnInit {
       return;
     }
 
-    const squadEntries = this.allParticipantSquads.filter((item) => this.extractId(item.participant) === participantId);
-    const realPlayers = squadEntries.map((entry) => entry.realPlayer).filter((player) => !!player && typeof player === 'object');
+    const squadEntry = this.allParticipantSquads
+      .find((item) => this.extractId(item.participant) === participantId);
+
+    const realPlayerIds = this.normalizeIdCollection(squadEntry?.realPlayerIds);
+
+    const realPlayers = this.allRealPlayers
+      .filter((player) => {
+        const id = this.extractId(player);
+        return id !== null && realPlayerIds.includes(id);
+      });
 
     const grouped = {
       goalkeeper: realPlayers.filter((player) => this.normalizePosition(player.position) === 'goalkeeper'),
@@ -214,18 +291,6 @@ export class InsideTournamentComponent implements OnInit {
       ...this.pickRandom(grouped.forward, formationNeeded.forward),
     ];
 
-    if (selected.length < 11) {
-      const selectedIds = new Set(selected.map((player) => this.extractId(player)).filter((id): id is number => id !== null));
-      const missing = this.pickRandom(
-        realPlayers.filter((player) => {
-          const id = this.extractId(player);
-          return id !== null && !selectedIds.has(id);
-        }),
-        11 - selected.length,
-      );
-      selected.push(...missing);
-    }
-
     this.squadPlayers = selected.slice(0, 11).map((player) => ({
       id: this.extractId(player) ?? undefined,
       name: player.name ?? `Player ${this.extractId(player) ?? '?'}`,
@@ -234,8 +299,56 @@ export class InsideTournamentComponent implements OnInit {
     }));
   }
 
+  private rebuildMarketFromDatabase(): void {
+    const dependantIds = this.existingMarketEntries.flatMap((entry: any) =>
+      this.normalizeIdCollection(entry.dependantPlayerIds)
+    );
+
+    if (dependantIds.length === 0) {
+      this.marketPlayers = [];
+      return;
+    }
+
+    const uniqueDependantIds = [...new Set(dependantIds)];
+
+    this.apiService.searchDependantPlayers().subscribe({
+      next: (response: any) => {
+        const dependantPlayers = response?.data ?? [];
+        const marketDependants = dependantPlayers.filter((item: any) => {
+          const id = this.extractId(item);
+          return id !== null && uniqueDependantIds.includes(id);
+        });
+
+        this.marketPlayers = marketDependants.map((dependant: any) => {
+          const realPlayer = dependant.realPlayer;
+          const dependantId = this.extractId(dependant);
+          const marketEntry = this.existingMarketEntries.find((entry: any) => {
+            if (dependantId === null) return false;
+            return this.normalizeIdCollection(entry.dependantPlayerIds).includes(dependantId);
+          });
+
+          return {
+            id: this.extractId(realPlayer) ?? undefined,
+            marketId: this.extractId(marketEntry) ?? 0,
+            name: realPlayer?.name ?? `Player ${this.extractId(realPlayer) ?? '?'}`,
+            position: this.normalizePosition(realPlayer?.position),
+            teamName: realPlayer?.realTeam?.name ?? 'Sin equipo',
+          };
+        });
+      },
+      error: () => {
+        this.marketPlayers = [];
+      },
+    });
+  }
+
   private rebuildRanking(): void {
     const tournamentParticipants = [this.participant, ...this.rivals].filter(Boolean);
+
+    if (tournamentParticipants.length === 0 && this.participant) {
+      this.rankingRows = [{ participantName: this.participantName, points: Number(this.participant?.totalScore ?? 0) }];
+      return;
+    }
 
     if (this.rankingMode === 'total') {
       this.rankingRows = tournamentParticipants
@@ -248,6 +361,16 @@ export class InsideTournamentComponent implements OnInit {
     }
 
     const selectedMatchdayId = this.selectedMatchdayId;
+
+    if (!selectedMatchdayId) {
+      this.rankingRows = tournamentParticipants
+        .map((participant) => ({
+          participantName: this.resolveParticipantName(participant),
+          points: Number(participant?.totalScore ?? 0),
+        }))
+        .sort((a, b) => b.points - a.points);
+      return;
+    }
 
     this.rankingRows = tournamentParticipants
       .map((participant) => {
@@ -314,9 +437,32 @@ export class InsideTournamentComponent implements OnInit {
     return selected;
   }
 
-  private extractId(value: number | { id?: number } | undefined | null): number | null {
-    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-    if (value && typeof value === 'object' && typeof value.id === 'number') return value.id;
+  private extractId(value: unknown): number | null {
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : null;
+    }
+
+    if (typeof value === 'string' && value.trim()) {
+      const parsed = Number.parseInt(value.trim(), 10);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    if (value && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+
+      if (record.id !== undefined) {
+        return this.extractId(record.id);
+      }
+
+      if (record.userId !== undefined) {
+        return this.extractId(record.userId);
+      }
+
+      if (record.participantId !== undefined) {
+        return this.extractId(record.participantId);
+      }
+    }
+
     return null;
   }
 }
