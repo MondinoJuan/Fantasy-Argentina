@@ -52,6 +52,8 @@
                       [class.dragging]="draggedIndex === $index"
                       (dragstart)="onCardDragStart($event, $index)"
                       (dragend)="onCardDragEnd()"
+                      (dragover)="onCardDragOver($event, $index)"
+                      (drop)="onCardDrop($event, $index)"
                     >
                       <div class="player-info">
                         <p class="name">{{ slot.player.name }}</p>

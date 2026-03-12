@@ -22,6 +22,11 @@ interface MarketPlayerView {
   lastScore?: number;
 }
 
+interface SquadSlotView {
+  position: string;
+  player: SquadPlayerView | null;
+}
+
 @Component({
   selector: 'app-inside-tournament',
   standalone: true,
@@ -41,7 +46,7 @@ export class InsideTournamentComponent implements OnInit {
   errorMessage = '';
 
   squadPlayers: SquadPlayerView[] = [];
-  squadSlots: { position: string; player: SquadPlayerView | null }[] = [];
+  squadSlots: SquadSlotView[] = [];
   marketPlayers: MarketPlayerView[] = [];
 
   existingMarketEntries: any[] = [];
@@ -324,7 +329,7 @@ export class InsideTournamentComponent implements OnInit {
     }));
 
     const formation = this.parseFormation(this.selectedFormation);
-    const slots: { position: string; player: SquadPlayerView | null }[] = [];
+    const slots: SquadSlotView[] = [];
 
     const addSlots = (pos: string, count: number, pool: any[]) => {
       for (let i = 0; i < count; i++) {
@@ -350,7 +355,7 @@ export class InsideTournamentComponent implements OnInit {
     this.squadSlots = slots;
   }
 
-  isSlotMismatch(slot: { position: string; player: SquadPlayerView | null }): boolean {
+  isSlotMismatch(slot: SquadSlotView): boolean {
     if (!slot.player) {
       return false;
     }
@@ -568,40 +573,56 @@ export class InsideTournamentComponent implements OnInit {
     }
   }
 
-  // ... dentro de InsideTournamentComponent
-
-onSlotDrop(event: DragEvent, dropIndex: number): void {
-  event.preventDefault();
-
-  const rawIndex = event.dataTransfer?.getData('text/plain');
-  const sourceIndex = rawIndex !== undefined && rawIndex !== '' 
-    ? Number(rawIndex) 
-    : this.draggedIndex;
-
-  // Validaciones de seguridad
-  if (
-    sourceIndex === null || 
-    sourceIndex === dropIndex || 
-    sourceIndex < 0 || 
-    sourceIndex >= this.squadSlots.length
-  ) {
-    this.draggedIndex = null;
-    this.dragOverIndex = null;
-    return;
+  onCardDragOver(event: DragEvent, index: number): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.onSlotDragOver(event, index);
   }
 
-  // LÓGICA CLAVE: Intercambiamos solo la propiedad 'player' de los slots
-  const sourcePlayer = this.squadSlots[sourceIndex].player;
-  const targetPlayer = this.squadSlots[dropIndex].player;
+  onCardDrop(event: DragEvent, dropIndex: number): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.onSlotDrop(event, dropIndex);
+  }
 
-  // Actualizamos los slots manteniendo su posición original intacta
-  this.squadSlots[sourceIndex] = { ...this.squadSlots[sourceIndex], player: targetPlayer };
-  this.squadSlots[dropIndex] = { ...this.squadSlots[dropIndex], player: sourcePlayer };
+  // ... dentro de InsideTournamentComponent
 
-  // Forzar detección de cambios en Angular
-  this.squadSlots = [...this.squadSlots];
-  
-  this.draggedIndex = null;
-  this.dragOverIndex = null;
-}
+  onSlotDrop(event: DragEvent, dropIndex: number): void {
+    event.preventDefault();
+
+    const rawIndex = event.dataTransfer?.getData('text/plain');
+    const parsedSourceIndex = Number.parseInt(rawIndex ?? '', 10);
+    const sourceIndex = Number.isFinite(parsedSourceIndex)
+      ? parsedSourceIndex
+      : this.draggedIndex;
+
+    if (
+      sourceIndex === null
+      || sourceIndex === dropIndex
+      || sourceIndex < 0
+      || sourceIndex >= this.squadSlots.length
+      || dropIndex < 0
+      || dropIndex >= this.squadSlots.length
+    ) {
+      this.draggedIndex = null;
+      this.dragOverIndex = null;
+      return;
+    }
+
+    const sourcePlayer = this.squadSlots[sourceIndex]?.player ?? null;
+    const targetPlayer = this.squadSlots[dropIndex]?.player ?? null;
+
+    this.squadSlots[sourceIndex] = {
+      ...this.squadSlots[sourceIndex],
+      player: targetPlayer,
+    };
+    this.squadSlots[dropIndex] = {
+      ...this.squadSlots[dropIndex],
+      player: sourcePlayer,
+    };
+
+    this.squadSlots = [...this.squadSlots];
+    this.draggedIndex = null;
+    this.dragOverIndex = null;
+  }
 }
