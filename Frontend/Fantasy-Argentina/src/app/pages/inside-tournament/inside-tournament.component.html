@@ -1,13 +1,9 @@
 <section class="inside-shell">
-  @if (isLoading) {
-    <p class="state">Cargando torneo...</p>
-  }
+  <p class="state" *ngIf="isLoading">Cargando torneo...</p>
 
-  @if (errorMessage) {
-    <p class="state error">{{ errorMessage }}</p>
-  }
+  <p class="state error" *ngIf="errorMessage">{{ errorMessage }}</p>
 
-  @if (!isLoading && !errorMessage) {
+  <ng-container *ngIf="!isLoading && !errorMessage">
     <header class="top-header">
       <button class="back" (click)="goBack()">← Volver</button>
       <div class="stats">
@@ -30,17 +26,14 @@
     <section class="panel">
       <h2>Market de la fecha</h2>
       <p>Total jugadores en market: {{ marketPlayers.length }}</p>
-
       <div class="grid">
-        @for (player of marketPlayers; track player.id ?? $index) {
-          <article class="card">
-            <h3>{{ player.name }}</h3>
-            <p>{{ player.position }}</p>
-            <small>{{ player.teamName }}</small>
-            <strong class="score">{{ player.lastScore }}</strong>
-            <button type="button" (click)="openBidModal(player)">Ofertar</button>
-          </article>
-        }
+        <article class="card" *ngFor="let player of marketPlayers">
+          <h3>{{ player.name }}</h3>
+          <p>{{ player.position }}</p>
+          <small>{{ player.teamName }}</small>
+          <strong class="score">{{ player.lastScore }}</strong>
+          <button type="button" (click)="openBidModal(player)">Ofertar</button>
+        </article>
       </div>
     </section>
 
@@ -57,15 +50,12 @@
 
     <section class="panel">
       <h2>Equipos rivales (otros participants)</h2>
-      @if (rivals.length === 0) {
-        <p>Por ahora no hay rivales en este torneo.</p>
-      } @else {
-        <ul>
-          @for (rival of rivals; track rival.id ?? $index) {
-            <li>{{ rival?.user?.username || ('Participant #' + (rival?.id ?? '?')) }} — {{ rival?.totalScore ?? 0 }} pts</li>
-          }
-        </ul>
-      }
+      <p *ngIf="rivals.length === 0">Por ahora no hay rivales en este torneo.</p>
+      <ul *ngIf="rivals.length > 0">
+        <li *ngFor="let rival of rivals">
+          {{ rival?.user?.username || ('Participant #' + (rival?.id ?? '?')) }} — {{ rival?.totalScore ?? 0 }} pts
+        </li>
+      </ul>
     </section>
 
     <section class="panel">
@@ -78,44 +68,34 @@
             <option value="byMatchday">Por fecha</option>
           </select>
         </label>
-
-        @if (rankingMode === 'byMatchday') {
-          <label>
-            Fecha
-            <select [(ngModel)]="selectedMatchdayId" (change)="onMatchdayChange()">
-              @for (matchday of matchdaysForTournament; track matchday.id ?? $index) {
-                <option [ngValue]="matchday.id">Fecha {{ matchday.matchdayNumber }}</option>
-              }
-            </select>
-          </label>
-        }
+        <label *ngIf="rankingMode === 'byMatchday'">
+          Fecha
+          <select [(ngModel)]="selectedMatchdayId" (change)="onMatchdayChange()">
+            <option *ngFor="let matchday of matchdaysForTournament" [ngValue]="matchday.id">
+              Fecha {{ matchday.matchdayNumber }}
+            </option>
+          </select>
+        </label>
       </div>
-
       <ol>
-        @for (row of rankingRows; track row.participantName + $index) {
-          <li>{{ row.participantName }} — {{ row.points }} pts</li>
-        }
+        <li *ngFor="let row of rankingRows">{{ row.participantName }} — {{ row.points }} pts</li>
       </ol>
     </section>
-  }
+  </ng-container>
 
-  @if (showBidModal && selectedMarketPlayer) {
-    <div class="modal-backdrop">
-      <article class="panel">
-        <h3>Ofertar por {{ selectedMarketPlayer.name }}</h3>
-        <p>Dinero disponible: {{ availableMoney }}</p>
-        <label>
-          Monto
-          <input type="number" min="1" [(ngModel)]="bidAmount" />
-        </label>
-        @if (bidError) {
-          <p class="state error">{{ bidError }}</p>
-        }
-        <div class="toolbar">
-          <button type="button" (click)="submitBid()">Confirmar oferta</button>
-          <button type="button" (click)="closeBidModal()">Cancelar</button>
-        </div>
-      </article>
-    </div>
-  }
+  <div class="modal-backdrop" *ngIf="showBidModal && selectedMarketPlayer">
+    <article class="panel">
+      <h3>Ofertar por {{ selectedMarketPlayer.name }}</h3>
+      <p>Dinero disponible: {{ availableMoney }}</p>
+      <label>
+        Monto
+        <input type="number" min="1" [(ngModel)]="bidAmount" />
+      </label>
+      <p class="state error" *ngIf="bidError">{{ bidError }}</p>
+      <div class="toolbar">
+        <button type="button" (click)="submitBid()">Confirmar oferta</button>
+        <button type="button" (click)="closeBidModal()">Cancelar</button>
+      </div>
+    </article>
+  </div>
 </section>

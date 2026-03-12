@@ -72,6 +72,7 @@ export class InsideTournamentComponent implements OnInit {
   private allRealPlayers: any[] = [];
   private allParticipantPoints: any[] = [];
   private allPlayerPerformances: any[] = [];    //djbcjdbjfbewbfkjweb
+  private squadBuilt = false;
 
   constructor(
     private readonly apiService: ApiService,
@@ -168,7 +169,7 @@ export class InsideTournamentComponent implements OnInit {
     }).subscribe({
       next: () => {
         this.closeBidModal();
-        this.loadTournamentPage();
+        this.loadTournamentPage(true);
       },
       error: (error) => {
         this.bidError = error?.error?.message ?? 'No se pudo registrar la oferta.';
@@ -176,9 +177,10 @@ export class InsideTournamentComponent implements OnInit {
     });
   }
 
-  private loadTournamentPage(): void {
+  private loadTournamentPage(isReload = false): void {
     this.isLoading = true;
     this.errorMessage = '';
+    if (!isReload) this.squadBuilt = false;
 
     forkJoin({
       tournaments: this.apiService.searchTournaments(),
@@ -286,6 +288,10 @@ export class InsideTournamentComponent implements OnInit {
   }
 
   private rebuildSquadFromFormation(): void {
+    // Si ya se construyó una vez, no volver a pisar squadSlots
+    // (los cambios de formación los maneja el hijo internamente)
+    if (this.squadBuilt) return;
+
     const participantId = this.extractId(this.participant);
     if (!participantId) {
       this.squadPlayers = [];
@@ -357,7 +363,12 @@ export class InsideTournamentComponent implements OnInit {
     addSlots('midfielder', formation.midfielder, grouped.midfielder);
     addSlots('forward', formation.forward, grouped.forward);
 
-    this.squadSlots = slots;
+    this.squadSlots = slots.map(s => ({
+      ...s,
+      players: s.player ? [s.player] : [],
+    }));
+
+    this.squadBuilt = true;
   }
 
   isSlotMismatch(slot: SquadSlotView): boolean {

@@ -1,9 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input, OnChanges, Output, EventEmitter, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import {
-  CdkDrag, CdkDragDrop, CdkDropList, CdkDropListGroup,
-} from '@angular/cdk/drag-drop';
+import { CdkDrag, CdkDragDrop, CdkDropList, CdkDropListGroup, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 
 export interface PitchPlayer {
   id?: number;
@@ -18,10 +16,10 @@ export interface PitchSlot {
   position: string;
   gridRow?: number;
   gridCol?: number;
-  player: PitchPlayer | null;
+  players: PitchPlayer[];
 }
 
-export const FORMATION_LAYOUTS: Record<string, Omit<PitchSlot, 'player'>[]> = {
+export const FORMATION_LAYOUTS: Record<string, Omit<PitchSlot, 'players'>[]> = {
   '4-4-2': [
     // forwards: centrados simétricamente en la fila de arriba
     { slotId: 'f-0', position: 'forward',    gridRow: 1, gridCol: 3 },
@@ -99,49 +97,87 @@ export class FootballPitchComponent implements OnChanges {
 
   slots: PitchSlot[] = [];
 
+  private slotsInitialized = false;
+
+  
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['squadSlots'] || changes['formation']) {
-      this.buildSlots();
+    const squadChanged = changes['squadSlots'];
+    const formationChanged = changes['formation'];
+    
+    if (formationChanged && this.slotsInitialized) {
+      // Solo reordenar, no reconstruir desde el Input
+      this.rebuildLayout();
+      return;
     }
+    
+    if (squadChanged || (formationChanged && !this.slotsInitialized)) {
+      this.buildSlots();
+      this.slotsInitialized = true;
+    }
+  }
+  
+  private rebuildLayout(): void {
+    // Reagrupa los players actuales de this.slots (no del Input)
+    const layout = FORMATION_LAYOUTS[this.formation] ?? FORMATION_LAYOUTS['4-4-2'];
+    const byPosition: Record<string, PitchPlayer[]> = {
+      goalkeeper: [], defender: [], midfielder: [], forward: [],
+    };
+    for (const slot of this.slots) {
+      for (const player of slot.players) {
+        if (byPosition[player.position]) byPosition[player.position].push(player);
+      }
+    }
+    this.slots = layout.map(s => {
+      const pool = byPosition[s.position] ?? [];
+      return { ...s, players: pool.splice(0, 1) };
+    });
   }
 
   onFormationChange(): void {
     this.formationChange.emit(this.formation);
   }
-
-  dropSlot(event: CdkDragDrop<PitchSlot>): void {
-    if (event.previousContainer === event.container) return;
-    const from = event.previousContainer.data;
-    const to   = event.container.data;
-    [from.player, to.player] = [to.player, from.player];
-    this.slots = [...this.slots];
+  
+  dropSlot(event: CdkDragDrop<PitchPlayer[]>): void {
+    if (event.previousContainer === event.container) {
+      moveItemInArray(
+        event.container.data,
+        event.previousIndex,
+        event.currentIndex
+      );
+    } else {
+      transferArrayItem(
+        event.previousContainer.data,
+        event.container.data,
+        event.previousIndex,
+        event.currentIndex
+      );
+    }
+    //this.slots = [...this.slots];
   }
 
   isSlotMismatch(slot: PitchSlot): boolean {
-    if (!slot.player) return false;
-    return slot.player.position !== slot.position;
+    return slot.players.some(p => p.position !== slot.position);
   }
 
   private buildSlots(): void {
     const layout = FORMATION_LAYOUTS[this.formation] ?? FORMATION_LAYOUTS['4-4-2'];
 
-    // Agrupamos los jugadores existentes por posición
     const byPosition: Record<string, PitchPlayer[]> = {
       goalkeeper: [], defender: [], midfielder: [], forward: [],
     };
 
     for (const slot of (this.squadSlots ?? [])) {
-      if (slot.player) {
-        const pos = slot.player.position;
-        if (byPosition[pos]) byPosition[pos].push({ ...slot.player });
+      for (const player of slot.players) {
+        if (byPosition[player.position]) {
+          byPosition[player.position].push({ ...player });
+        }
       }
     }
 
-    // Asignamos jugadores a los slots del nuevo layout
     this.slots = layout.map(s => {
       const pool = byPosition[s.position] ?? [];
-      const player = pool.shift() ?? null;
-      return { ...s, player };
+      const players = pool.splice(0, 1); // empieza con 1 jugador
+      return { ...s, players };
     });
   }
 }
