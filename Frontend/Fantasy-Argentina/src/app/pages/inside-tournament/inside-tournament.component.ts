@@ -4,19 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { ApiService } from '../../servicios/api.service';
-import { CdkDrag, CdkDragDrop, CdkDropList, CdkDropListGroup, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
+//import { CdkDrag, CdkDragDrop, CdkDropList, CdkDropListGroup, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
+import { FootballPitchComponent, PitchSlot } from '../../components/football-pitch/football-pitch.component';
 
 interface SquadPlayerView {
   id?: number;
-  name: string;
-  position: string;
-  teamName: string;
-  lastScore?: number;
-}
-
-interface MarketPlayerView {
-  id?: number;
-  marketId: number;
   name: string;
   position: string;
   teamName: string;
@@ -29,10 +21,19 @@ interface SquadSlotView {
   player: SquadPlayerView | null;
 }
 
+interface MarketPlayerView {
+  id?: number;
+  marketId: number;
+  name: string;
+  position: string;
+  teamName: string;
+  lastScore?: number;
+}
+
 @Component({
   selector: 'app-inside-tournament',
   standalone: true,
-  imports: [CommonModule, FormsModule, CdkDrag, CdkDropList, CdkDropListGroup],
+  imports: [CommonModule, FormsModule, FootballPitchComponent],
   templateUrl: './inside-tournament.component.html',
   styleUrl: './inside-tournament.component.scss'
 })
@@ -48,12 +49,13 @@ export class InsideTournamentComponent implements OnInit {
   errorMessage = '';
 
   squadPlayers: SquadPlayerView[] = [];
-  squadSlots: SquadSlotView[] = [];
+  //squadSlots: SquadSlotView[] = [];
   marketPlayers: MarketPlayerView[] = [];
-
+  squadDependantIds: number[] = [];             //Agregada
   existingMarketEntries: any[] = [];
   negotiations: any[] = [];
   bids: any[] = [];
+  squadSlots: PitchSlot[] = [];             //Agregada
 
   showBidModal = false;
   selectedMarketPlayer: MarketPlayerView | null = null;
@@ -296,6 +298,12 @@ export class InsideTournamentComponent implements OnInit {
       squadEntry?.realPlayerIds ?? squadEntry?.real_player_ids
     );
 
+    // Guardar los IDs de dependantPlayers para pasárselos al football-pitch
+    const squadEntry2 = this.allParticipantSquads.find((item) => this.extractId(item.participant) === participantId);
+    this.squadDependantIds = this.normalizeIdCollection(
+      squadEntry2?.dependantPlayerIds ?? squadEntry2?.dependant_player_ids ?? []
+    );
+
     const realPlayers = this.allRealPlayers
       .filter((player) => {
         const id = this.extractId(player);
@@ -530,7 +538,7 @@ export class InsideTournamentComponent implements OnInit {
 
     return null;
   }
-
+/*
   dropSlot(event: CdkDragDrop<SquadSlotView>): void {
     if (event.previousContainer === event.container) return;
 
@@ -540,5 +548,12 @@ export class InsideTournamentComponent implements OnInit {
     [fromSlot.player, toSlot.player] = [toSlot.player, fromSlot.player];
 
     this.squadSlots = [...this.squadSlots];
+  }
+  */
+
+  onFormationChangeFromPitch(newFormation: string): void {
+    const idx = this.formations.indexOf(newFormation);
+    if (idx !== -1) this.formationIndex = idx;
+    this.rebuildSquadFromFormation();
   }
 }

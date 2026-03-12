@@ -20,57 +20,11 @@
 
     <section class="panel">
       <h2>Squad titular (11 jugadores)</h2>
-      <div class="formation-picker">
-        <div>
-          <label>Formación: <strong>{{ selectedFormation }}</strong></label>
-          <input type="range" min="0" max="3" step="1" [(ngModel)]="formationIndex" (input)="updateFormationFromSlider()" />
-          <div class="formation-labels">
-            @for (formation of formations; track formation) {
-              <span [class.active]="formation === selectedFormation">{{ formation }}</span>
-            }
-          </div>
-        </div>
-
-        <div>
-          <h3>Jugadores linkeados</h3>
-          <div class="slots-container" cdkDropListGroup>
-            @for (slot of squadSlots; track slot.slotId) {
-              <div
-                class="slot"
-                [class.invalid-slot]="isSlotMismatch(slot)"
-                cdkDropList
-                [cdkDropListData]="slot"
-                (cdkDropListDropped)="dropSlot($any($event))"
-              >
-                <span class="slot-label">{{ slot.position }}</span>
-
-                <div class="slot-body">
-                  @if (slot.player) {
-                    <article
-                      class="player-card"
-                      cdkDrag
-                      [cdkDragData]="slot.player"
-                    >
-                      <div class="player-info">
-                        <p class="name">{{ slot.player.name }}</p>
-                        <small class="team">{{ slot.player.teamName }}</small>
-                      </div>
-                      <div class="player-stats">
-                        <span class="pos-badge">{{ slot.player.position | slice:0:3 }}</span>
-                        <strong class="score">{{ slot.player.lastScore }}</strong>
-                      </div>
-                    </article>
-                  } @else {
-                    <div class="empty-placeholder">
-                      <span>Vacío</span>
-                    </div>
-                  }
-                </div>
-              </div>
-            }
-          </div>
-        </div>
-      </div>
+      <app-football-pitch
+        [squadSlots]="squadSlots"
+        [formation]="selectedFormation"
+        (formationChange)="onFormationChangeFromPitch($event)"
+      />
     </section>
 
     <section class="panel">
