@@ -33,19 +33,44 @@
 
         <div>
           <h3>Jugadores linkeados</h3>
-          <ul>
+          <div class="slots-container">
             @for (slot of squadSlots; track $index) {
-            <div class="slot" [class.empty]="!slot.player">
-              <strong>{{ slot.position }}</strong>
-              @if (slot.player) {
-                <p>{{ slot.player.name }}</p>
-                <small>{{ slot.player.teamName }}</small>
-              } @else {
-                <p class="empty-slot">Vacío</p>
-              }
-            </div>
-          }
-          </ul>
+              <div
+                class="slot"
+                [class.drag-over]="dragOverIndex === $index"
+                [class.invalid-slot]="isSlotMismatch(slot)"
+                (dragover)="onSlotDragOver($event, $index)"
+                (drop)="onSlotDrop($event, $index)"
+              >
+                <span class="slot-label">{{ slot.position }}</span>
+
+                <div class="slot-body">
+                  @if (slot.player) {
+                    <article
+                      class="player-card"
+                      draggable="true"
+                      [class.dragging]="draggedIndex === $index"
+                      (dragstart)="onCardDragStart($event, $index)"
+                      (dragend)="onCardDragEnd()"
+                    >
+                      <div class="player-info">
+                        <p class="name">{{ slot.player.name }}</p>
+                        <small class="team">{{ slot.player.teamName }}</small>
+                      </div>
+                      <div class="player-stats">
+                        <span class="pos-badge">{{ slot.player.position | slice:0:3 }}</span>
+                        <strong class="score">{{ slot.player.lastScore }}</strong>
+                      </div>
+                    </article>
+                  } @else {
+                    <div class="empty-placeholder">
+                      <span>Vacío</span>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
         </div>
       </div>
     </section>

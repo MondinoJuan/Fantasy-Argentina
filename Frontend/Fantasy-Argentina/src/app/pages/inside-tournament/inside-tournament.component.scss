@@ -187,7 +187,7 @@ h2 { font-size: 1.5rem; margin-bottom: 1rem; }
     font-size: 1.2rem;
   }
   
-  ul {
+  div.slots-container {
     list-style: none;
     padding: 0;
     margin: 0;
@@ -200,86 +200,118 @@ h2 { font-size: 1.5rem; margin-bottom: 1rem; }
 }
 
 .slot {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(251, 228, 216, 0.95) 100%);
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  border-radius: 0.8rem;
-  padding: 0.9rem;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-  transition: all 0.3s ease;
-  cursor: move;
-  position: relative;
-  min-height: 100px;
+  background: rgba(0, 0, 0, 0.2); // Fondo oscuro para el "hueco"
+  border-radius: 12px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 4px;
-    background: linear-gradient(90deg, var(--dusty-purple), var(--mauve));
-    border-radius: 0.8rem 0.8rem 0 0;
-  }
-  
-  &:hover {
-    transform: translateY(-4px) scale(1.02);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    border-color: var(--mauve);
-  }
-  
-  &.empty {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(251, 228, 216, 0.6) 100%);
-    border-style: dashed;
-    border-color: rgba(133, 79, 108, 0.4);
-    
-    &::before {
-      background: linear-gradient(90deg, rgba(82, 43, 91, 0.3), rgba(133, 79, 108, 0.3));
-    }
-  }
-  
-  &.dragging {
-    opacity: 0.5;
-    transform: scale(0.95);
-  }
-  
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+  min-height: 120px;
+
   &.drag-over {
-    border-color: #ffd700;
-    background: linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(251, 228, 216, 0.95) 100%);
-    transform: scale(1.05);
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--rose-beige);
+    transform: scale(1.02);
   }
-  
-  strong {
-    color: #2b124c;
-    font-weight: 700;
+
+  .slot-label {
+    font-size: 0.65rem;
     text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.5px;
-    margin-bottom: 0.4rem;
-    display: block;
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 800;
+    margin-bottom: 6px;
+    text-align: center;
+    letter-spacing: 1px;
   }
+}
+
+.slots-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1.5rem;
+  padding: 1rem;
+}
+
+.slot-title {
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+
+.slot-body {
+  flex: 1;
+  min-height: 100px;
+  border-radius: 12px;
+  display: flex;
+  align-items: stretch;
+}
+
+.slot-body.empty {
+  border: 2px dashed rgba(255, 255, 255, 0.25);
+}
+
+.slot-position {
+  display: block;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.player-card {
+  background: white;
+  border-radius: 8px;
+  padding: 10px;
+  cursor: grab;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+
+  &:active { cursor: grabbing; }
   
-  p {
-    color: #522b5b;
-    font-weight: 600;
-    font-size: 1rem;
-    margin: 0.3rem 0;
-  }
+  .name { color: var(--deep-plum); font-weight: 700; margin: 0; font-size: 0.9rem; }
+  .team { color: var(--mauve); font-size: 0.75rem; }
   
-  small {
-    color: #7a557f;
-    font-size: 0.8rem;
-    display: block;
-    margin-top: 0.2rem;
+  .player-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    border-top: 1px solid #eee;
+    padding-top: 5px;
   }
-  
-  .empty-slot {
-    color: #a38ba8;
-    font-style: italic;
-    font-weight: 400;
-  }
+}
+
+.player-card.dragging {
+  opacity: 0.6;
+  cursor: grabbing;
+}
+
+.slot.drag-over .slot-body {
+  outline: 2px solid #7c4dff;
+  outline-offset: 2px;
+}
+
+.slot.invalid-slot {
+  border: 2px solid #d32f2f;
+  background: rgba(211, 47, 47, 0.08);
+}
+
+.empty-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  border: 2px dashed rgba(255,255,255,0.1);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.2);
+  font-size: 0.8rem;
 }
 
 .formation-labels { 
@@ -391,7 +423,7 @@ button {
   }
 }
 
-ul, ol { 
+div.slots-container, ol { 
   margin: 0; 
   padding-left: 1.2rem; 
   color: #522b5b;

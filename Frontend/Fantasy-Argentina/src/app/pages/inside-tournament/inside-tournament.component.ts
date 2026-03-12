@@ -10,6 +10,7 @@ interface SquadPlayerView {
   name: string;
   position: string;
   teamName: string;
+  lastScore?: number;
 }
 
 interface MarketPlayerView {
@@ -18,6 +19,7 @@ interface MarketPlayerView {
   name: string;
   position: string;
   teamName: string;
+  lastScore?: number;
 }
 
 @Component({
@@ -60,6 +62,7 @@ export class InsideTournamentComponent implements OnInit {
   private allParticipantSquads: any[] = [];
   private allRealPlayers: any[] = [];
   private allParticipantPoints: any[] = [];
+  private allPlayerPerformances: any[] = [];    //djbcjdbjfbewbfkjweb
 
   constructor(
     private readonly apiService: ApiService,
@@ -78,6 +81,12 @@ export class InsideTournamentComponent implements OnInit {
 
     this.tournamentId = paramId;
     this.loadTournamentPage();
+
+    document.addEventListener('dragstart', (e) => {
+      if ((e.target as HTMLElement)?.tagName === 'IMG') {
+        e.preventDefault();
+      }
+    });
   }
 
   get selectedFormation(): string {
@@ -178,6 +187,7 @@ export class InsideTournamentComponent implements OnInit {
       bids: this.apiService.searchBids(),
       matchdays: this.apiService.searchMatchdays(),
       participantMatchdayPoints: this.apiService.searchParticipantMatchdayPoints(),
+      playerPerformances: this.apiService.searchPlayerPerformances(),               //dsfdsfdsfdsfwefewfew
     }).subscribe({
       next: (response) => {
         const currentUserId = Number(localStorage.getItem('currentUserId'));
@@ -204,6 +214,7 @@ export class InsideTournamentComponent implements OnInit {
         this.allParticipantSquads = response.participantSquads.data;
         this.allRealPlayers = response.realPlayers.data;
         this.allParticipantPoints = response.participantMatchdayPoints.data;
+        this.allPlayerPerformances = response.playerPerformances?.data ?? [];   //dsfdsfdsfdsfwefewfew
 
         this.existingMarketEntries = response.matchdayMarkets.data.filter((item: any) => this.extractId(item.tournament) === this.tournamentId);
         this.negotiations = response.negotiations.data.filter((item: any) => this.extractId(item.tournament) === this.tournamentId);
@@ -232,6 +243,18 @@ export class InsideTournamentComponent implements OnInit {
     });
   }
 
+  // sncndkjnckwbdkjcwkejknwj
+  private getLastPoints(realPlayerId: number): number {
+    const performances = this.allPlayerPerformances.filter(
+      (perf: any) => this.extractId(perf.realPlayer) === realPlayerId
+    );
+    if (performances.length === 0) return 0;
+    // Tomar la más reciente por updateDate
+    const latest = performances.reduce((a: any, b: any) =>
+      new Date(a.updateDate) > new Date(b.updateDate) ? a : b
+    );
+    return Number(latest.pointsObtained ?? 0);
+  }
 
   private normalizeIdCollection(value: unknown): number[] {
     if (Array.isArray(value)) {
@@ -311,8 +334,9 @@ export class InsideTournamentComponent implements OnInit {
           player: player ? {
             id: this.extractId(player) ?? undefined,
             name: player.name,
-            position: pos,
+            position: this.normalizePosition(player.position),
             teamName: player.realTeam?.name ?? player.realTeam ?? 'Sin equipo',
+            lastScore: this.getLastPoints(this.extractId(player) ?? 0), // Obtener el último puntaje conocido
           } : null,
         });
       }
@@ -324,6 +348,14 @@ export class InsideTournamentComponent implements OnInit {
     addSlots('forward', formation.forward, grouped.forward);
 
     this.squadSlots = slots;
+  }
+
+  isSlotMismatch(slot: { position: string; player: SquadPlayerView | null }): boolean {
+    if (!slot.player) {
+      return false;
+    }
+
+    return this.normalizePosition(slot.player.position) !== this.normalizePosition(slot.position);
   }
 
   private rebuildMarketFromDatabase(): void {
@@ -363,6 +395,7 @@ export class InsideTournamentComponent implements OnInit {
             name: realPlayer?.name ?? `Player ${this.extractId(realPlayer) ?? '?'}`,
             position: this.normalizePosition(realPlayer?.position),
             teamName: realPlayer?.realTeam?.name ?? 'Sin equipo',
+            lastScore: this.getLastPoints(this.extractId(realPlayer) ?? 0), // Obtener el último puntaje conocido
           };
         });
       },
@@ -500,46 +533,75 @@ export class InsideTournamentComponent implements OnInit {
   draggedIndex: number | null = null;
   dragOverIndex: number | null = null;
 
-  onDragStart(event: DragEvent, index: number): void {
-    this.draggedIndex = index;
-    if (event.dataTransfer) {
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/html', index.toString());
-    }
-  }
+  onCardDragStart(event: DragEvent, index: number): void {
+    const player = this.squadSlots[index]?.player;
 
-  onDragEnd(event: DragEvent): void {
-    this.draggedIndex = null;
-    this.dragOverIndex = null;
-  }
-
-  onDragOver(event: DragEvent, index: number): void {
-    event.preventDefault();
-    if (event.dataTransfer) {
-      event.dataTransfer.dropEffect = 'move';
-    }
-    this.dragOverIndex = index;
-  }
-
-  onDragLeave(event: DragEvent): void {
-    this.dragOverIndex = null;
-  }
-
-  onDrop(event: DragEvent, dropIndex: number): void {
-    event.preventDefault();
-    
-    if (this.draggedIndex === null || this.draggedIndex === dropIndex) {
-      this.draggedIndex = null;
-      this.dragOverIndex = null;
+    if (!player) {
+      event.preventDefault();
       return;
     }
 
-    // Intercambiar las posiciones de los jugadores
-    const temp = this.squadSlots[this.draggedIndex];
-    this.squadSlots[this.draggedIndex] = this.squadSlots[dropIndex];
-    this.squadSlots[dropIndex] = temp;
+    this.draggedIndex = index;
 
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', String(index));
+    }
+  }
+
+  onCardDragEnd(): void {
     this.draggedIndex = null;
     this.dragOverIndex = null;
   }
+
+  onSlotDragOver(event: DragEvent, index: number): void {
+    event.preventDefault();
+
+    if (this.draggedIndex === null || this.draggedIndex === index) {
+      return;
+    }
+
+    this.dragOverIndex = index;
+
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+  }
+
+  // ... dentro de InsideTournamentComponent
+
+onSlotDrop(event: DragEvent, dropIndex: number): void {
+  event.preventDefault();
+
+  const rawIndex = event.dataTransfer?.getData('text/plain');
+  const sourceIndex = rawIndex !== undefined && rawIndex !== '' 
+    ? Number(rawIndex) 
+    : this.draggedIndex;
+
+  // Validaciones de seguridad
+  if (
+    sourceIndex === null || 
+    sourceIndex === dropIndex || 
+    sourceIndex < 0 || 
+    sourceIndex >= this.squadSlots.length
+  ) {
+    this.draggedIndex = null;
+    this.dragOverIndex = null;
+    return;
+  }
+
+  // LÓGICA CLAVE: Intercambiamos solo la propiedad 'player' de los slots
+  const sourcePlayer = this.squadSlots[sourceIndex].player;
+  const targetPlayer = this.squadSlots[dropIndex].player;
+
+  // Actualizamos los slots manteniendo su posición original intacta
+  this.squadSlots[sourceIndex] = { ...this.squadSlots[sourceIndex], player: targetPlayer };
+  this.squadSlots[dropIndex] = { ...this.squadSlots[dropIndex], player: sourcePlayer };
+
+  // Forzar detección de cambios en Angular
+  this.squadSlots = [...this.squadSlots];
+  
+  this.draggedIndex = null;
+  this.dragOverIndex = null;
+}
 }
