@@ -199,44 +199,11 @@ h2 { font-size: 1.5rem; margin-bottom: 1rem; }
   }
 }
 
-.slot {
-  background: rgba(0, 0, 0, 0.2); // Fondo oscuro para el "hueco"
-  border-radius: 12px;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  border: 2px solid transparent;
-  transition: all 0.2s ease;
-  min-height: 120px;
-
-  &.drag-over {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: var(--rose-beige);
-    transform: scale(1.02);
-  }
-
-  .slot-label {
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.5);
-    font-weight: 800;
-    margin-bottom: 6px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-}
-
 .slots-container {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 1.5rem;
   padding: 1rem;
-}
-
-.slot-title {
-  text-transform: uppercase;
-  font-size: 12px;
-  letter-spacing: 0.5px;
 }
 
 .slot-body {
@@ -245,21 +212,6 @@ h2 { font-size: 1.5rem; margin-bottom: 1rem; }
   border-radius: 12px;
   display: flex;
   align-items: stretch;
-}
-
-.slot-body.empty {
-  border: 2px dashed rgba(255, 255, 255, 0.25);
-}
-
-.slot-position {
-  display: block;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  text-align: center;
-  margin-bottom: 0.5rem;
 }
 
 .player-card {
@@ -271,7 +223,7 @@ h2 { font-size: 1.5rem; margin-bottom: 1rem; }
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  height: 100%;
+  height: auto;
 
   &:active { cursor: grabbing; }
   
@@ -286,16 +238,6 @@ h2 { font-size: 1.5rem; margin-bottom: 1rem; }
     border-top: 1px solid #eee;
     padding-top: 5px;
   }
-}
-
-.player-card.dragging {
-  opacity: 0.6;
-  cursor: grabbing;
-}
-
-.slot.drag-over .slot-body {
-  outline: 2px solid #7c4dff;
-  outline-offset: 2px;
 }
 
 .slot.invalid-slot {
@@ -423,16 +365,16 @@ button {
   }
 }
 
-div.slots-container, ol { 
-  margin: 0; 
-  padding-left: 1.2rem; 
+ol {
+  margin: 0;
+  padding-left: 1.2rem;
   color: #522b5b;
-  
+
   li {
     padding: 0.5rem 0;
     border-bottom: 1px solid rgba(82, 43, 91, 0.1);
     font-weight: 500;
-    
+
     &:last-child {
       border-bottom: none;
     }
@@ -484,4 +426,88 @@ div.slots-container, ol {
       }
     }
   }
+}
+
+.cdk-drag-preview {
+  box-sizing: border-box;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.cdk-drag-placeholder {
+  opacity: 0.2;
+}
+
+.cdk-drag-animating {
+  transition: transform 250ms ease;
+}
+
+.slot.cdk-drop-list-receiving {
+  outline: 2px dashed var(--rose-beige);
+  outline-offset: 4px;
+}
+
+.slots-debug-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  position: relative;
+  z-index: 1;
+}
+
+.debug-slot {
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 14px;
+  padding: 10px;
+  min-height: 170px;
+  backdrop-filter: blur(2px);
+}
+
+.debug-slot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: white;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.debug-slot-header small {
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+}
+
+.debug-slot-body {
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.player-card {
+  width: 100%;
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px;
+  cursor: grab;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+}
+
+.empty-placeholder {
+  min-height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed rgba(255, 255, 255, 0.45);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+}
+
+.debug-slot.invalid-slot {
+  border: 2px solid #ff6b6b;
+  background: rgba(255, 107, 107, 0.12);
 }

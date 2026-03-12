@@ -33,14 +33,14 @@
 
         <div>
           <h3>Jugadores linkeados</h3>
-          <div class="slots-container">
-            @for (slot of squadSlots; track $index) {
+          <div class="slots-container" cdkDropListGroup>
+            @for (slot of squadSlots; track slot.slotId) {
               <div
                 class="slot"
-                [class.drag-over]="dragOverIndex === $index"
                 [class.invalid-slot]="isSlotMismatch(slot)"
-                (dragover)="onSlotDragOver($event, $index)"
-                (drop)="onSlotDrop($event, $index)"
+                cdkDropList
+                [cdkDropListData]="slot"
+                (cdkDropListDropped)="dropSlot($any($event))"
               >
                 <span class="slot-label">{{ slot.position }}</span>
 
@@ -48,12 +48,8 @@
                   @if (slot.player) {
                     <article
                       class="player-card"
-                      draggable="true"
-                      [class.dragging]="draggedIndex === $index"
-                      (dragstart)="onCardDragStart($event, $index)"
-                      (dragend)="onCardDragEnd()"
-                      (dragover)="onCardDragOver($event, $index)"
-                      (drop)="onCardDrop($event, $index)"
+                      cdkDrag
+                      [cdkDragData]="slot.player"
                     >
                       <div class="player-info">
                         <p class="name">{{ slot.player.name }}</p>
@@ -87,6 +83,7 @@
             <h3>{{ player.name }}</h3>
             <p>{{ player.position }}</p>
             <small>{{ player.teamName }}</small>
+            <strong class="score">{{ player.lastScore }}</strong>
             <button type="button" (click)="openBidModal(player)">Ofertar</button>
           </article>
         }

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { ApiService } from '../../servicios/api.service';
+import { CdkDrag, CdkDragDrop, CdkDropList, CdkDropListGroup, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 
 interface SquadPlayerView {
   id?: number;
@@ -23,6 +24,7 @@ interface MarketPlayerView {
 }
 
 interface SquadSlotView {
+  slotId: string;
   position: string;
   player: SquadPlayerView | null;
 }
@@ -30,7 +32,7 @@ interface SquadSlotView {
 @Component({
   selector: 'app-inside-tournament',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, CdkDrag, CdkDropList, CdkDropListGroup],
   templateUrl: './inside-tournament.component.html',
   styleUrl: './inside-tournament.component.scss'
 })
@@ -86,12 +88,6 @@ export class InsideTournamentComponent implements OnInit {
 
     this.tournamentId = paramId;
     this.loadTournamentPage();
-
-    document.addEventListener('dragstart', (e) => {
-      if ((e.target as HTMLElement)?.tagName === 'IMG') {
-        e.preventDefault();
-      }
-    });
   }
 
   get selectedFormation(): string {
@@ -335,6 +331,7 @@ export class InsideTournamentComponent implements OnInit {
       for (let i = 0; i < count; i++) {
         const player = pool[i] ?? null;
         slots.push({
+          slotId: `${pos}-${i}`,
           position: pos,
           player: player ? {
             id: this.extractId(player) ?? undefined,
@@ -534,95 +531,14 @@ export class InsideTournamentComponent implements OnInit {
     return null;
   }
 
-  // Variables para drag & drop
-  draggedIndex: number | null = null;
-  dragOverIndex: number | null = null;
+  dropSlot(event: CdkDragDrop<SquadSlotView>): void {
+    if (event.previousContainer === event.container) return;
 
-  onCardDragStart(event: DragEvent, index: number): void {
-    const player = this.squadSlots[index]?.player;
+    const fromSlot = event.previousContainer.data;
+    const toSlot = event.container.data;
 
-    if (!player) {
-      event.preventDefault();
-      return;
-    }
-
-    this.draggedIndex = index;
-
-    if (event.dataTransfer) {
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/plain', String(index));
-    }
-  }
-
-  onCardDragEnd(): void {
-    this.draggedIndex = null;
-    this.dragOverIndex = null;
-  }
-
-  onSlotDragOver(event: DragEvent, index: number): void {
-    event.preventDefault();
-
-    if (this.draggedIndex === null || this.draggedIndex === index) {
-      return;
-    }
-
-    this.dragOverIndex = index;
-
-    if (event.dataTransfer) {
-      event.dataTransfer.dropEffect = 'move';
-    }
-  }
-
-  onCardDragOver(event: DragEvent, index: number): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.onSlotDragOver(event, index);
-  }
-
-  onCardDrop(event: DragEvent, dropIndex: number): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.onSlotDrop(event, dropIndex);
-  }
-
-  // ... dentro de InsideTournamentComponent
-
-  onSlotDrop(event: DragEvent, dropIndex: number): void {
-    event.preventDefault();
-
-    const rawIndex = event.dataTransfer?.getData('text/plain');
-    const parsedSourceIndex = Number.parseInt(rawIndex ?? '', 10);
-    const sourceIndex = Number.isFinite(parsedSourceIndex)
-      ? parsedSourceIndex
-      : this.draggedIndex;
-
-    if (
-      sourceIndex === null
-      || sourceIndex === dropIndex
-      || sourceIndex < 0
-      || sourceIndex >= this.squadSlots.length
-      || dropIndex < 0
-      || dropIndex >= this.squadSlots.length
-    ) {
-      this.draggedIndex = null;
-      this.dragOverIndex = null;
-      return;
-    }
-
-    const sourcePlayer = this.squadSlots[sourceIndex]?.player ?? null;
-    const targetPlayer = this.squadSlots[dropIndex]?.player ?? null;
-
-    this.squadSlots[sourceIndex] = {
-      ...this.squadSlots[sourceIndex],
-      player: targetPlayer,
-    };
-    this.squadSlots[dropIndex] = {
-      ...this.squadSlots[dropIndex],
-      player: sourcePlayer,
-    };
+    [fromSlot.player, toSlot.player] = [toSlot.player, fromSlot.player];
 
     this.squadSlots = [...this.squadSlots];
-    this.draggedIndex = null;
-    this.dragOverIndex = null;
   }
 }
