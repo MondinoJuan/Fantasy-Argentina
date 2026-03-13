@@ -21,20 +21,16 @@ export interface PitchSlot {
 
 export const FORMATION_LAYOUTS: Record<string, Omit<PitchSlot, 'players'>[]> = {
   '4-4-2': [
-    // forwards: centrados simétricamente en la fila de arriba
     { slotId: 'f-0', position: 'forward',    gridRow: 1, gridCol: 3 },
     { slotId: 'f-1', position: 'forward',    gridRow: 1, gridCol: 5 },
-    // midfielders: distribuidos en las 4 columnas interiores
     { slotId: 'm-0', position: 'midfielder', gridRow: 3, gridCol: 1 },
     { slotId: 'm-1', position: 'midfielder', gridRow: 3, gridCol: 3 },
     { slotId: 'm-2', position: 'midfielder', gridRow: 3, gridCol: 5 },
     { slotId: 'm-3', position: 'midfielder', gridRow: 3, gridCol: 7 },
-    // defenders: distribuidos en las 4 columnas interiores
     { slotId: 'd-0', position: 'defender',   gridRow: 5, gridCol: 1 },
     { slotId: 'd-1', position: 'defender',   gridRow: 5, gridCol: 3 },
     { slotId: 'd-2', position: 'defender',   gridRow: 5, gridCol: 5 },
     { slotId: 'd-3', position: 'defender',   gridRow: 5, gridCol: 7 },
-    // goalkeeper: centrado
     { slotId: 'g-0', position: 'goalkeeper', gridRow: 7, gridCol: 4 },
   ],
   '4-3-3': [
@@ -86,98 +82,140 @@ export const FORMATION_LAYOUTS: Record<string, Omit<PitchSlot, 'players'>[]> = {
   styleUrl: './football-pitch.component.scss',
 })
 export class FootballPitchComponent implements OnChanges {
-  /** Slots ya construidos con jugadores desde el padre */
-  @Input() squadSlots: PitchSlot[] = [];
-  /** Formación activa */
+  @Input() squadPlayers: PitchPlayer[] = [];
   @Input() formation: string = '4-4-2';
-  /** Emite cuando el usuario cambia la formación */
+  @Input() playerPerformances: any[] = [];
   @Output() formationChange = new EventEmitter<string>();
 
   readonly formations = ['4-4-2', '4-3-3', '3-4-3', '5-4-1'];
-
   slots: PitchSlot[] = [];
 
-  private slotsInitialized = false;
-
-  
   ngOnChanges(changes: SimpleChanges): void {
-    const squadChanged = changes['squadSlots'];
-    const formationChanged = changes['formation'];
-    
-    if (formationChanged && this.slotsInitialized) {
-      // Solo reordenar, no reconstruir desde el Input
-      this.rebuildLayout();
-      return;
-    }
-    
-    if (squadChanged || (formationChanged && !this.slotsInitialized)) {
+    if (changes['squadPlayers'] || changes['formation'] || changes['playerPerformances']) {
       this.buildSlots();
-      this.slotsInitialized = true;
     }
-  }
-  
-  private rebuildLayout(): void {
-    // Reagrupa los players actuales de this.slots (no del Input)
-    const layout = FORMATION_LAYOUTS[this.formation] ?? FORMATION_LAYOUTS['4-4-2'];
-    const byPosition: Record<string, PitchPlayer[]> = {
-      goalkeeper: [], defender: [], midfielder: [], forward: [],
-    };
-    for (const slot of this.slots) {
-      for (const player of slot.players) {
-        if (byPosition[player.position]) byPosition[player.position].push(player);
-      }
-    }
-    this.slots = layout.map(s => {
-      const pool = byPosition[s.position] ?? [];
-      return { ...s, players: pool.splice(0, 1) };
-    });
   }
 
   onFormationChange(): void {
+    this.buildSlots();
     this.formationChange.emit(this.formation);
   }
-  
+
   dropSlot(event: CdkDragDrop<PitchPlayer[]>): void {
     if (event.previousContainer === event.container) {
-      moveItemInArray(
-        event.container.data,
-        event.previousIndex,
-        event.currentIndex
-      );
-    } else {
-      transferArrayItem(
-        event.previousContainer.data,
-        event.container.data,
-        event.previousIndex,
-        event.currentIndex
-      );
+      moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
+      return;
     }
-    //this.slots = [...this.slots];
+
+    transferArrayItem(
+      event.previousContainer.data,
+      event.container.data,
+      event.previousIndex,
+      event.currentIndex
+    );
   }
 
   isSlotMismatch(slot: PitchSlot): boolean {
-    return slot.players.some(p => p.position !== slot.position);
+    return slot.players.some((player) => this.normalizePosition(player.position) !== this.normalizePosition(slot.position));
   }
 
   private buildSlots(): void {
     const layout = FORMATION_LAYOUTS[this.formation] ?? FORMATION_LAYOUTS['4-4-2'];
-
     const byPosition: Record<string, PitchPlayer[]> = {
       goalkeeper: [], defender: [], midfielder: [], forward: [],
     };
 
-    for (const slot of (this.squadSlots ?? [])) {
-      for (const player of slot.players) {
-        if (byPosition[player.position]) {
-          byPosition[player.position].push({ ...player });
-        }
-      }
+    for (const playerRaw of (this.squadPlayers ?? [])) {
+      const normalizedPosition = this.normalizePosition(playerRaw.position);
+      if (!byPosition[normalizedPosition]) continue;
+      byPosition[normalizedPosition].push({
+        ...playerRaw,
+        position: normalizedPosition,
+        lastScore: this.getLastPoints(playerRaw.id ?? 0),
+      });
     }
 
-    this.slots = layout.map(s => {
-      const pool = byPosition[s.position] ?? [];
-      const players = pool.splice(0, 1); // empieza con 1 jugador
-      return { ...s, players };
+    const formationNeeded = this.parseFormation(this.formation);
+    const selectedPlayers = [
+      ...this.pickRandom(byPosition['goalkeeper'], formationNeeded.goalkeeper),
+      ...this.pickRandom(byPosition['defender'], formationNeeded.defender),
+      ...this.pickRandom(byPosition['midfielder'], formationNeeded.midfielder),
+      ...this.pickRandom(byPosition['forward'], formationNeeded.forward),
+    ];
+
+    const selectedByPosition: Record<string, PitchPlayer[]> = {
+      goalkeeper: selectedPlayers.filter((player) => player.position === 'goalkeeper'),
+      defender: selectedPlayers.filter((player) => player.position === 'defender'),
+      midfielder: selectedPlayers.filter((player) => player.position === 'midfielder'),
+      forward: selectedPlayers.filter((player) => player.position === 'forward'),
+    };
+
+    this.slots = layout.map((layoutSlot) => {
+      const pool = selectedByPosition[layoutSlot.position] ?? [];
+      return { ...layoutSlot, players: pool.splice(0, 1) };
     });
+  }
+
+  private parseFormation(formation: string): { goalkeeper: number; defender: number; midfielder: number; forward: number } {
+    switch (formation) {
+      case '4-3-3':
+        return { goalkeeper: 1, defender: 4, midfielder: 3, forward: 3 };
+      case '3-4-3':
+        return { goalkeeper: 1, defender: 3, midfielder: 4, forward: 3 };
+      case '5-4-1':
+        return { goalkeeper: 1, defender: 5, midfielder: 4, forward: 1 };
+      case '4-4-2':
+      default:
+        return { goalkeeper: 1, defender: 4, midfielder: 4, forward: 2 };
+    }
+  }
+
+  private normalizePosition(positionRaw: unknown): string {
+    const position = String(positionRaw ?? '').toLowerCase();
+    if (position.includes('goal')) return 'goalkeeper';
+    if (position.includes('def')) return 'defender';
+    if (position.includes('mid')) return 'midfielder';
+    if (position.includes('for') || position.includes('att') || position.includes('strik')) return 'forward';
+    return 'midfielder';
+  }
+
+  private getLastPoints(realPlayerId: number): number {
+    const performances = (this.playerPerformances ?? []).filter(
+      (performance) => this.extractId(performance?.realPlayer ?? performance?.realPlayerId ?? performance?.real_player_id) === realPlayerId
+    );
+
+    if (performances.length === 0) return 0;
+
+    const latestPerformance = performances.reduce((a: any, b: any) =>
+      new Date(a?.updateDate ?? a?.update_date ?? 0).getTime() > new Date(b?.updateDate ?? b?.update_date ?? 0).getTime() ? a : b
+    );
+
+    return Number(latestPerformance?.pointsObtained ?? latestPerformance?.points_obtained ?? 0);
+  }
+
+  private pickRandom<T>(values: T[], limit: number): T[] {
+    const copy = [...values];
+    const selected: T[] = [];
+
+    while (copy.length > 0 && selected.length < limit) {
+      const randomIndex = Math.floor(Math.random() * copy.length);
+      selected.push(copy[randomIndex]);
+      copy.splice(randomIndex, 1);
+    }
+
+    return selected;
+  }
+
+  private extractId(value: unknown): number | null {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    if (typeof value === 'string' && value.trim()) {
+      const parsed = Number.parseInt(value.trim(), 10);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    if (value && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      if (record['id'] !== undefined) return this.extractId(record['id']);
+    }
+    return null;
   }
 }
