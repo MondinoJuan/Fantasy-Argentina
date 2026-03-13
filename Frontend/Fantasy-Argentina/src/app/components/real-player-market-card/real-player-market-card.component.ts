@@ -99,22 +99,11 @@ export class RealPlayerMarketCardComponent implements OnInit {
         const realPlayer   = this._pendingRealPlayer;
         const realPlayerId = this._pendingRealPlayerId;
 
-        // Paso 4: sumar playerPerformances del realPlayer
+        // Paso 4: sumar todos los points_obtained de playerPerformances del realPlayer
         this.apiService.searchPlayerPerformances().subscribe({
           next: (perfRes: any) => {
             const performances: any[] = perfRes?.data ?? [];
-            const totalScore = performances
-              .filter((perf: any) => {
-                const perfRealPlayerId = Number(
-                  perf?.realPlayerId ??
-                  perf?.real_player_id ??
-                  this.extractId(perf?.realPlayer)
-                );
-                return perfRealPlayerId === realPlayerId;
-              })
-              .reduce((sum: number, perf: any) => {
-                return sum + Number(perf?.pointsObtained ?? perf?.points_obtained ?? 0);
-              }, 0);
+            const totalScore = this.getTotalPoints(realPlayerId, performances);
 
             this.player = {
               dependantPlayerId: this.dependantPlayerId,
@@ -147,6 +136,22 @@ export class RealPlayerMarketCardComponent implements OnInit {
         this.isLoading = false;
       },
     });
+  }
+
+
+  private getTotalPoints(realPlayerId: number, performances: any[]): number {
+    const playerPerformances = performances.filter((perf: any) => {
+      const perfRealPlayerId = Number(
+        perf?.realPlayerId ??
+        perf?.real_player_id ??
+        this.extractId(perf?.realPlayer)
+      );
+      return perfRealPlayerId === realPlayerId;
+    });
+
+    return playerPerformances.reduce((sum: number, perf: any) => {
+      return sum + Number(perf?.pointsObtained ?? perf?.points_obtained ?? 0);
+    }, 0);
   }
 
   private normalizePosition(positionRaw: unknown): string {

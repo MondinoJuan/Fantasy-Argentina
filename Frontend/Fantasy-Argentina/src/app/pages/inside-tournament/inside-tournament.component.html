@@ -17,9 +17,10 @@
     <section class="panel">
       <h2>Squad titular (11 jugadores)</h2>
       <app-football-pitch
-        [squadSlots]="squadSlots"
+        [squadPlayers]="squadPlayersForPitch"
+        [playerPerformances]="allPlayerPerformances"
         [formation]="selectedFormation"
-        (formationChange)="onFormationChangeFromPitch($event)"
+        (formationChange)="selectedFormation = $event"
       />
     </section>
 
