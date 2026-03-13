@@ -92,3 +92,111 @@
     font-weight: 600;
   }
 }
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 10, 18, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.panel {
+  width: min(90vw, 420px);
+  background: #1e2a3a;
+  border: 1px solid #2e3e52;
+  border-radius: 12px;
+  padding: 1.5rem;
+  color: #e0e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+
+  h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #ffffff;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #7a94b0;
+
+    &.state.error {
+      color: #e05555;
+      font-weight: 600;
+    }
+  }
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    color: #7a94b0;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+
+    input[type='number'] {
+      padding: 0.45rem 0.7rem;
+      border-radius: 6px;
+      border: 1px solid #2e3e52;
+      background: #111c2a;
+      color: #e0e8f0;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+
+      &:focus {
+        border-color: #4a90d9;
+      }
+    }
+  }
+
+  .toolbar {
+    margin-top: 0.25rem;
+    display: flex;
+    gap: 0.6rem;
+
+    button {
+      flex: 1;
+      padding: 0.45rem 0.9rem;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+
+      &:first-child {
+        background: #4a90d9;
+        color: #fff;
+
+        &:hover  { background: #357abd; }
+        &:active { background: #2a6099; }
+      }
+
+      &:last-child {
+        background: #2e3e52;
+        color: #e0e8f0;
+
+        &:hover  { background: #3a4e66; }
+        &:active { background: #1e2a3a; }
+      }
+    }
+  }
+
+  .alert {
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-align: center;
+    color:#f0c040;
+   }
+}

@@ -8,7 +8,7 @@
       <button class="back" (click)="goBack()">← Volver</button>
       <div class="stats">
         <div><span>Puntos totales</span><strong>{{ participant?.totalScore ?? 0 }}</strong></div>
-        <div><span>Presupuesto total</span><strong>{{ participant?.bankBudget ?? 0 }}</strong></div>
+        <div><span>Presupuesto total</span><strong>${{ participant?.bankBudget ?? 0 }}</strong></div>
         <div><span>ID torneo</span><strong>{{ tournament?.id }}</strong></div>
         <div><span>Código torneo</span><strong>{{ tournamentCode }}</strong></div>
       </div>
@@ -26,6 +26,7 @@
 
     <section class="panel">
       <h2>Market de la fecha</h2>
+      <p>Total de ofertas: {{ bids.length }}</p>
       <p>Total jugadores en market: {{ marketDependantIds.length }}</p>
       <div class="grid">
         <app-real-player-market-card
@@ -40,15 +41,9 @@
       </div>
     </section>
 
-    <section class="panel split">
-      <div>
-        <h2>Negociaciones</h2>
-        <p>Total: {{ negotiations.length }}</p>
-      </div>
-      <div>
-        <h2>Ofertas (bids)</h2>
-        <p>Total: {{ bids.length }}</p>
-      </div>
+    <section class="panel">
+      <h2>Negociaciones</h2>
+      <p>Total: {{ negotiations.length }}</p>
     </section>
 
     <section class="panel">

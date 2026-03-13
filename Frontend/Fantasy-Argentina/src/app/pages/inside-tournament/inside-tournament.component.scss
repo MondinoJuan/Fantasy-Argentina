@@ -353,19 +353,6 @@ button {
   }
 }
 
-.split { 
-  display: grid; 
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
-  gap: .8rem; 
-  
-  > div {
-    background: rgba(255, 248, 244, 0.6);
-    padding: 1rem;
-    border-radius: 0.8rem;
-    border: 1px solid rgba(82, 43, 91, 0.2);
-  }
-}
-
 ol {
   margin: 0;
   padding-left: 1.2rem;
