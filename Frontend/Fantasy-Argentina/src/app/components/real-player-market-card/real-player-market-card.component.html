@@ -12,10 +12,10 @@
 
 <ng-container *ngIf="!isLoading && !hasError && player">
   <article class="market-card">
-    <small class="mc-position">{{ positionLabel }}</small>
+    <small class="mc-position">{{ player.position | uppercase }}</small>
     <p class="mc-name">{{ player.name }}</p>
     <small class="mc-team">{{ player.teamName }}</small>
-    <span class="mc-score">{{ player.lastScore }} pts</span>
+    <span class="mc-score">Total: {{ player.totalScore | number:'1.0-0' }} pts</span>
     <button type="button" class="mc-bid-btn" (click)="onBidClick()">Ofertar</button>
   </article>
 </ng-container>

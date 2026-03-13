@@ -10,7 +10,7 @@ export interface ResolvedMarketPlayer {
   name: string;
   position: string;
   teamName: string;
-  lastScore: number;
+  totalScore: number;
 }
 
 @Component({
@@ -36,22 +36,10 @@ export class RealPlayerMarketCardComponent implements OnInit {
   private _pendingRealPlayerId = 0;
   private _pendingRealPlayer: any = null;
 
-  private readonly positionLabels: Record<string, string> = {
-    goalkeeper: 'POR',
-    defender:   'DEF',
-    midfielder: 'MED',
-    forward:    'DEL',
-  };
-
   constructor(private readonly apiService: ApiService) {}
 
   ngOnInit(): void {
     this.resolvePlayer();
-  }
-
-  get positionLabel(): string {
-    if (!this.player) return '';
-    return this.positionLabels[this.player.position] ?? this.player.position.toUpperCase();
   }
 
   onBidClick(): void {
@@ -70,7 +58,7 @@ export class RealPlayerMarketCardComponent implements OnInit {
       // Paso 2: con real_player_id traer el realPlayer
       switchMap((dependantRes: any) => {
         const dependant = dependantRes?.data ?? dependantRes;
-        const realPlayerId = Number(dependant?.realPlayerId ?? dependant?.real_player_id);
+        const realPlayerId = Number(dependant?.realPlayer.id ?? dependant?.real_player.id);
         if (!realPlayerId) throw new Error('real_player_id no encontrado en dependantPlayer');
 
         this._pendingRealPlayerId = realPlayerId;
@@ -87,6 +75,7 @@ export class RealPlayerMarketCardComponent implements OnInit {
           realPlayer?.real_team_id ??
           this.extractId(realPlayer?.realTeam)
         );
+
         if (!realTeamId) throw new Error('real_team_id no encontrado en realPlayer');
 
         return this.apiService.searchRealTeamById(realTeamId);
@@ -112,7 +101,7 @@ export class RealPlayerMarketCardComponent implements OnInit {
               name:     realPlayer?.name ?? `Jugador ${realPlayerId}`,
               position: this.normalizePosition(realPlayer?.position),
               teamName,
-              lastScore,
+              totalScore,
             };
             this.isLoading = false;
           },
@@ -125,7 +114,7 @@ export class RealPlayerMarketCardComponent implements OnInit {
               name:     realPlayer?.name ?? `Jugador ${realPlayerId}`,
               position: this.normalizePosition(realPlayer?.position),
               teamName,
-              lastScore: 0,
+              totalScore: 0,
             };
             this.isLoading = false;
           },
