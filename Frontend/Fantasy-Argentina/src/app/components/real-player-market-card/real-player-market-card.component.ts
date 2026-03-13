@@ -10,7 +10,7 @@ export interface ResolvedMarketPlayer {
   name: string;
   position: string;
   teamName: string;
-  totalScore: number;
+  lastScore: number;
 }
 
 @Component({
@@ -112,7 +112,7 @@ export class RealPlayerMarketCardComponent implements OnInit {
               name:     realPlayer?.name ?? `Jugador ${realPlayerId}`,
               position: this.normalizePosition(realPlayer?.position),
               teamName,
-              totalScore,
+              lastScore,
             };
             this.isLoading = false;
           },
@@ -125,7 +125,7 @@ export class RealPlayerMarketCardComponent implements OnInit {
               name:     realPlayer?.name ?? `Jugador ${realPlayerId}`,
               position: this.normalizePosition(realPlayer?.position),
               teamName,
-              totalScore: 0,
+              lastScore: 0,
             };
             this.isLoading = false;
           },
