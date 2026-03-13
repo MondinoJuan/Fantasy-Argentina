@@ -10,7 +10,7 @@ export interface ResolvedMarketPlayer {
   name: string;
   position: string;
   teamName: string;
-  totalScore: number;
+  lastScore: number;
 }
 
 @Component({
@@ -99,22 +99,11 @@ export class RealPlayerMarketCardComponent implements OnInit {
         const realPlayer   = this._pendingRealPlayer;
         const realPlayerId = this._pendingRealPlayerId;
 
-        // Paso 4: sumar playerPerformances del realPlayer
+        // Paso 4: obtener último puntaje de playerPerformances del realPlayer
         this.apiService.searchPlayerPerformances().subscribe({
           next: (perfRes: any) => {
             const performances: any[] = perfRes?.data ?? [];
-            const totalScore = performances
-              .filter((perf: any) => {
-                const perfRealPlayerId = Number(
-                  perf?.realPlayerId ??
-                  perf?.real_player_id ??
-                  this.extractId(perf?.realPlayer)
-                );
-                return perfRealPlayerId === realPlayerId;
-              })
-              .reduce((sum: number, perf: any) => {
-                return sum + Number(perf?.pointsObtained ?? perf?.points_obtained ?? 0);
-              }, 0);
+            const lastScore = this.getLastPoints(realPlayerId, performances);
 
             this.player = {
               dependantPlayerId: this.dependantPlayerId,
@@ -123,7 +112,7 @@ export class RealPlayerMarketCardComponent implements OnInit {
               name:     realPlayer?.name ?? `Jugador ${realPlayerId}`,
               position: this.normalizePosition(realPlayer?.position),
               teamName,
-              totalScore,
+              lastScore,
             };
             this.isLoading = false;
           },
@@ -136,7 +125,7 @@ export class RealPlayerMarketCardComponent implements OnInit {
               name:     realPlayer?.name ?? `Jugador ${realPlayerId}`,
               position: this.normalizePosition(realPlayer?.position),
               teamName,
-              totalScore: 0,
+              lastScore: 0,
             };
             this.isLoading = false;
           },
@@ -147,6 +136,26 @@ export class RealPlayerMarketCardComponent implements OnInit {
         this.isLoading = false;
       },
     });
+  }
+
+
+  private getLastPoints(realPlayerId: number, performances: any[]): number {
+    const playerPerformances = performances.filter((perf: any) => {
+      const perfRealPlayerId = Number(
+        perf?.realPlayerId ??
+        perf?.real_player_id ??
+        this.extractId(perf?.realPlayer)
+      );
+      return perfRealPlayerId === realPlayerId;
+    });
+
+    if (playerPerformances.length === 0) return 0;
+
+    const latestPerformance = playerPerformances.reduce((a: any, b: any) =>
+      new Date(a?.updateDate ?? a?.update_date ?? 0).getTime() > new Date(b?.updateDate ?? b?.update_date ?? 0).getTime() ? a : b
+    );
+
+    return Number(latestPerformance?.pointsObtained ?? latestPerformance?.points_obtained ?? 0);
   }
 
   private normalizePosition(positionRaw: unknown): string {

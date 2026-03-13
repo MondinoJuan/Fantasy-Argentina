@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { ApiService } from '../../servicios/api.service';
-import { FootballPitchComponent, PitchSlot } from '../../components/football-pitch/football-pitch.component';
+import { FootballPitchComponent, PitchPlayer } from '../../components/football-pitch/football-pitch.component';
 import { RealPlayerMarketCardComponent, ResolvedMarketPlayer } from '../../components/real-player-market-card/real-player-market-card.component';
 
 interface SquadPlayerView {
@@ -15,11 +15,6 @@ interface SquadPlayerView {
   lastScore?: number;
 }
 
-interface SquadSlotView {
-  slotId: string;
-  position: string;
-  player: SquadPlayerView | null;
-}
 /*
 export interface MarketPlayerView {
   id?: number;
@@ -34,13 +29,13 @@ export interface MarketPlayerView {
 @Component({
   selector: 'app-inside-tournament',
   standalone: true,
-  imports: [CommonModule, FormsModule, FootballPitchComponent],
+  imports: [CommonModule, FormsModule, FootballPitchComponent, RealPlayerMarketCardComponent],
   templateUrl: './inside-tournament.component.html',
   styleUrl: './inside-tournament.component.scss'
 })
 export class InsideTournamentComponent implements OnInit {
   readonly formations = ['4-4-2', '4-3-3', '3-4-3', '5-4-1'];
-  formationIndex = 0;
+  selectedFormation = this.formations[0];
 
   tournament: any = null;
   participant: any = null;
@@ -55,7 +50,7 @@ export class InsideTournamentComponent implements OnInit {
   existingMarketEntries: any[] = [];
   negotiations: any[] = [];
   bids: any[] = [];
-  squadSlots: PitchSlot[] = [];
+  squadPlayersForPitch: PitchPlayer[] = [];
   marketDependantIds: Array<{ dependantPlayerId: number; marketId: number }> = [];          
 
   showBidModal = false;
@@ -72,7 +67,7 @@ export class InsideTournamentComponent implements OnInit {
   private allParticipantSquads: any[] = [];
   private allRealPlayers: any[] = [];
   private allParticipantPoints: any[] = [];
-  private allPlayerPerformances: any[] = [];    //djbcjdbjfbewbfkjweb
+  allPlayerPerformances: any[] = [];
   private squadBuilt = false;
 
   constructor(
@@ -92,10 +87,6 @@ export class InsideTournamentComponent implements OnInit {
 
     this.tournamentId = paramId;
     this.loadTournamentPage();
-  }
-
-  get selectedFormation(): string {
-    return this.formations[this.formationIndex] ?? this.formations[0];
   }
 
   get participantName(): string {
@@ -249,19 +240,6 @@ export class InsideTournamentComponent implements OnInit {
     });
   }
 
-  // Deberia manejarlo el componente 'real-player-market-card' y 'football-pitch'
-  private getLastPoints(realPlayerId: number): number {
-    const performances = this.allPlayerPerformances.filter(
-      (perf: any) => this.extractId(perf.realPlayer) === realPlayerId
-    );
-    if (performances.length === 0) return 0;
-    // Tomar la más reciente por updateDate
-    const latest = performances.reduce((a: any, b: any) =>
-      new Date(a.updateDate) > new Date(b.updateDate) ? a : b
-    );
-    return Number(latest.pointsObtained ?? 0);
-  }
-
   private normalizeIdCollection(value: unknown): number[] {
     if (Array.isArray(value)) {
       return value
@@ -290,8 +268,7 @@ export class InsideTournamentComponent implements OnInit {
 
   // Deberia manejarlo el componente 'football-pitch'
   private rebuildSquadFromFormation(): void {
-    // Si ya se construyó una vez, no volver a pisar squadSlots
-    // (los cambios de formación los maneja el hijo internamente)
+    // Si ya se construyó una vez, no volver a pisar jugadores base
     if (this.squadBuilt) return;
 
     const participantId = this.extractId(this.participant);
@@ -318,116 +295,17 @@ export class InsideTournamentComponent implements OnInit {
         return id !== null && realPlayerIds.includes(id);
       });
 
-    const grouped = {
-      goalkeeper: realPlayers.filter((player) => this.normalizePosition(player.position) === 'goalkeeper'),
-      defender: realPlayers.filter((player) => this.normalizePosition(player.position) === 'defender'),
-      midfielder: realPlayers.filter((player) => this.normalizePosition(player.position) === 'midfielder'),
-      forward: realPlayers.filter((player) => this.normalizePosition(player.position) === 'forward'),
-    };
-
-    const formationNeeded = this.parseFormation(this.selectedFormation);
-    const selected = [
-      ...this.pickRandom(grouped.goalkeeper, formationNeeded.goalkeeper),
-      ...this.pickRandom(grouped.defender, formationNeeded.defender),
-      ...this.pickRandom(grouped.midfielder, formationNeeded.midfielder),
-      ...this.pickRandom(grouped.forward, formationNeeded.forward),
-    ];
-
-    this.squadPlayers = selected.slice(0, 11).map((player) => ({
+    this.squadPlayers = realPlayers.slice(0, 11).map((player) => ({
       id: this.extractId(player) ?? undefined,
       name: player.name ?? `Player ${this.extractId(player) ?? '?'}`,
-      position: this.normalizePosition(player.position),
+      position: String(player.position ?? ''),
       teamName: player.realTeam?.name ?? 'Sin equipo',
     }));
-
-    const formation = this.parseFormation(this.selectedFormation);
-    const slots: SquadSlotView[] = [];
-
-    const addSlots = (pos: string, count: number, pool: any[]) => {
-      for (let i = 0; i < count; i++) {
-        const player = pool[i] ?? null;
-        slots.push({
-          slotId: `${pos}-${i}`,
-          position: pos,
-          player: player ? {
-            id: this.extractId(player) ?? undefined,
-            name: player.name,
-            position: this.normalizePosition(player.position),
-            teamName: player.realTeam?.name ?? player.realTeam ?? 'Sin equipo',
-            lastScore: this.getLastPoints(this.extractId(player) ?? 0), // Obtener el último puntaje conocido
-          } : null,
-        });
-      }
-    };
-
-    addSlots('goalkeeper', formation.goalkeeper, grouped.goalkeeper);
-    addSlots('defender', formation.defender, grouped.defender);
-    addSlots('midfielder', formation.midfielder, grouped.midfielder);
-    addSlots('forward', formation.forward, grouped.forward);
-
-    this.squadSlots = slots.map(s => ({
-      ...s,
-      players: s.player ? [s.player] : [],
-    }));
+    this.squadPlayersForPitch = this.squadPlayers.map((player) => ({ ...player }));
 
     this.squadBuilt = true;
   }
-  // Deberia manejarlo el componente 'football-pitch'
-  isSlotMismatch(slot: SquadSlotView): boolean {
-    if (!slot.player) {
-      return false;
-    }
 
-    return this.normalizePosition(slot.player.position) !== this.normalizePosition(slot.position);
-  }
-/*
-  private rebuildMarketFromDatabase(): void {
-    const dependantIds = this.existingMarketEntries.flatMap((entry: any) =>
-      this.normalizeIdCollection(entry.dependantPlayerIds)
-    );
-
-    if (dependantIds.length === 0) {
-      this.marketPlayers = [];
-      return;
-    }
-
-    const uniqueDependantIds = [...new Set(dependantIds)];
-
-    this.apiService.searchDependantPlayers().subscribe({
-      next: (response: any) => {
-        const dependantPlayers = response?.data ?? [];
-        const marketDependants = dependantPlayers.filter((item: any) => {
-          const id = this.extractId(item);
-          return id !== null && uniqueDependantIds.includes(id);
-        });
-
-        this.marketPlayers = marketDependants.map((dependant: any) => {
-          const realPlayerId = dependant.realPlayerId ?? dependant.real_player_id;
-          const realPlayer = this.allRealPlayers.find(
-            (p) => this.extractId(p) === Number(realPlayerId)
-          );
-          const dependantId = this.extractId(dependant);
-          const marketEntry = this.existingMarketEntries.find((entry: any) => {
-            if (dependantId === null) return false;
-            return this.normalizeIdCollection(entry.dependantPlayerIds).includes(dependantId);
-          });
-
-          return {
-            id: this.extractId(realPlayer) ?? undefined,
-            marketId: this.extractId(marketEntry) ?? 0,
-            name: realPlayer?.name ?? `Player ${this.extractId(realPlayer) ?? '?'}`,
-            position: this.normalizePosition(realPlayer?.position),
-            teamName: realPlayer?.realTeam?.name ?? 'Sin equipo',
-            lastScore: this.getLastPoints(this.extractId(realPlayer) ?? 0), // Obtener el último puntaje conocido
-          };
-        });
-      },
-      error: () => {
-        this.marketPlayers = [];
-      },
-    });
-  }
-    */
 
   private rebuildMarketFromDatabase(): void {
     this.marketDependantIds = this.existingMarketEntries.flatMap((entry: any) => {
@@ -498,43 +376,6 @@ export class InsideTournamentComponent implements OnInit {
     return `Participant #${participantId ?? '?'}`;
   }
 
-  // Deberia manejarlo el componente 'football-pitch'
-  private parseFormation(formation: string): { goalkeeper: number; defender: number; midfielder: number; forward: number; } {
-    switch (formation) {
-      case '4-3-3':
-        return { goalkeeper: 1, defender: 4, midfielder: 3, forward: 3 };
-      case '3-4-3':
-        return { goalkeeper: 1, defender: 3, midfielder: 4, forward: 3 };
-      case '5-4-1':
-        return { goalkeeper: 1, defender: 5, midfielder: 4, forward: 1 };
-      case '4-4-2':
-      default:
-        return { goalkeeper: 1, defender: 4, midfielder: 4, forward: 2 };
-    }
-  }
-
-  // Deberia manejarlo el componente 'real-player-market-card' y 'football-pitch'
-  private normalizePosition(positionRaw: unknown): string {
-    const position = String(positionRaw ?? '').toLowerCase();
-    if (position.includes('goal')) return 'goalkeeper';
-    if (position.includes('def')) return 'defender';
-    if (position.includes('mid')) return 'midfielder';
-    if (position.includes('for') || position.includes('att') || position.includes('strik')) return 'forward';
-    return 'midfielder';
-  }
-
-  private pickRandom<T>(values: T[], limit: number): T[] {
-    const clone = [...values];
-    const selected: T[] = [];
-
-    while (clone.length > 0 && selected.length < limit) {
-      const index = Math.floor(Math.random() * clone.length);
-      selected.push(clone[index]);
-      clone.splice(index, 1);
-    }
-
-    return selected;
-  }
 
   private extractId(value: unknown): number | null {
     if (typeof value === 'number') {
@@ -565,10 +406,4 @@ export class InsideTournamentComponent implements OnInit {
     return null;
   }
 
-  // Deberia manejarlo el componente 'football-pitch'
-  onFormationChangeFromPitch(newFormation: string): void {
-    const idx = this.formations.indexOf(newFormation);
-    if (idx !== -1) this.formationIndex = idx;
-    this.rebuildSquadFromFormation();
-  }
 }
