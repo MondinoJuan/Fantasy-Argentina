@@ -7,10 +7,39 @@
     <header class="top-header">
       <button class="back" (click)="goBack()">← Volver</button>
       <div class="stats">
-        <div><span>Puntos totales</span><strong>{{ participant?.totalScore ?? 0 }}</strong></div>
-        <div><span>Presupuesto total</span><strong>${{ participant?.bankBudget ?? 0 }}</strong></div>
-        <div><span>ID torneo</span><strong>{{ tournament?.id }}</strong></div>
-        <div><span>Código torneo</span><strong>{{ tournamentCode }}</strong></div>
+        <div class="budget-card">
+          <span class="budget-label">Presupuesto total</span>
+          <strong class="budget-total">${{ (participant?.bankBudget ?? 0) | number:'1.0-0' }}</strong>
+
+          <div class="budget-split">
+            <div class="budget-split__item budget-split__item--available">
+              <span class="split-label">Disponible</span>
+              <span class="split-value">{{ (participant?.availableMoney ?? 0) | number:'1.0-0' }}</span>
+            </div>
+
+            <div class="budget-split__item budget-split__item--reserved">
+              <span class="split-label">Reservado</span>
+              <span class="split-value">{{ (participant?.reservedMoney ?? 0) | number:'1.0-0' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-item">
+            <span class="summary-label">Puntos totales</span>
+            <strong class="summary-value">{{ participant?.totalScore ?? 0 }}</strong>
+          </div>
+
+          <div class="summary-item">
+            <span class="summary-label">ID torneo</span>
+            <strong class="summary-value">{{ tournament?.id }}</strong>
+          </div>
+
+          <div class="summary-item">
+            <span class="summary-label">Código torneo</span>
+            <strong class="summary-code">{{ tournamentCode }}</strong>
+          </div>
+        </div>
       </div>
     </header>
 

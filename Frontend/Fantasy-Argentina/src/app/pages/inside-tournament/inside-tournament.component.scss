@@ -44,21 +44,125 @@
   }
 }
 
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.7rem; }
-.stats div { 
-  background: #fff8f4; 
-  border-radius: 0.75rem; 
-  padding: 0.65rem; 
-  border: 1px solid rgba(82,43,91,.22);
-  transition: all 0.2s ease;
-  
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(82, 43, 91, 0.15);
+.stats {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.budget-card,
+.summary-card {
+  background: #fff8f4;
+  border: 1px solid rgba(82, 43, 91, 0.18);
+  border-radius: 1rem;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 2px 8px rgba(43, 18, 76, 0.05);
+}
+
+.budget-label,
+.summary-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #7a5a84;
+  margin-bottom: 0.2rem;
+}
+
+.budget-total {
+  display: block;
+  font-size: 2rem;
+  line-height: 1.1;
+  color: #24124a;
+  margin-bottom: 0.9rem;
+}
+
+.budget-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(82, 43, 91, 0.12);
+}
+
+.budget-split__item {
+  border-radius: 0.75rem;
+  padding: 0.7rem 0.8rem;
+}
+
+.budget-split__item--available {
+  background: #edf5ee;
+}
+
+.budget-split__item--reserved {
+  background: #f8ecea;
+}
+
+.split-label {
+  display: block;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  margin-bottom: 0.2rem;
+}
+
+.split-value {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.budget-split__item--available .split-label,
+.budget-split__item--available .split-value {
+  color: #2f7d4f;
+}
+
+.budget-split__item--reserved .split-label,
+.budget-split__item--reserved .split-value {
+  color: #b5483f;
+}
+
+.summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.summary-item {
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid rgba(82, 43, 91, 0.08);
+}
+
+.summary-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.summary-value {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #24124a;
+  line-height: 1.1;
+}
+
+.summary-code {
+  display: inline-block;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #24124a;
+  background: #f3ebf6;
+  border: 1px solid rgba(82, 43, 91, 0.14);
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.65rem;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 900px) {
+  .stats {
+    grid-template-columns: 1fr;
   }
 }
-.stats span { display: block; font-size: 0.78rem; color: #6e4a74; font-weight: 500; }
-.stats strong { color: #2b124c; font-size: 1.1rem; display: block; margin-top: 0.25rem; }
 
 .panel {
   margin-bottom: 1rem;
@@ -520,4 +624,76 @@ app-football-pitch {
   font-weight: 700;
   display: block;
   margin-top: 0.4rem;
+}
+
+.budget-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: #fff8f4;
+  border-radius: 0.75rem;
+  padding: 0.65rem;
+  border: 1px solid rgba(82, 43, 91, .22);
+  transition: all 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(82, 43, 91, 0.15);
+  }
+
+  .budget-label {
+    display: block;
+    font-size: 0.78rem;
+    color: #6e4a74;
+    font-weight: 500;
+  }
+
+  .budget-total {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #2b124c;
+    margin-top: 0.25rem;
+  }
+
+  .budget-split {
+    display: flex;
+    gap: 0.4rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid rgba(82, 43, 91, 0.15);
+    margin-top: auto;
+
+    &__item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      padding: 0.3rem 0.5rem;
+      border-radius: 6px;
+
+      .split-label {
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      .split-value {
+        font-size: 0.82rem;
+        font-weight: 600;
+      }
+
+      &--available {
+        background: rgba(39, 174, 96, 0.12);
+        .split-label { color: #2d8a55; }
+        .split-value { color: #2d8a55; }
+      }
+
+      &--reserved {
+        background: rgba(180, 60, 60, 0.1);
+        .split-label { color: #993535; }
+        .split-value { color: #993535; }
+      }
+    }
+  }
 }
