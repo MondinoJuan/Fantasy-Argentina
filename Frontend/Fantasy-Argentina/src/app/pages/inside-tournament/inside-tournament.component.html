@@ -25,15 +25,14 @@
 
     <section class="panel">
       <h2>Market de la fecha</h2>
-      <p>Total jugadores en market: {{ marketPlayers.length }}</p>
+      <p>Total jugadores en market: {{ marketDependantIds.length }}</p>
       <div class="grid">
-        <article class="card" *ngFor="let player of marketPlayers">
-          <h3>{{ player.name }}</h3>
-          <p>{{ player.position }}</p>
-          <small>{{ player.teamName }}</small>
-          <strong class="score">{{ player.lastScore }}</strong>
-          <button type="button" (click)="openBidModal(player)">Ofertar</button>
-        </article>
+        <app-real-player-market-card
+          *ngFor="let item of marketDependantIds"
+          [dependantPlayerId]="item.dependantPlayerId"
+          [marketId]="item.marketId"
+          (bidRequested)="openBidModal($event)"
+        />
       </div>
     </section>
 

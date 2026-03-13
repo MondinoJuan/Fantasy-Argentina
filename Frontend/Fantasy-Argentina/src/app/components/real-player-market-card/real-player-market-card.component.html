@@ -1,0 +1,21 @@
+<ng-container *ngIf="isLoading">
+  <article class="market-card market-card--loading">
+    <span class="mc-loading">Cargando...</span>
+  </article>
+</ng-container>
+
+<ng-container *ngIf="!isLoading && hasError">
+  <article class="market-card market-card--error">
+    <span class="mc-error">Error al cargar jugador</span>
+  </article>
+</ng-container>
+
+<ng-container *ngIf="!isLoading && !hasError && player">
+  <article class="market-card">
+    <small class="mc-position">{{ positionLabel }}</small>
+    <p class="mc-name">{{ player.name }}</p>
+    <small class="mc-team">{{ player.teamName }}</small>
+    <span class="mc-score">{{ player.totalScore }} pts</span>
+    <button type="button" class="mc-bid-btn" (click)="onBidClick()">Ofertar</button>
+  </article>
+</ng-container>

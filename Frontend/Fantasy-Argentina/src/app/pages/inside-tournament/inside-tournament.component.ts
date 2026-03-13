@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { ApiService } from '../../servicios/api.service';
 import { FootballPitchComponent, PitchSlot } from '../../components/football-pitch/football-pitch.component';
+import { RealPlayerMarketCardComponent, ResolvedMarketPlayer } from '../../components/real-player-market-card/real-player-market-card.component';
 
 interface SquadPlayerView {
   id?: number;
@@ -19,8 +20,8 @@ interface SquadSlotView {
   position: string;
   player: SquadPlayerView | null;
 }
-
-interface MarketPlayerView {
+/*
+export interface MarketPlayerView {
   id?: number;
   marketId: number;
   name: string;
@@ -28,6 +29,7 @@ interface MarketPlayerView {
   teamName: string;
   lastScore?: number;
 }
+  */
 
 @Component({
   selector: 'app-inside-tournament',
@@ -48,16 +50,16 @@ export class InsideTournamentComponent implements OnInit {
   errorMessage = '';
 
   squadPlayers: SquadPlayerView[] = [];
-  //squadSlots: SquadSlotView[] = [];
-  marketPlayers: MarketPlayerView[] = [];
-  squadDependantIds: number[] = [];             //Agregada
+  //marketPlayers: MarketPlayerView[] = [];
+  squadDependantIds: number[] = [];            
   existingMarketEntries: any[] = [];
   negotiations: any[] = [];
   bids: any[] = [];
-  squadSlots: PitchSlot[] = [];             //Agregada
+  squadSlots: PitchSlot[] = [];
+  marketDependantIds: Array<{ dependantPlayerId: number; marketId: number }> = [];          
 
   showBidModal = false;
-  selectedMarketPlayer: MarketPlayerView | null = null;
+  selectedMarketPlayer: ResolvedMarketPlayer | null = null;
   bidAmount = 0;
   bidError = '';
 
@@ -124,9 +126,9 @@ export class InsideTournamentComponent implements OnInit {
     this.router.navigate(['/landingPage']);
   }
 
-  openBidModal(player: MarketPlayerView): void {
+  openBidModal(player: ResolvedMarketPlayer): void {
     this.selectedMarketPlayer = player;
-    this.bidAmount = Number(player?.id ? 100 : 0);
+    this.bidAmount = 100; // Deberia ver cómo lo calculo
     this.bidError = '';
     this.showBidModal = true;
   }
@@ -141,7 +143,7 @@ export class InsideTournamentComponent implements OnInit {
   submitBid(): void {
     const participantId = this.extractId(this.participant);
 
-    if (!this.selectedMarketPlayer || !participantId || !this.selectedMarketPlayer.id) {
+    if (!this.selectedMarketPlayer || !participantId || !this.selectedMarketPlayer.realPlayerId) {
       this.bidError = 'No se pudo identificar el jugador para ofertar.';
       return;
     }
@@ -161,7 +163,7 @@ export class InsideTournamentComponent implements OnInit {
     this.apiService.postBid({
       matchdayMarket: this.selectedMarketPlayer.marketId,
       participant: participantId,
-      realPlayer: this.selectedMarketPlayer.id,
+      realPlayer: this.selectedMarketPlayer.realPlayerId,
       offeredAmount: amount,
       status: 'active',
       bidDate: new Date(),
@@ -247,7 +249,7 @@ export class InsideTournamentComponent implements OnInit {
     });
   }
 
-  // sncndkjnckwbdkjcwkejknwj
+  // Deberia manejarlo el componente 'real-player-market-card' y 'football-pitch'
   private getLastPoints(realPlayerId: number): number {
     const performances = this.allPlayerPerformances.filter(
       (perf: any) => this.extractId(perf.realPlayer) === realPlayerId
@@ -286,6 +288,7 @@ export class InsideTournamentComponent implements OnInit {
     return [];
   }
 
+  // Deberia manejarlo el componente 'football-pitch'
   private rebuildSquadFromFormation(): void {
     // Si ya se construyó una vez, no volver a pisar squadSlots
     // (los cambios de formación los maneja el hijo internamente)
@@ -369,7 +372,7 @@ export class InsideTournamentComponent implements OnInit {
 
     this.squadBuilt = true;
   }
-
+  // Deberia manejarlo el componente 'football-pitch'
   isSlotMismatch(slot: SquadSlotView): boolean {
     if (!slot.player) {
       return false;
@@ -377,7 +380,7 @@ export class InsideTournamentComponent implements OnInit {
 
     return this.normalizePosition(slot.player.position) !== this.normalizePosition(slot.position);
   }
-
+/*
   private rebuildMarketFromDatabase(): void {
     const dependantIds = this.existingMarketEntries.flatMap((entry: any) =>
       this.normalizeIdCollection(entry.dependantPlayerIds)
@@ -422,6 +425,17 @@ export class InsideTournamentComponent implements OnInit {
       error: () => {
         this.marketPlayers = [];
       },
+    });
+  }
+    */
+
+  private rebuildMarketFromDatabase(): void {
+    this.marketDependantIds = this.existingMarketEntries.flatMap((entry: any) => {
+      const marketId = this.extractId(entry) ?? 0;
+      return this.normalizeIdCollection(entry.dependantPlayerIds).map(depId => ({
+        dependantPlayerId: depId,
+        marketId,
+      }));
     });
   }
 
@@ -484,6 +498,7 @@ export class InsideTournamentComponent implements OnInit {
     return `Participant #${participantId ?? '?'}`;
   }
 
+  // Deberia manejarlo el componente 'football-pitch'
   private parseFormation(formation: string): { goalkeeper: number; defender: number; midfielder: number; forward: number; } {
     switch (formation) {
       case '4-3-3':
@@ -498,6 +513,7 @@ export class InsideTournamentComponent implements OnInit {
     }
   }
 
+  // Deberia manejarlo el componente 'real-player-market-card' y 'football-pitch'
   private normalizePosition(positionRaw: unknown): string {
     const position = String(positionRaw ?? '').toLowerCase();
     if (position.includes('goal')) return 'goalkeeper';
@@ -548,19 +564,8 @@ export class InsideTournamentComponent implements OnInit {
 
     return null;
   }
-/*
-  dropSlot(event: CdkDragDrop<SquadSlotView>): void {
-    if (event.previousContainer === event.container) return;
 
-    const fromSlot = event.previousContainer.data;
-    const toSlot = event.container.data;
-
-    [fromSlot.player, toSlot.player] = [toSlot.player, fromSlot.player];
-
-    this.squadSlots = [...this.squadSlots];
-  }
-  */
-
+  // Deberia manejarlo el componente 'football-pitch'
   onFormationChangeFromPitch(newFormation: string): void {
     const idx = this.formations.indexOf(newFormation);
     if (idx !== -1) this.formationIndex = idx;
