@@ -4,9 +4,10 @@ import { MatchdayMarket } from '../MatchdayMarket/matchdayMarket.entity.js';
 import { Participant } from '../Participant/participant.entity.js';
 import { BidStatus } from '../../shared/domain-enums.js';
 import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
+import { Tournament } from '../Tournament/tournament.entity.js';
 
 @Entity()
-@Unique({ properties: ['matchdayMarket', 'participant', 'realPlayer', 'status'] })
+@Unique({ properties: ['tournament', 'participant', 'realPlayer'] })
 export class Bid extends BaseEntity {
   @ManyToOne(() => MatchdayMarket, { nullable: false, deleteRule: 'cascade' })
   matchdayMarket!: Rel<MatchdayMarket>;
@@ -16,6 +17,9 @@ export class Bid extends BaseEntity {
 
   @ManyToOne(() => RealPlayer, { nullable: false, deleteRule: 'cascade' })
   realPlayer!: Rel<RealPlayer>;
+
+  @ManyToOne(() => Tournament, { nullable: false, deleteRule: 'cascade' })
+  tournament!: Rel<Tournament>;
 
   @Property({ nullable: false })
   offeredAmount!: number;

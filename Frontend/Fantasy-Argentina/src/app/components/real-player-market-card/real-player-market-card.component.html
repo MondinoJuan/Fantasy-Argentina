@@ -16,6 +16,24 @@
     <p class="mc-name">{{ player.name }}</p>
     <small class="mc-team">{{ player.teamName }}</small>
     <span class="mc-score">Total: {{ player.totalScore | number:'1.0-0' }} pts</span>
+    <span class="mc-bids">Ofertas de rivales: {{ player.totalBids }}</span>
     <button type="button" class="mc-bid-btn" (click)="onBidClick()">Ofertar</button>
   </article>
 </ng-container>
+
+<div class="modal-backdrop" *ngIf="showBidModal && player">
+  <article class="panel">
+    <h3>Ofertar por {{ player.name }}</h3>
+    <p>Dinero disponible: {{ availableMoney }}</p>
+    <p *ngIf="existingBidForSelectedPlayer">Ya ofertaste por este jugador: {{ existingBidForSelectedPlayer?.offeredAmount }}. Podés modificarla.</p>
+    <label>
+      Monto
+      <input type="number" min="1" [(ngModel)]="bidAmount" />
+    </label>
+    <p class="state error" *ngIf="bidError">{{ bidError }}</p>
+    <div class="toolbar">
+      <button type="button" (click)="submitBid()">{{ existingBidForSelectedPlayer ? "Modificar oferta" : "Confirmar oferta" }}</button>
+      <button type="button" (click)="closeBidModal()">Cancelar</button>
+    </div>
+  </article>
+</div>

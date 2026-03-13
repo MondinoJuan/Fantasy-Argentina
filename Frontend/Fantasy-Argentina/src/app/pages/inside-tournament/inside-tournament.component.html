@@ -32,7 +32,10 @@
           *ngFor="let item of marketDependantIds"
           [dependantPlayerId]="item.dependantPlayerId"
           [marketId]="item.marketId"
-          (bidRequested)="openBidModal($event)"
+          [tournamentId]="tournament?.id"
+          [participantId]="participant?.id"
+          [availableMoney]="availableMoney"
+          (bidSaved)="onBidSaved()"
         />
       </div>
     </section>
@@ -82,20 +85,4 @@
       </ol>
     </section>
   </ng-container>
-
-  <div class="modal-backdrop" *ngIf="showBidModal && selectedMarketPlayer">
-    <article class="panel">
-      <h3>Ofertar por {{ selectedMarketPlayer.name }}</h3>
-      <p>Dinero disponible: {{ availableMoney }}</p>
-      <label>
-        Monto
-        <input type="number" min="1" [(ngModel)]="bidAmount" />
-      </label>
-      <p class="state error" *ngIf="bidError">{{ bidError }}</p>
-      <div class="toolbar">
-        <button type="button" (click)="submitBid()">Confirmar oferta</button>
-        <button type="button" (click)="closeBidModal()">Cancelar</button>
-      </div>
-    </article>
-  </div>
 </section>

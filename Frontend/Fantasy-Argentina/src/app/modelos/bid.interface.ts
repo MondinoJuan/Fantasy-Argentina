@@ -3,6 +3,7 @@ export interface bidI {
   id?: number;
   matchdayMarket: number;
   participant: number;
+  tournament: number;
   realPlayer: number;
   offeredAmount: number;
   status: BidStatus;

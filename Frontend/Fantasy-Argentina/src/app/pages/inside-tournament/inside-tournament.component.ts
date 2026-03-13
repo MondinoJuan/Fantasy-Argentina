@@ -5,7 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { ApiService } from '../../servicios/api.service';
 import { FootballPitchComponent, PitchPlayer } from '../../components/football-pitch/football-pitch.component';
-import { RealPlayerMarketCardComponent, ResolvedMarketPlayer } from '../../components/real-player-market-card/real-player-market-card.component';
+import { RealPlayerMarketCardComponent } from '../../components/real-player-market-card/real-player-market-card.component';
 
 interface SquadPlayerView {
   id?: number;
@@ -52,11 +52,6 @@ export class InsideTournamentComponent implements OnInit {
   bids: any[] = [];
   squadPlayersForPitch: PitchPlayer[] = [];
   marketDependantIds: Array<{ dependantPlayerId: number; marketId: number }> = [];          
-
-  showBidModal = false;
-  selectedMarketPlayer: ResolvedMarketPlayer | null = null;
-  bidAmount = 0;
-  bidError = '';
 
   rankingMode: 'total' | 'byMatchday' = 'total';
   rankingRows: Array<{ participantName: string; points: number; }> = [];
@@ -117,56 +112,8 @@ export class InsideTournamentComponent implements OnInit {
     this.router.navigate(['/landingPage']);
   }
 
-  openBidModal(player: ResolvedMarketPlayer): void {
-    this.selectedMarketPlayer = player;
-    this.bidAmount = 100; // Deberia ver cómo lo calculo
-    this.bidError = '';
-    this.showBidModal = true;
-  }
-
-  closeBidModal(): void {
-    this.showBidModal = false;
-    this.selectedMarketPlayer = null;
-    this.bidAmount = 0;
-    this.bidError = '';
-  }
-
-  submitBid(): void {
-    const participantId = this.extractId(this.participant);
-
-    if (!this.selectedMarketPlayer || !participantId || !this.selectedMarketPlayer.realPlayerId) {
-      this.bidError = 'No se pudo identificar el jugador para ofertar.';
-      return;
-    }
-
-    const amount = Number(this.bidAmount);
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      this.bidError = 'Ingresá un monto válido.';
-      return;
-    }
-
-    if (amount > this.availableMoney) {
-      this.bidError = 'El monto supera tu dinero disponible.';
-      return;
-    }
-
-    this.apiService.postBid({
-      matchdayMarket: this.selectedMarketPlayer.marketId,
-      participant: participantId,
-      realPlayer: this.selectedMarketPlayer.realPlayerId,
-      offeredAmount: amount,
-      status: 'active',
-      bidDate: new Date(),
-    }).subscribe({
-      next: () => {
-        this.closeBidModal();
-        this.loadTournamentPage(true);
-      },
-      error: (error) => {
-        this.bidError = error?.error?.message ?? 'No se pudo registrar la oferta.';
-      },
-    });
+  onBidSaved(): void {
+    this.loadTournamentPage(true);
   }
 
   private loadTournamentPage(isReload = false): void {
