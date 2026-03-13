@@ -25,6 +25,7 @@ import { bidI } from '../modelos/bid.interface';
 import { bidPatchI } from '../modelos/bid.patch.interface';
 import { bidCollectionI } from '../modelos/bid.collection.interface';
 import { responseBidI } from '../modelos/responseBid.interface';
+import { responseBidByTournamentRealPlayerI } from '../modelos/responseBidByTournamentRealPlayer.interface';
 
 import { leagueI } from '../modelos/league.interface';
 import { leaguePatchI } from '../modelos/league.patch.interface';
@@ -232,6 +233,7 @@ export class ApiService {
   // Bids
   searchBids() { return this.http.get<bidCollectionI>(`${this.url}/bids`); }
   searchBidById(id: number | string) { return this.http.get<responseBidI>(`${this.url}/bids/${id}`); }
+  searchBidsByTournamentAndRealPlayer(tournamentId: number | string, realPlayerId: number | string) { return this.http.get<responseBidByTournamentRealPlayerI>(`${this.url}/bids/tournament/${tournamentId}/real-player/${realPlayerId}`); }
   postBid(bid: addBidI) { return this.http.post<responseBidI>(`${this.url}/bids`, bid); }
   updateBid(bid: bidI) { return this.http.put<responseBidI>(`${this.url}/bids/${bid.id}`, bid); }
   patchBid(bid: bidPatchI) { return this.http.patch<responseBidI>(`${this.url}/bids/${bid.id}`, bid); }

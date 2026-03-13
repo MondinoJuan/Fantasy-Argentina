@@ -1,5 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { forkJoin } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { ApiService } from '../../servicios/api.service';
 
@@ -11,28 +13,33 @@ export interface ResolvedMarketPlayer {
   position: string;
   teamName: string;
   totalScore: number;
+  totalBids: number;
 }
 
 @Component({
   selector: 'app-real-player-market-card',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './real-player-market-card.component.html',
   styleUrl: './real-player-market-card.component.scss',
 })
 export class RealPlayerMarketCardComponent implements OnInit {
-  /** ID del dependantPlayer que llega desde el *ngFor del padre */
   @Input() dependantPlayerId!: number;
-  /** ID del market al que pertenece esta card, para el modal de oferta */
   @Input() marketId!: number;
-  /** Emite el jugador resuelto al padre para abrir el modal */
-  @Output() bidRequested = new EventEmitter<ResolvedMarketPlayer>();
+  @Input() tournamentId!: number;
+  @Input() participantId!: number;
+  @Input() availableMoney = 0;
+  @Output() bidSaved = new EventEmitter<void>();
 
   player: ResolvedMarketPlayer | null = null;
   isLoading = true;
   hasError = false;
 
-  // Temporales para pasar datos entre los switchMap
+  showBidModal = false;
+  bidAmount = 0;
+  bidError = '';
+  existingBidForSelectedPlayer: any = null;
+
   private _pendingRealPlayerId = 0;
   private _pendingRealPlayer: any = null;
 
@@ -43,29 +50,96 @@ export class RealPlayerMarketCardComponent implements OnInit {
   }
 
   onBidClick(): void {
-    if (this.player) {
-      this.bidRequested.emit(this.player);
+    this.bidAmount = 100;
+    this.bidError = '';
+    this.existingBidForSelectedPlayer = null;
+    this.showBidModal = true;
+
+    if (!this.tournamentId || !this.participantId || !this.player?.realPlayerId) return;
+
+    this.apiService.searchBidsByTournamentAndRealPlayer(this.tournamentId, this.player.realPlayerId).subscribe({
+      next: (response) => {
+        const participantBid = (response?.data ?? []).find((bid: any) => this.extractId(bid.participant) === this.participantId);
+        if (participantBid) {
+          this.existingBidForSelectedPlayer = participantBid;
+          this.bidAmount = Number(participantBid?.offeredAmount ?? 100);
+        }
+      },
+      error: () => {
+        this.existingBidForSelectedPlayer = null;
+      },
+    });
+  }
+
+  closeBidModal(): void {
+    this.showBidModal = false;
+    this.bidAmount = 0;
+    this.bidError = '';
+    this.existingBidForSelectedPlayer = null;
+  }
+
+  submitBid(): void {
+    if (!this.player?.realPlayerId || !this.participantId) {
+      this.bidError = 'No se pudo identificar el jugador para ofertar.';
+      return;
     }
+
+    const amount = Number(this.bidAmount);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      this.bidError = 'Ingresá un monto válido.';
+      return;
+    }
+
+    if (amount > Number(this.availableMoney)) {
+      this.bidError = 'El monto supera tu dinero disponible.';
+      return;
+    }
+
+    const existingBidId = this.extractId(this.existingBidForSelectedPlayer);
+
+    const request$ = existingBidId
+      ? this.apiService.patchBid({
+          id: existingBidId,
+          offeredAmount: amount,
+          bidDate: new Date(),
+          status: 'active',
+        })
+      : this.apiService.postBid({
+          matchdayMarket: this.marketId,
+          participant: this.participantId,
+          tournament: Number(this.tournamentId),
+          realPlayer: this.player.realPlayerId,
+          offeredAmount: amount,
+          status: 'active',
+          bidDate: new Date(),
+        });
+
+    request$.subscribe({
+      next: () => {
+        this.closeBidModal();
+        this.bidSaved.emit();
+        this.resolvePlayer();
+      },
+      error: (error) => {
+        this.bidError = error?.error?.message ?? 'No se pudo registrar la oferta.';
+      },
+    });
   }
 
   private resolvePlayer(): void {
     this.isLoading = true;
     this.hasError = false;
 
-    // Paso 1: traer el dependantPlayer por ID
     this.apiService.searchDependantPlayerById(this.dependantPlayerId).pipe(
-
-      // Paso 2: con real_player_id traer el realPlayer
       switchMap((dependantRes: any) => {
         const dependant = dependantRes?.data ?? dependantRes;
-        const realPlayerId = Number(dependant?.realPlayer.id ?? dependant?.real_player.id);
+        const realPlayerId = Number(dependant?.realPlayer?.id ?? dependant?.real_player?.id);
         if (!realPlayerId) throw new Error('real_player_id no encontrado en dependantPlayer');
 
         this._pendingRealPlayerId = realPlayerId;
         return this.apiService.searchRealPlayerById(realPlayerId);
       }),
-
-      // Paso 3: con real_team_id traer el realTeam
       switchMap((realPlayerRes: any) => {
         const realPlayer = realPlayerRes?.data ?? realPlayerRes;
         this._pendingRealPlayer = realPlayer;
@@ -80,41 +154,42 @@ export class RealPlayerMarketCardComponent implements OnInit {
 
         return this.apiService.searchRealTeamById(realTeamId);
       }),
-
     ).subscribe({
       next: (realTeamRes: any) => {
-        const realTeam     = realTeamRes?.data ?? realTeamRes;
-        const teamName     = realTeam?.name ?? 'Sin equipo';
-        const realPlayer   = this._pendingRealPlayer;
+        const realTeam = realTeamRes?.data ?? realTeamRes;
+        const teamName = realTeam?.name ?? 'Sin equipo';
+        const realPlayer = this._pendingRealPlayer;
         const realPlayerId = this._pendingRealPlayerId;
 
-        // Paso 4: sumar todos los points_obtained de playerPerformances del realPlayer
-        this.apiService.searchPlayerPerformances().subscribe({
-          next: (perfRes: any) => {
-            const performances: any[] = perfRes?.data ?? [];
-            const totalScore = this.getTotalPoints(realPlayerId, performances);
+        forkJoin({
+          performances: this.apiService.searchPlayerPerformances(),
+          bidsInfo: this.apiService.searchBidsByTournamentAndRealPlayer(this.tournamentId, realPlayerId),
+        }).subscribe({
+          next: ({ performances, bidsInfo }) => {
+            const totalScore = this.getTotalPoints(realPlayerId, performances?.data ?? []);
 
             this.player = {
               dependantPlayerId: this.dependantPlayerId,
               realPlayerId,
               marketId: this.marketId,
-              name:     realPlayer?.name ?? `Jugador ${realPlayerId}`,
+              name: realPlayer?.name ?? `Jugador ${realPlayerId}`,
               position: this.normalizePosition(realPlayer?.position),
               teamName,
               totalScore,
+              totalBids: Number(bidsInfo?.totalParticipants ?? bidsInfo?.totalBids ?? bidsInfo?.data?.length ?? 0),
             };
             this.isLoading = false;
           },
           error: () => {
-            // Si falla performances igualmente se muestra la card con score 0
             this.player = {
               dependantPlayerId: this.dependantPlayerId,
               realPlayerId,
               marketId: this.marketId,
-              name:     realPlayer?.name ?? `Jugador ${realPlayerId}`,
+              name: realPlayer?.name ?? `Jugador ${realPlayerId}`,
               position: this.normalizePosition(realPlayer?.position),
               teamName,
               totalScore: 0,
+              totalBids: 0,
             };
             this.isLoading = false;
           },
@@ -127,13 +202,12 @@ export class RealPlayerMarketCardComponent implements OnInit {
     });
   }
 
-
   private getTotalPoints(realPlayerId: number, performances: any[]): number {
     const playerPerformances = performances.filter((perf: any) => {
       const perfRealPlayerId = Number(
         perf?.realPlayerId ??
         perf?.real_player_id ??
-        this.extractId(perf?.realPlayer)
+        this.extractId(perf?.realPlayer),
       );
       return perfRealPlayerId === realPlayerId;
     });
@@ -146,8 +220,8 @@ export class RealPlayerMarketCardComponent implements OnInit {
   private normalizePosition(positionRaw: unknown): string {
     const position = String(positionRaw ?? '').toLowerCase();
     if (position.includes('goal')) return 'goalkeeper';
-    if (position.includes('def'))  return 'defender';
-    if (position.includes('mid'))  return 'midfielder';
+    if (position.includes('def')) return 'defender';
+    if (position.includes('mid')) return 'midfielder';
     if (position.includes('for') || position.includes('att') || position.includes('strik')) return 'forward';
     return 'midfielder';
   }
