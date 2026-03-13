@@ -99,11 +99,11 @@ export class RealPlayerMarketCardComponent implements OnInit {
         const realPlayer   = this._pendingRealPlayer;
         const realPlayerId = this._pendingRealPlayerId;
 
-        // Paso 4: obtener último puntaje de playerPerformances del realPlayer
+        // Paso 4: sumar todos los points_obtained de playerPerformances del realPlayer
         this.apiService.searchPlayerPerformances().subscribe({
           next: (perfRes: any) => {
             const performances: any[] = perfRes?.data ?? [];
-            const lastScore = this.getLastPoints(realPlayerId, performances);
+            const totalScore = this.getTotalPoints(realPlayerId, performances);
 
             this.player = {
               dependantPlayerId: this.dependantPlayerId,
@@ -139,7 +139,7 @@ export class RealPlayerMarketCardComponent implements OnInit {
   }
 
 
-  private getLastPoints(realPlayerId: number, performances: any[]): number {
+  private getTotalPoints(realPlayerId: number, performances: any[]): number {
     const playerPerformances = performances.filter((perf: any) => {
       const perfRealPlayerId = Number(
         perf?.realPlayerId ??
@@ -149,13 +149,9 @@ export class RealPlayerMarketCardComponent implements OnInit {
       return perfRealPlayerId === realPlayerId;
     });
 
-    if (playerPerformances.length === 0) return 0;
-
-    const latestPerformance = playerPerformances.reduce((a: any, b: any) =>
-      new Date(a?.updateDate ?? a?.update_date ?? 0).getTime() > new Date(b?.updateDate ?? b?.update_date ?? 0).getTime() ? a : b
-    );
-
-    return Number(latestPerformance?.pointsObtained ?? latestPerformance?.points_obtained ?? 0);
+    return playerPerformances.reduce((sum: number, perf: any) => {
+      return sum + Number(perf?.pointsObtained ?? perf?.points_obtained ?? 0);
+    }, 0);
   }
 
   private normalizePosition(positionRaw: unknown): string {
