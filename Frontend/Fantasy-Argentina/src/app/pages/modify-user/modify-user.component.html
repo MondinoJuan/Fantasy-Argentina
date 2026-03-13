@@ -8,40 +8,33 @@
         Nombre de usuario
         <input type="text" formControlName="username" placeholder="Tu usuario" />
       </label>
-      @if (modifyUserForm.controls.username.invalid && modifyUserForm.controls.username.touched) {
-        <small class="error">Ingresá al menos 3 caracteres.</small>
-      }
+      <small class="error" *ngIf="modifyUserForm.controls.username.invalid && modifyUserForm.controls.username.touched">
+        Ingresá al menos 3 caracteres.
+      </small>
 
       <label>
         Email
         <input type="email" formControlName="mail" placeholder="tu@email.com" />
       </label>
-      @if (modifyUserForm.controls.mail.invalid && modifyUserForm.controls.mail.touched) {
-        <small class="error">Ingresá un email válido.</small>
-      }
+      <small class="error" *ngIf="modifyUserForm.controls.mail.invalid && modifyUserForm.controls.mail.touched">
+        Ingresá un email válido.
+      </small>
 
       <label>
         Contraseña
         <input type="password" formControlName="password" placeholder="********" />
       </label>
-      @if (modifyUserForm.controls.password.invalid && modifyUserForm.controls.password.touched) {
-        <small class="error">La contraseña debe tener al menos 4 caracteres.</small>
-      }
+      <small class="error" *ngIf="modifyUserForm.controls.password.invalid && modifyUserForm.controls.password.touched">
+        La contraseña debe tener al menos 4 caracteres.
+      </small>
 
-      @if (errorMessage) {
-        <p class="error-message">{{ errorMessage }}</p>
-      }
-
-      @if (successMessage) {
-        <p class="success-message">{{ successMessage }}</p>
-      }
+      <p class="error-message" *ngIf="errorMessage">{{ errorMessage }}</p>
+      <p class="success-message" *ngIf="successMessage">{{ successMessage }}</p>
 
       <button type="submit" [disabled]="isLoading">Guardar cambios</button>
       <a routerLink="/landingPage" class="back-link">Volver</a>
     </form>
 
-    @if (isLoading) {
-      <app-loading-spinner label="Actualizando usuario" size="2rem" />
-    }
+    <app-loading-spinner *ngIf="isLoading" label="Actualizando usuario" size="2rem" />
   </div>
 </section>

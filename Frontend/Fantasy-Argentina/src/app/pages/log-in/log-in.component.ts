@@ -4,11 +4,12 @@ import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ApiService } from '../../servicios/api.service';
 import { LoadingSpinnerComponent } from '../../components/loading-spinner/loading-spinner.component';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-log-in',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, LoadingSpinnerComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, LoadingSpinnerComponent],
   templateUrl: './log-in.component.html',
   styleUrl: './log-in.component.scss'
 })
