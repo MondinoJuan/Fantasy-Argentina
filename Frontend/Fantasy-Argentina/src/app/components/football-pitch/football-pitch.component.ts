@@ -161,7 +161,7 @@ export class FootballPitchComponent implements OnChanges {
   }
 
   isSlotMismatch(slot: PitchSlot): boolean {
-    return slot.players.some((player) => this.normalizePosition(player.position) !== this.normalizePosition(slot.position));
+    return false;
   }
 
   get substitutesConnectedTo(): string[] {
@@ -191,30 +191,14 @@ export class FootballPitchComponent implements OnChanges {
 
   private buildSlotsFromPlayers(startingPlayers: PitchPlayer[]): void {
     const layout = FORMATION_LAYOUTS[this.formation] ?? FORMATION_LAYOUTS['4-4-2'];
-    const byPosition: Record<string, PitchPlayer[]> = {
-      goalkeeper: [], defender: [], midfielder: [], forward: [],
-    };
+    const orderedStartingPlayers = [...startingPlayers];
 
-    for (const player of startingPlayers) {
-      const normalizedPosition = this.normalizePosition(player.position);
-      if (!byPosition[normalizedPosition]) continue;
-      byPosition[normalizedPosition].push({ ...player, position: normalizedPosition });
-    }
+    this.slots = layout.map((layoutSlot, index) => ({
+      ...layoutSlot,
+      players: orderedStartingPlayers[index] ? [{ ...orderedStartingPlayers[index] }] : [],
+    }));
 
-    this.slots = layout.map((layoutSlot) => {
-      const pool = byPosition[layoutSlot.position] ?? [];
-      return {
-        ...layoutSlot,
-        players: pool.length > 0 ? [pool.shift() as PitchPlayer] : [],
-      };
-    });
-
-    const overflowPlayers = [
-      ...byPosition['goalkeeper'],
-      ...byPosition['defender'],
-      ...byPosition['midfielder'],
-      ...byPosition['forward'],
-    ];
+    const overflowPlayers = orderedStartingPlayers.slice(layout.length);
 
     if (overflowPlayers.length > 0) {
       this.substitutes.push(...overflowPlayers);
