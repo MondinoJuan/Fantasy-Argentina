@@ -15,17 +15,6 @@ interface SquadPlayerView {
   lastScore?: number;
 }
 
-/*
-export interface MarketPlayerView {
-  id?: number;
-  marketId: number;
-  name: string;
-  position: string;
-  teamName: string;
-  lastScore?: number;
-}
-  */
-
 @Component({
   selector: 'app-inside-tournament',
   standalone: true,
@@ -45,25 +34,26 @@ export class InsideTournamentComponent implements OnInit {
   errorMessage = '';
 
   squadPlayers: SquadPlayerView[] = [];
-  //marketPlayers: MarketPlayerView[] = [];
-  squadDependantIds: number[] = [];            
+  substitutePlayers: SquadPlayerView[] = [];
   existingMarketEntries: any[] = [];
   negotiations: any[] = [];
   bids: any[] = [];
-  squadPlayersForPitch: PitchPlayer[] = [];
-  marketDependantIds: Array<{ dependantPlayerId: number; marketId: number }> = [];          
+  startingPlayersForPitch: PitchPlayer[] = [];
+  substitutePlayersForPitch: PitchPlayer[] = [];
+  marketDependantIds: Array<{ dependantPlayerId: number; marketId: number }> = [];
 
   rankingMode: 'total' | 'byMatchday' = 'total';
   rankingRows: Array<{ participantName: string; points: number; }> = [];
   matchdaysForTournament: any[] = [];
   selectedMatchdayId: number | null = null;
 
+  participantSquadId: number | null = null;
+
   private tournamentId: number | null = null;
   private allParticipantSquads: any[] = [];
   private allRealPlayers: any[] = [];
   private allParticipantPoints: any[] = [];
   allPlayerPerformances: any[] = [];
-  private squadBuilt = false;
 
   constructor(
     private readonly apiService: ApiService,
@@ -96,10 +86,6 @@ export class InsideTournamentComponent implements OnInit {
     return Number(this.participant?.availableMoney ?? this.participant?.bankBudget ?? 0);
   }
 
-  updateFormationFromSlider(): void {
-    this.rebuildSquadFromFormation();
-  }
-
   onRankingModeChange(): void {
     this.rebuildRanking();
   }
@@ -116,10 +102,13 @@ export class InsideTournamentComponent implements OnInit {
     this.loadTournamentPage(true);
   }
 
+  onSquadSaved(): void {
+    this.loadTournamentPage(true);
+  }
+
   private loadTournamentPage(isReload = false): void {
     this.isLoading = true;
     this.errorMessage = '';
-    if (!isReload) this.squadBuilt = false;
 
     forkJoin({
       tournaments: this.apiService.searchTournaments(),
@@ -131,7 +120,7 @@ export class InsideTournamentComponent implements OnInit {
       bids: this.apiService.searchBids(),
       matchdays: this.apiService.searchMatchdays(),
       participantMatchdayPoints: this.apiService.searchParticipantMatchdayPoints(),
-      playerPerformances: this.apiService.searchPlayerPerformances(),               //dsfdsfdsfdsfwefewfew
+      playerPerformances: this.apiService.searchPlayerPerformances(),
     }).subscribe({
       next: (response) => {
         const currentUserId = Number(localStorage.getItem('currentUserId'));
@@ -158,7 +147,7 @@ export class InsideTournamentComponent implements OnInit {
         this.allParticipantSquads = response.participantSquads.data;
         this.allRealPlayers = response.realPlayers.data;
         this.allParticipantPoints = response.participantMatchdayPoints.data;
-        this.allPlayerPerformances = response.playerPerformances?.data ?? [];   //dsfdsfdsfdsfwefewfew
+        this.allPlayerPerformances = response.playerPerformances?.data ?? [];
 
         this.existingMarketEntries = response.matchdayMarkets.data.filter((item: any) => this.extractId(item.tournament) === this.tournamentId);
         this.negotiations = response.negotiations.data.filter((item: any) => this.extractId(item.tournament) === this.tournamentId);
@@ -213,51 +202,59 @@ export class InsideTournamentComponent implements OnInit {
     return [];
   }
 
-  // Deberia manejarlo el componente 'football-pitch'
   private rebuildSquadFromFormation(): void {
-    // Si ya se construyó una vez, no volver a pisar jugadores base
-    if (this.squadBuilt) return;
-
     const participantId = this.extractId(this.participant);
     if (!participantId) {
       this.squadPlayers = [];
+      this.substitutePlayers = [];
+      this.startingPlayersForPitch = [];
+      this.substitutePlayersForPitch = [];
+      this.participantSquadId = null;
       return;
     }
 
     const squadEntry = this.allParticipantSquads.find((item) => this.extractId(item.participant) === participantId);
+    this.participantSquadId = this.extractId(squadEntry);
 
-    const realPlayerIds = this.normalizeIdCollection(
-      squadEntry?.realPlayerIds ?? squadEntry?.real_player_ids
+    this.selectedFormation = String(squadEntry?.formation ?? this.formations[0]);
+
+    const startingRealPlayerIds = this.normalizeIdCollection(
+      squadEntry?.startingRealPlayersIds ?? squadEntry?.starting_real_players_ids ?? squadEntry?.realPlayerIds ?? squadEntry?.real_player_ids
     );
 
-    // Guardar los IDs de dependantPlayers para pasárselos al football-pitch
-    const squadEntry2 = this.allParticipantSquads.find((item) => this.extractId(item.participant) === participantId);
-    this.squadDependantIds = this.normalizeIdCollection(
-      squadEntry2?.dependantPlayerIds ?? squadEntry2?.dependant_player_ids ?? []
+    const substitutesRealPlayersIds = this.normalizeIdCollection(
+      squadEntry?.substitutesRealPlayersIds ?? squadEntry?.substitutes_real_players_ids
     );
 
-    const realPlayers = this.allRealPlayers
-      .filter((player) => {
-        const id = this.extractId(player);
-        return id !== null && realPlayerIds.includes(id);
-      });
-
-    this.squadPlayers = realPlayers.slice(0, 11).map((player) => ({
+    const mapToPlayerView = (player: any): SquadPlayerView => ({
       id: this.extractId(player) ?? undefined,
       name: player.name ?? `Player ${this.extractId(player) ?? '?'}`,
       position: String(player.position ?? ''),
       teamName: player.realTeam?.name ?? 'Sin equipo',
-    }));
-    this.squadPlayersForPitch = this.squadPlayers.map((player) => ({ ...player }));
+    });
 
-    this.squadBuilt = true;
+    this.squadPlayers = this.allRealPlayers
+      .filter((player) => {
+        const id = this.extractId(player);
+        return id !== null && startingRealPlayerIds.includes(id);
+      })
+      .map(mapToPlayerView);
+
+    this.substitutePlayers = this.allRealPlayers
+      .filter((player) => {
+        const id = this.extractId(player);
+        return id !== null && substitutesRealPlayersIds.includes(id);
+      })
+      .map(mapToPlayerView);
+
+    this.startingPlayersForPitch = this.squadPlayers.map((player) => ({ ...player }));
+    this.substitutePlayersForPitch = this.substitutePlayers.map((player) => ({ ...player }));
   }
-
 
   private rebuildMarketFromDatabase(): void {
     this.marketDependantIds = this.existingMarketEntries.flatMap((entry: any) => {
       const marketId = this.extractId(entry) ?? 0;
-      return this.normalizeIdCollection(entry.dependantPlayerIds).map(depId => ({
+      return this.normalizeIdCollection(entry.dependantPlayerIds ?? entry.dependant_player_ids).map(depId => ({
         dependantPlayerId: depId,
         marketId,
       }));
@@ -323,7 +320,6 @@ export class InsideTournamentComponent implements OnInit {
     return `Participant #${participantId ?? '?'}`;
   }
 
-
   private extractId(value: unknown): number | null {
     if (typeof value === 'number') {
       return Number.isFinite(value) ? value : null;
@@ -340,17 +336,8 @@ export class InsideTournamentComponent implements OnInit {
       if (record['id'] !== undefined) {
         return this.extractId(record['id']);
       }
-
-      if (record['userId'] !== undefined) {
-        return this.extractId(record['userId']);
-      }
-
-      if (record['participantId'] !== undefined) {
-        return this.extractId(record['participantId']);
-      }
     }
 
     return null;
   }
-
 }
