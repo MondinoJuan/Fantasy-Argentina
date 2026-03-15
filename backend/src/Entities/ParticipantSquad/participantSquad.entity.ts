@@ -10,7 +10,10 @@ export class ParticipantSquad extends BaseEntity {
   participant!: Rel<Participant>;
 
   @Property({ type: 'json', nullable: false })
-  realPlayerIds: number[] = [];
+  startingRealPlayersIds: number[] = [];
+
+  @Property({ type: 'json', nullable: false })
+  substitutesRealPlayersIds: number[] = [];
 
   @Property({ nullable: false })
   formation: ParticipantFormation = '4-4-2';

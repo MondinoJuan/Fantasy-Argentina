@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, Input, OnChanges, Output, EventEmitter, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CdkDrag, CdkDragDrop, CdkDropList, CdkDropListGroup, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
+import { ApiService } from '../../servicios/api.service';
 
 export interface PitchPlayer {
   id?: number;
@@ -21,55 +22,55 @@ export interface PitchSlot {
 
 export const FORMATION_LAYOUTS: Record<string, Omit<PitchSlot, 'players'>[]> = {
   '4-4-2': [
-    { slotId: 'f-0', position: 'forward',    gridRow: 1, gridCol: 3 },
-    { slotId: 'f-1', position: 'forward',    gridRow: 1, gridCol: 5 },
+    { slotId: 'f-0', position: 'forward', gridRow: 1, gridCol: 3 },
+    { slotId: 'f-1', position: 'forward', gridRow: 1, gridCol: 5 },
     { slotId: 'm-0', position: 'midfielder', gridRow: 3, gridCol: 1 },
     { slotId: 'm-1', position: 'midfielder', gridRow: 3, gridCol: 3 },
     { slotId: 'm-2', position: 'midfielder', gridRow: 3, gridCol: 5 },
     { slotId: 'm-3', position: 'midfielder', gridRow: 3, gridCol: 7 },
-    { slotId: 'd-0', position: 'defender',   gridRow: 5, gridCol: 1 },
-    { slotId: 'd-1', position: 'defender',   gridRow: 5, gridCol: 3 },
-    { slotId: 'd-2', position: 'defender',   gridRow: 5, gridCol: 5 },
-    { slotId: 'd-3', position: 'defender',   gridRow: 5, gridCol: 7 },
+    { slotId: 'd-0', position: 'defender', gridRow: 5, gridCol: 1 },
+    { slotId: 'd-1', position: 'defender', gridRow: 5, gridCol: 3 },
+    { slotId: 'd-2', position: 'defender', gridRow: 5, gridCol: 5 },
+    { slotId: 'd-3', position: 'defender', gridRow: 5, gridCol: 7 },
     { slotId: 'g-0', position: 'goalkeeper', gridRow: 7, gridCol: 4 },
   ],
   '4-3-3': [
-    { slotId: 'f-0', position: 'forward',    gridRow: 1, gridCol: 1 },
-    { slotId: 'f-1', position: 'forward',    gridRow: 1, gridCol: 4 },
-    { slotId: 'f-2', position: 'forward',    gridRow: 1, gridCol: 7 },
+    { slotId: 'f-0', position: 'forward', gridRow: 1, gridCol: 1 },
+    { slotId: 'f-1', position: 'forward', gridRow: 1, gridCol: 4 },
+    { slotId: 'f-2', position: 'forward', gridRow: 1, gridCol: 7 },
     { slotId: 'm-0', position: 'midfielder', gridRow: 3, gridCol: 2 },
     { slotId: 'm-1', position: 'midfielder', gridRow: 3, gridCol: 4 },
     { slotId: 'm-2', position: 'midfielder', gridRow: 3, gridCol: 6 },
-    { slotId: 'd-0', position: 'defender',   gridRow: 5, gridCol: 1 },
-    { slotId: 'd-1', position: 'defender',   gridRow: 5, gridCol: 3 },
-    { slotId: 'd-2', position: 'defender',   gridRow: 5, gridCol: 5 },
-    { slotId: 'd-3', position: 'defender',   gridRow: 5, gridCol: 7 },
+    { slotId: 'd-0', position: 'defender', gridRow: 5, gridCol: 1 },
+    { slotId: 'd-1', position: 'defender', gridRow: 5, gridCol: 3 },
+    { slotId: 'd-2', position: 'defender', gridRow: 5, gridCol: 5 },
+    { slotId: 'd-3', position: 'defender', gridRow: 5, gridCol: 7 },
     { slotId: 'g-0', position: 'goalkeeper', gridRow: 7, gridCol: 4 },
   ],
   '3-4-3': [
-    { slotId: 'f-0', position: 'forward',    gridRow: 1, gridCol: 1 },
-    { slotId: 'f-1', position: 'forward',    gridRow: 1, gridCol: 4 },
-    { slotId: 'f-2', position: 'forward',    gridRow: 1, gridCol: 7 },
+    { slotId: 'f-0', position: 'forward', gridRow: 1, gridCol: 1 },
+    { slotId: 'f-1', position: 'forward', gridRow: 1, gridCol: 4 },
+    { slotId: 'f-2', position: 'forward', gridRow: 1, gridCol: 7 },
     { slotId: 'm-0', position: 'midfielder', gridRow: 3, gridCol: 1 },
     { slotId: 'm-1', position: 'midfielder', gridRow: 3, gridCol: 3 },
     { slotId: 'm-2', position: 'midfielder', gridRow: 3, gridCol: 5 },
     { slotId: 'm-3', position: 'midfielder', gridRow: 3, gridCol: 7 },
-    { slotId: 'd-0', position: 'defender',   gridRow: 5, gridCol: 2 },
-    { slotId: 'd-1', position: 'defender',   gridRow: 5, gridCol: 4 },
-    { slotId: 'd-2', position: 'defender',   gridRow: 5, gridCol: 6 },
+    { slotId: 'd-0', position: 'defender', gridRow: 5, gridCol: 2 },
+    { slotId: 'd-1', position: 'defender', gridRow: 5, gridCol: 4 },
+    { slotId: 'd-2', position: 'defender', gridRow: 5, gridCol: 6 },
     { slotId: 'g-0', position: 'goalkeeper', gridRow: 7, gridCol: 4 },
   ],
   '5-4-1': [
-    { slotId: 'f-0', position: 'forward',    gridRow: 1, gridCol: 4 },
+    { slotId: 'f-0', position: 'forward', gridRow: 1, gridCol: 4 },
     { slotId: 'm-0', position: 'midfielder', gridRow: 3, gridCol: 1 },
     { slotId: 'm-1', position: 'midfielder', gridRow: 3, gridCol: 3 },
     { slotId: 'm-2', position: 'midfielder', gridRow: 3, gridCol: 5 },
     { slotId: 'm-3', position: 'midfielder', gridRow: 3, gridCol: 7 },
-    { slotId: 'd-0', position: 'defender',   gridRow: 5, gridCol: 1 },
-    { slotId: 'd-1', position: 'defender',   gridRow: 5, gridCol: 2 },
-    { slotId: 'd-2', position: 'defender',   gridRow: 5, gridCol: 4 },
-    { slotId: 'd-3', position: 'defender',   gridRow: 5, gridCol: 6 },
-    { slotId: 'd-4', position: 'defender',   gridRow: 5, gridCol: 7 },
+    { slotId: 'd-0', position: 'defender', gridRow: 5, gridCol: 1 },
+    { slotId: 'd-1', position: 'defender', gridRow: 5, gridCol: 2 },
+    { slotId: 'd-2', position: 'defender', gridRow: 5, gridCol: 4 },
+    { slotId: 'd-3', position: 'defender', gridRow: 5, gridCol: 6 },
+    { slotId: 'd-4', position: 'defender', gridRow: 5, gridCol: 7 },
     { slotId: 'g-0', position: 'goalkeeper', gridRow: 7, gridCol: 4 },
   ],
 };
@@ -82,92 +83,155 @@ export const FORMATION_LAYOUTS: Record<string, Omit<PitchSlot, 'players'>[]> = {
   styleUrl: './football-pitch.component.scss',
 })
 export class FootballPitchComponent implements OnChanges {
-  @Input() squadPlayers: PitchPlayer[] = [];
-  @Input() formation: string = '4-4-2';
+  @Input() participantSquadId: number | null = null;
+  @Input() startingPlayers: PitchPlayer[] = [];
+  @Input() substitutePlayers: PitchPlayer[] = [];
+  @Input() formation = '4-4-2';
   @Input() playerPerformances: any[] = [];
+
   @Output() formationChange = new EventEmitter<string>();
+  @Output() squadSaved = new EventEmitter<void>();
 
   readonly formations = ['4-4-2', '4-3-3', '3-4-3', '5-4-1'];
   slots: PitchSlot[] = [];
+  substitutes: PitchPlayer[] = [];
+  hasUnsavedChanges = false;
+  isSaving = false;
+  saveError = '';
+
+  private initialStartingIds: number[] = [];
+  private initialSubstituteIds: number[] = [];
+  private initialFormation = this.formation;
+
+  constructor(private readonly apiService: ApiService) {}
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['squadPlayers'] || changes['formation'] || changes['playerPerformances']) {
-      this.buildSlots();
+    if (
+      changes['startingPlayers'] ||
+      changes['substitutePlayers'] ||
+      changes['formation'] ||
+      changes['playerPerformances'] ||
+      changes['participantSquadId']
+    ) {
+      this.initializeStateFromInputs();
     }
   }
 
-  onFormationChange(): void {
-    this.buildSlots();
+  onFormationSelect(): void {
+    this.buildSlotsFromPlayers(this.getCurrentStartingPlayers());
     this.formationChange.emit(this.formation);
+    this.updateDirtyState();
   }
 
   dropSlot(event: CdkDragDrop<PitchPlayer[]>): void {
     if (event.previousContainer === event.container) {
       moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
-      return;
+    } else {
+      transferArrayItem(event.previousContainer.data, event.container.data, event.previousIndex, event.currentIndex);
     }
 
-    transferArrayItem(
-      event.previousContainer.data,
-      event.container.data,
-      event.previousIndex,
-      event.currentIndex
-    );
+    this.updateDirtyState();
   }
 
-  isSlotMismatch(slot: PitchSlot): boolean {
-    return slot.players.some((player) => this.normalizePosition(player.position) !== this.normalizePosition(slot.position));
-  }
+  saveSquad(): void {
+    if (!this.participantSquadId || this.isSaving || !this.hasUnsavedChanges) return;
 
-  private buildSlots(): void {
-    const layout = FORMATION_LAYOUTS[this.formation] ?? FORMATION_LAYOUTS['4-4-2'];
-    const byPosition: Record<string, PitchPlayer[]> = {
-      goalkeeper: [], defender: [], midfielder: [], forward: [],
-    };
+    this.isSaving = true;
+    this.saveError = '';
 
-    for (const playerRaw of (this.squadPlayers ?? [])) {
-      const normalizedPosition = this.normalizePosition(playerRaw.position);
-      if (!byPosition[normalizedPosition]) continue;
-      byPosition[normalizedPosition].push({
-        ...playerRaw,
-        position: normalizedPosition,
-        lastScore: this.getLastPoints(playerRaw.id ?? 0),
-      });
-    }
-
-    const formationNeeded = this.parseFormation(this.formation);
-    const selectedPlayers = [
-      ...this.pickRandom(byPosition['goalkeeper'], formationNeeded.goalkeeper),
-      ...this.pickRandom(byPosition['defender'], formationNeeded.defender),
-      ...this.pickRandom(byPosition['midfielder'], formationNeeded.midfielder),
-      ...this.pickRandom(byPosition['forward'], formationNeeded.forward),
-    ];
-
-    const selectedByPosition: Record<string, PitchPlayer[]> = {
-      goalkeeper: selectedPlayers.filter((player) => player.position === 'goalkeeper'),
-      defender: selectedPlayers.filter((player) => player.position === 'defender'),
-      midfielder: selectedPlayers.filter((player) => player.position === 'midfielder'),
-      forward: selectedPlayers.filter((player) => player.position === 'forward'),
-    };
-
-    this.slots = layout.map((layoutSlot) => {
-      const pool = selectedByPosition[layoutSlot.position] ?? [];
-      return { ...layoutSlot, players: pool.splice(0, 1) };
+    this.apiService.patchParticipantSquad({
+      id: this.participantSquadId,
+      formation: this.formation as any,
+      startingRealPlayersIds: this.getCurrentStartingPlayers().map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id))),
+      substitutesRealPlayersIds: this.substitutes.map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id))),
+    }).subscribe({
+      next: () => {
+        this.initialStartingIds = this.getCurrentStartingPlayers().map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id)));
+        this.initialSubstituteIds = this.substitutes.map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id)));
+        this.initialFormation = this.formation;
+        this.hasUnsavedChanges = false;
+        this.isSaving = false;
+        this.squadSaved.emit();
+      },
+      error: (error) => {
+        this.saveError = error?.error?.message ?? 'No se pudo guardar la formación.';
+        this.isSaving = false;
+      },
     });
   }
 
-  private parseFormation(formation: string): { goalkeeper: number; defender: number; midfielder: number; forward: number } {
-    switch (formation) {
-      case '4-3-3':
-        return { goalkeeper: 1, defender: 4, midfielder: 3, forward: 3 };
-      case '3-4-3':
-        return { goalkeeper: 1, defender: 3, midfielder: 4, forward: 3 };
-      case '5-4-1':
-        return { goalkeeper: 1, defender: 5, midfielder: 4, forward: 1 };
-      case '4-4-2':
-      default:
-        return { goalkeeper: 1, defender: 4, midfielder: 4, forward: 2 };
+  isSlotMismatch(slot: PitchSlot): boolean {
+    return false;
+  }
+
+  get substitutesConnectedTo(): string[] {
+    return this.slots.map((slot) => slot.slotId);
+  }
+
+  connectedDropListsFor(slotId: string): string[] {
+    return [
+      ...this.slots.map((slot) => slot.slotId),
+      'substitutes-drop-list',
+    ].filter((id) => id !== slotId);
+  }
+
+  private initializeStateFromInputs(): void {
+    const normalizedStarting = (this.startingPlayers ?? []).map((player) => this.normalizePlayer(player));
+    const normalizedSubstitutes = (this.substitutePlayers ?? []).map((player) => this.normalizePlayer(player));
+
+    this.initialStartingIds = normalizedStarting.map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id)));
+    this.initialSubstituteIds = normalizedSubstitutes.map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id)));
+    this.initialFormation = this.formation;
+
+    this.substitutes = normalizedSubstitutes;
+    this.buildSlotsFromPlayers(normalizedStarting);
+    this.hasUnsavedChanges = false;
+    this.saveError = '';
+  }
+
+  private buildSlotsFromPlayers(startingPlayers: PitchPlayer[]): void {
+    const layout = FORMATION_LAYOUTS[this.formation] ?? FORMATION_LAYOUTS['4-4-2'];
+    const orderedStartingPlayers = [...startingPlayers];
+
+    this.slots = layout.map((layoutSlot, index) => ({
+      ...layoutSlot,
+      players: orderedStartingPlayers[index] ? [{ ...orderedStartingPlayers[index] }] : [],
+    }));
+
+    const overflowPlayers = orderedStartingPlayers.slice(layout.length);
+
+    if (overflowPlayers.length > 0) {
+      this.substitutes.push(...overflowPlayers);
     }
+  }
+
+  private getCurrentStartingPlayers(): PitchPlayer[] {
+    return this.slots.flatMap((slot) => slot.players ?? []);
+  }
+
+  private updateDirtyState(): void {
+    const currentStarting = this.getCurrentStartingPlayers().map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id)));
+    const currentSubstitutes = this.substitutes.map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id)));
+
+    this.hasUnsavedChanges =
+      this.initialFormation !== this.formation ||
+      !this.areSameIdArrays(this.initialStartingIds, currentStarting) ||
+      !this.areSameIdArrays(this.initialSubstituteIds, currentSubstitutes);
+  }
+
+  private areSameIdArrays(left: number[], right: number[]): boolean {
+    if (left.length !== right.length) return false;
+    return left.every((value, index) => value === right[index]);
+  }
+
+  private normalizePlayer(player: PitchPlayer): PitchPlayer {
+    const id = this.extractId(player.id);
+    return {
+      ...player,
+      id: id ?? undefined,
+      position: this.normalizePosition(player.position),
+      lastScore: this.getLastPoints(id ?? 0),
+    };
   }
 
   private normalizePosition(positionRaw: unknown): string {
@@ -181,29 +245,16 @@ export class FootballPitchComponent implements OnChanges {
 
   private getLastPoints(realPlayerId: number): number {
     const performances = (this.playerPerformances ?? []).filter(
-      (performance) => this.extractId(performance?.realPlayer ?? performance?.realPlayerId ?? performance?.real_player_id) === realPlayerId
+      (performance) => this.extractId(performance?.realPlayer ?? performance?.realPlayerId ?? performance?.real_player_id) === realPlayerId,
     );
 
     if (performances.length === 0) return 0;
 
     const latestPerformance = performances.reduce((a: any, b: any) =>
-      new Date(a?.updateDate ?? a?.update_date ?? 0).getTime() > new Date(b?.updateDate ?? b?.update_date ?? 0).getTime() ? a : b
+      new Date(a?.updateDate ?? a?.update_date ?? 0).getTime() > new Date(b?.updateDate ?? b?.update_date ?? 0).getTime() ? a : b,
     );
 
     return Number(latestPerformance?.pointsObtained ?? latestPerformance?.points_obtained ?? 0);
-  }
-
-  private pickRandom<T>(values: T[], limit: number): T[] {
-    const copy = [...values];
-    const selected: T[] = [];
-
-    while (copy.length > 0 && selected.length < limit) {
-      const randomIndex = Math.floor(Math.random() * copy.length);
-      selected.push(copy[randomIndex]);
-      copy.splice(randomIndex, 1);
-    }
-
-    return selected;
   }
 
   private extractId(value: unknown): number | null {

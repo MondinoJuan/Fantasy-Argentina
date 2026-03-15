@@ -10,7 +10,9 @@ Content-Type: application/json
 
 {
   "participantId": "1",
-  "realPlayerId": "1",
+  "startingRealPlayersIds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  "substitutesRealPlayersIds": [12, 13],
+  "formation": "4-4-2",
   "releaseDate": "2026-02-20T12:00:00.000Z",
   "purchasePrice": 2100000,
   "acquisitionType": "bid_purchase"
@@ -22,7 +24,9 @@ Content-Type: application/json
 
 {
   "participantId": "1",
-  "realPlayerId": "1",
+  "startingRealPlayersIds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  "substitutesRealPlayersIds": [14, 15],
+  "formation": "4-3-3",
   "releaseDate": "2026-02-20T12:00:00.000Z",
   "purchasePrice": 2100100,
   "acquisitionType": "admin_assignment"
@@ -33,8 +37,8 @@ PATCH http://127.0.0.1:3000/api/participant-squads/1
 Content-Type: application/json
 
 {
-  "participantId": "1",
-  "realPlayerId": "1"
+  "startingRealPlayersIds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  "substitutesRealPlayersIds": [12, 13, 14]
 }
 
 ### eliminar un registro de ParticipantSquad por id
