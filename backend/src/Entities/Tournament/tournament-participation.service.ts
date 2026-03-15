@@ -150,7 +150,8 @@ async function assignInitialSquadToParticipant(tournament: Tournament, participa
 
   entityManager.create(ParticipantSquad, {
     participant,
-    realPlayerIds: selectedPlayerIds,
+    startingRealPlayersIds: selectedPlayerIds,
+    substitutesRealPlayersIds: [],
     formation,
     acquisitionDate: new Date(),
     purchasePrice: 0,
