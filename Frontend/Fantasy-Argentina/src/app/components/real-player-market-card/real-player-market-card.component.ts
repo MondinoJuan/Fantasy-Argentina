@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { ApiService } from '../../servicios/api.service';
 
@@ -85,13 +85,15 @@ export class RealPlayerMarketCardComponent implements OnInit {
     }
 
     const amount = Number(this.bidAmount);
+    const previousAmount = Number(this.existingBidForSelectedPlayer?.offeredAmount ?? 0);
+    const requiredIncrement = amount - previousAmount;
 
     if (!Number.isFinite(amount) || amount <= 0) {
       this.bidError = 'Ingresá un monto válido.';
       return;
     }
 
-    if (amount > Number(this.availableMoney)) {
+    if (requiredIncrement > Number(this.availableMoney)) {
       this.bidError = 'El monto supera tu dinero disponible.';
       return;
     }
@@ -115,8 +117,11 @@ export class RealPlayerMarketCardComponent implements OnInit {
           bidDate: new Date(),
         });
 
-    request$.subscribe({
+    request$.pipe(
+      switchMap(() => this.syncParticipantBudget(amount, previousAmount)),
+    ).subscribe({
       next: () => {
+        this.availableMoney = Math.max(0, Number(this.availableMoney) - requiredIncrement);
         this.closeBidModal();
         this.bidSaved.emit();
         this.resolvePlayer();
@@ -125,6 +130,28 @@ export class RealPlayerMarketCardComponent implements OnInit {
         this.bidError = error?.error?.message ?? 'No se pudo registrar la oferta.';
       },
     });
+  }
+
+  private syncParticipantBudget(currentAmount: number, previousAmount: number) {
+    const delta = currentAmount - previousAmount;
+
+    if (!delta) {
+      return of(null);
+    }
+
+    return this.apiService.searchParticipantById(this.participantId).pipe(
+      switchMap((participantRes: any) => {
+        const participant = participantRes?.data ?? participantRes;
+        const availableMoney = Number(participant?.availableMoney ?? 0);
+        const reservedMoney = Number(participant?.reservedMoney ?? 0);
+
+        return this.apiService.patchParticipant({
+          id: this.participantId,
+          availableMoney: Math.max(0, availableMoney - delta),
+          reservedMoney: Math.max(0, reservedMoney + delta),
+        });
+      }),
+    );
   }
 
   private resolvePlayer(): void {
