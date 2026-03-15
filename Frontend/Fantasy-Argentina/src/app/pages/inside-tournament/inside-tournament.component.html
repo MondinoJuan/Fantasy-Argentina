@@ -43,19 +43,18 @@
       </div>
     </header>
 
-    <div>
-      <section class="panel">
-        <h2>Alineación titular</h2>
-        <app-football-pitch
-          [squadPlayers]="squadPlayersForPitch"
-          [playerPerformances]="allPlayerPerformances"
-          [formation]="selectedFormation"
-          (formationChange)="selectedFormation = $event"
-        />
-      </section>
-
-      
-    </div>
+    <section class="panel">
+      <h2>Squad titular (11 jugadores)</h2>
+      <app-football-pitch
+        [startingPlayers]="startingPlayersForPitch"
+        [substitutePlayers]="substitutePlayersForPitch"
+        [participantSquadId]="participantSquadId"
+        [playerPerformances]="allPlayerPerformances"
+        [formation]="selectedFormation"
+        (formationChange)="selectedFormation = $event"
+        (squadSaved)="onSquadSaved()"
+      />
+    </section>
 
     <section class="panel">
       <h2>Market de la fecha</h2>

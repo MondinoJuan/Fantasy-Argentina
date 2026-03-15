@@ -10,11 +10,18 @@ function parseId(idParam: string | string[] | undefined) {
   return Number.parseInt(rawId ?? '', 10);
 }
 
-function normalizeRealPlayerIds(value: unknown, fallbackValue: unknown): number[] | undefined {
+function normalizeRealPlayerIds(value: unknown, fallbackValue?: unknown): number[] | undefined {
   if (Array.isArray(value)) {
     return value
       .map((item) => Number.parseInt(String(item), 10))
       .filter((item) => Number.isFinite(item) && item > 0);
+  }
+
+  if (value !== undefined && value !== null) {
+    const parsed = Number.parseInt(String(value), 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return [parsed];
+    }
   }
 
   const single = Number.parseInt(String(fallbackValue ?? ''), 10);
@@ -28,7 +35,13 @@ function normalizeRealPlayerIds(value: unknown, fallbackValue: unknown): number[
 function sanitizeParticipantSquadInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeParticipantSquadInput = {
     participant: req.body.participant ?? req.body.participantId,
-    realPlayerIds: normalizeRealPlayerIds(req.body.realPlayerIds, req.body.realPlayer ?? req.body.realPlayerId),
+    startingRealPlayersIds: normalizeRealPlayerIds(
+      req.body.startingRealPlayersIds ?? req.body.starting_real_players_ids ?? req.body.realPlayerIds,
+      req.body.realPlayer ?? req.body.realPlayerId,
+    ),
+    substitutesRealPlayersIds: normalizeRealPlayerIds(
+      req.body.substitutesRealPlayersIds ?? req.body.substitutes_real_players_ids,
+    ) ?? [],
     formation: req.body.formation,
     releaseDate: req.body.releaseDate,
     purchasePrice: req.body.purchasePrice,
