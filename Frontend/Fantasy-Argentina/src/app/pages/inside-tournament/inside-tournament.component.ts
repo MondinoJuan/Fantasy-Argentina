@@ -344,4 +344,8 @@ export class InsideTournamentComponent implements OnInit {
 
     return null;
   }
+
+  goToFixture(): void {
+    this.router.navigate(['/fixture']);
+  }
 }

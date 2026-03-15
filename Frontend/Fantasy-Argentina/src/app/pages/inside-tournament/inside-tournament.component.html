@@ -6,6 +6,7 @@
   <ng-container *ngIf="!isLoading && !errorMessage">
     <header class="top-header">
       <button class="back" (click)="goBack()">← Volver</button>
+      <button class="fixture-button" (click)="goToFixture()">Ver fixture</button>
       <div class="stats">
         <div class="budget-card">
           <span class="budget-label">Presupuesto total</span>

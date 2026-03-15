@@ -161,32 +161,7 @@ export class FootballPitchComponent implements OnChanges {
   }
 
   isSlotMismatch(slot: PitchSlot): boolean {
-    return false;
-  }
-
-  get substitutesConnectedTo(): string[] {
-    return this.slots.map((slot) => slot.slotId);
-  }
-
-  connectedDropListsFor(slotId: string): string[] {
-    return [
-      ...this.slots.map((slot) => slot.slotId),
-      'substitutes-drop-list',
-    ].filter((id) => id !== slotId);
-  }
-
-  private initializeStateFromInputs(): void {
-    const normalizedStarting = (this.startingPlayers ?? []).map((player) => this.normalizePlayer(player));
-    const normalizedSubstitutes = (this.substitutePlayers ?? []).map((player) => this.normalizePlayer(player));
-
-    this.initialStartingIds = normalizedStarting.map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id)));
-    this.initialSubstituteIds = normalizedSubstitutes.map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id)));
-    this.initialFormation = this.formation;
-
-    this.substitutes = normalizedSubstitutes;
-    this.buildSlotsFromPlayers(normalizedStarting);
-    this.hasUnsavedChanges = false;
-    this.saveError = '';
+    return slot.players.some((player) => this.normalizePosition(player.position) !== this.normalizePosition(slot.position));
   }
 
   get substitutesConnectedTo(): string[] {
