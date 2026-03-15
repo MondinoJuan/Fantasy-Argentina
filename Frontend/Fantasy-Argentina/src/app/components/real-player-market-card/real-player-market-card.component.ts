@@ -88,7 +88,7 @@ export class RealPlayerMarketCardComponent implements OnInit {
     const previousAmount = Number(this.existingBidForSelectedPlayer?.offeredAmount ?? 0);
     const requiredIncrement = amount - previousAmount;
 
-    if (!Number.isFinite(amount) || amount <= 0) {
+    if (!Number.isFinite(amount) || amount < 0) {
       this.bidError = 'Ingresá un monto válido.';
       return;
     }
