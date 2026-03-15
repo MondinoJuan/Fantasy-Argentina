@@ -233,18 +233,22 @@ export class InsideTournamentComponent implements OnInit {
       teamName: player.realTeam?.name ?? 'Sin equipo',
     });
 
-    this.squadPlayers = this.allRealPlayers
-      .filter((player) => {
-        const id = this.extractId(player);
-        return id !== null && startingRealPlayerIds.includes(id);
-      })
+    const realPlayerById = new Map<number, any>();
+    for (const player of this.allRealPlayers) {
+      const id = this.extractId(player);
+      if (id !== null) {
+        realPlayerById.set(id, player);
+      }
+    }
+
+    this.squadPlayers = startingRealPlayerIds
+      .map((id) => realPlayerById.get(id))
+      .filter((player) => !!player)
       .map(mapToPlayerView);
 
-    this.substitutePlayers = this.allRealPlayers
-      .filter((player) => {
-        const id = this.extractId(player);
-        return id !== null && substitutesRealPlayersIds.includes(id);
-      })
+    this.substitutePlayers = substitutesRealPlayersIds
+      .map((id) => realPlayerById.get(id))
+      .filter((player) => !!player)
       .map(mapToPlayerView);
 
     this.startingPlayersForPitch = this.squadPlayers.map((player) => ({ ...player }));
