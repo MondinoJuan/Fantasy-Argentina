@@ -94,18 +94,9 @@
       <h2>Ranking del torneo</h2>
       <div class="toolbar">
         <label>
-          Tipo ranking
-          <select [(ngModel)]="rankingMode" (change)="onRankingModeChange()">
-            <option value="total">Total</option>
-            <option value="byMatchday">Por fecha</option>
-          </select>
-        </label>
-        <label *ngIf="rankingMode === 'byMatchday'">
-          Fecha
-          <select [(ngModel)]="selectedMatchdayId" (change)="onMatchdayChange()">
-            <option *ngFor="let matchday of matchdaysForTournament" [ngValue]="matchday.id">
-              Fecha {{ matchday.matchdayNumber }}
-            </option>
+          Ranking
+          <select [(ngModel)]="selectedRankingScope" (change)="onRankingScopeChange()">
+            <option *ngFor="let option of rankingScopeOptions" [ngValue]="option.value">{{ option.label }}</option>
           </select>
         </label>
       </div>
