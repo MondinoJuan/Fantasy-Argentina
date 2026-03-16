@@ -39,6 +39,8 @@ export class SuperadminMenuComponent {
       cupoTitular: [11, [Validators.required, Validators.min(1)]],
       cupoSuplente: [5, [Validators.required, Validators.min(0)]],
       teamIdEnApi: [0, [Validators.min(1)]],
+      matchdayNumber: [1, [Validators.required, Validators.min(1)]],
+      matchId: [null],
     });
   }
 
@@ -97,6 +99,11 @@ export class SuperadminMenuComponent {
       rankingsByDate: () => this.apiService.searchExternalRankingsWithLocalPerformances(Number(form.sportId), Number(form.competitionId)),
       updateTeamSquad: () => this.apiService.syncTeamSquadByTeamIdEnApi({ teamIdEnApi: Number(form.teamIdEnApi) }),
       syncPlayedMatchResults: () => this.apiService.postExternalSyncPlayedResults({ competitionId: Number(form.competitionId) }),
+      sumEndOfMatchdayPoints: () => this.apiService.postTournamentSumEndOfMatchdayPoints({
+        leagueId: Number(form.leagueId),
+        matchdayNumber: Number(form.matchdayNumber),
+        matchId: Number(form.matchId) > 0 ? Number(form.matchId) : undefined,
+      }),
     };
 
     requests[this.currentAction]().pipe(finalize(() => this.isLoading = false)).subscribe({

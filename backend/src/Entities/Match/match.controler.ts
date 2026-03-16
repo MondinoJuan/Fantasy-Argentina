@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { Match } from './match.entity.js';
+import { Matchday } from '../Matchday/matchday.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { MATCH_STATUSES, isEnumValue } from '../../shared/domain-enums.js';
 
@@ -12,13 +13,14 @@ function parseId(idParam: string | string[] | undefined) {
 
 function sanitizeMatchInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeMatchInput = {
-        matchday: req.body.matchday ?? req.body.matchdayId,
+    matchday: req.body.matchday ?? req.body.matchdayId,
+    league: req.body.league ?? req.body.leagueId,
     externalApiId: req.body.externalApiId,
     homeTeam: req.body.homeTeam,
     awayTeam: req.body.awayTeam,
     startDateTime: req.body.startDateTime,
     status: req.body.status,
-    };
+  };
 
   Object.keys(req.body.sanitizeMatchInput).forEach((key) => {
     if (req.body.sanitizeMatchInput[key] === undefined) {
@@ -28,9 +30,26 @@ function sanitizeMatchInput(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+
+async function ensureLeagueFromMatchday(input: Record<string, any>) {
+  if (input.league !== undefined) {
+    return;
+  }
+
+  const matchdayId = Number.parseInt(String(input.matchday ?? ''), 10);
+  if (!Number.isFinite(matchdayId)) {
+    return;
+  }
+
+  const matchday = await em.findOne(Matchday, { id: matchdayId }, { populate: ['league'] });
+  if (matchday?.league) {
+    input.league = matchday.league;
+  }
+}
+
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(Match, {}, { populate: ['matchday'] });
+    const items = await em.find(Match, {}, { populate: ['matchday', 'league'] });
     res.status(200).json({ message: 'found all matchs', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -40,7 +59,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(Match, { id }, { populate: ['matchday'] });
+    const item = await em.findOneOrFail(Match, { id }, { populate: ['matchday', 'league'] });
     res.status(200).json({ message: 'found match', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -53,6 +72,8 @@ async function add(req: Request, res: Response) {
       res.status(400).json({ message: `status must be one of: ${MATCH_STATUSES.join(', ')}` });
       return;
     }
+
+    await ensureLeagueFromMatchday(req.body.sanitizeMatchInput);
 
     const item = em.create(Match, req.body.sanitizeMatchInput);
     await em.flush();
@@ -71,6 +92,8 @@ async function update(req: Request, res: Response) {
 
     const id = parseId(req.params.id);
     const itemToUpdate = await em.getReference(Match, id);
+
+    await ensureLeagueFromMatchday(req.body.sanitizeMatchInput);
     em.assign(itemToUpdate, req.body.sanitizeMatchInput);
     await em.flush();
     res.status(200).json({ message: 'match updated', data: itemToUpdate });

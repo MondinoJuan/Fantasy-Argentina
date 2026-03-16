@@ -139,6 +139,7 @@ async function persistFixtureCompetitionInDb(
       const existing = await em.findOne(Match, { externalApiId: String(gameId) });
       if (existing) {
         existing.matchday = matchday;
+        existing.league = league;
         existing.homeTeam = String(asRecord(fixtureMatch.home).name ?? existing.homeTeam ?? 'TBD');
         existing.awayTeam = String(asRecord(fixtureMatch.away).name ?? existing.awayTeam ?? 'TBD');
         existing.startDateTime = new Date(String(fixtureMatch.startTime ?? existing.startDateTime?.toISOString?.() ?? startDate.toISOString()));
@@ -154,6 +155,7 @@ async function persistFixtureCompetitionInDb(
 
       em.create(Match, {
         matchday,
+        league,
         externalApiId: String(gameId),
         homeTeam: String(asRecord(fixtureMatch.home).name ?? 'TBD'),
         awayTeam: String(asRecord(fixtureMatch.away).name ?? 'TBD'),
@@ -632,19 +634,19 @@ async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Respo
             continue;
           }
 
-          let performance = await em.findOne(PlayerPerformance, { realPlayer, matchday: match.matchday });
+          let performance = await em.findOne(PlayerPerformance, { realPlayer, matchday: match.matchday, league: match.matchday.league, match });
           if (!performance) {
             performance = em.create(PlayerPerformance, {
               realPlayer,
               matchday: match.matchday,
               pointsObtained: row.ranking,
-              played: true,
+              league: match.matchday.league,
+              match,
               updateDate: new Date(),
             } as any);
             createdPerformances += 1;
           } else {
             performance.pointsObtained = row.ranking;
-            performance.played = true;
             performance.updateDate = new Date();
             updatedPerformances += 1;
           }
@@ -735,7 +737,16 @@ async function getSportsApiProRankingsWithLocalPerformances(req: Request, res: R
 
       let performance = null;
       if (matchdayId) {
-        performance = await em.findOne(PlayerPerformance, { realPlayer: realPlayer.id, matchday: matchdayId });
+        const localMatch = row.gameId !== null
+          ? await em.findOne(Match, { externalApiId: String(row.gameId), matchday: matchdayId })
+          : null;
+
+        performance = await em.findOne(PlayerPerformance, {
+          realPlayer: realPlayer.id,
+          matchday: matchdayId,
+          league: { idEnApi: competitionId },
+          ...(localMatch ? { match: localMatch.id } : {}),
+        });
       }
 
       data.push({
@@ -745,9 +756,10 @@ async function getSportsApiProRankingsWithLocalPerformances(req: Request, res: R
           ? {
             id: performance.id,
             pointsObtained: performance.pointsObtained,
-            played: performance.played,
             updateDate: performance.updateDate,
             matchdayId,
+            leagueId: performance.league?.id ?? null,
+            matchId: performance.match?.id ?? null,
           }
           : null,
       });

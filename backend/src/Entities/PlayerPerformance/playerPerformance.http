@@ -11,8 +11,9 @@ Content-Type: application/json
 {
   "realPlayerId": "1",
   "matchdayId": "1",
-  "pointsObtained": 12,
-  "played": true
+  "leagueId": "1",
+  "matchId": "1",
+  "pointsObtained": 12
 }
 
 ### actualizar un registro de PlayerPerformance por id
@@ -22,8 +23,9 @@ Content-Type: application/json
 {
   "realPlayerId": "1",
   "matchdayId": "1",
-  "pointsObtained": 112,
-  "played": true
+  "leagueId": "1",
+  "matchId": "1",
+  "pointsObtained": 112
 }
 
 ### actualizar parcialmente un registro de PlayerPerformance por id
@@ -33,6 +35,8 @@ Content-Type: application/json
 {
   "realPlayerId": "1",
   "matchdayId": "1",
+  "leagueId": "1",
+  "matchId": "1",
   "pointsObtained": 112
 }
 
