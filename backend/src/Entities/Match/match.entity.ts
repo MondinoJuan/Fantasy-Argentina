@@ -1,7 +1,8 @@
-import { Entity, ManyToOne, Property, Unique, Rel } from '@mikro-orm/core';
+import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property, Unique, Rel } from '@mikro-orm/core';
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { Matchday } from '../Matchday/matchday.entity.js';
 import { MatchStatus } from '../../shared/domain-enums.js';
+import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
 
 @Entity()
 @Unique({ properties: ['externalApiId'] })
@@ -30,4 +31,9 @@ export class Match extends BaseEntity {
 
   @Property({ nullable: true })
   awayScore?: number | null;
+
+  @OneToMany(() => PlayerPerformance, (playerPerformance) => playerPerformance.match, {
+    cascade: [Cascade.ALL],
+  })
+  performances = new Collection<PlayerPerformance>(this);
 }
