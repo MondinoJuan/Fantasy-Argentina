@@ -11,7 +11,6 @@ import { Match } from '../Match/match.entity.js';
 import { getCompetitionTeamsBySportAndCompetitionService } from '../ExternalApi/services/index.js';
 import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
-import { PlayerClause } from '../PlayerClause/playerClause.entity.js';
 import { PlayerPointsBreakdown } from '../PlayerPointsBreakdown/playerPointsBreakdown.entity.js';
 import { ParticipantMatchdayPoints } from '../ParticipantMatchdayPoints/participantMatchdayPoints.entity.js';
 import { ParticipantSquad } from '../ParticipantSquad/participantSquad.entity.js';
@@ -632,14 +631,11 @@ async function sumEndOfMatchdayPoints(req: Request, res: Response) {
           }
         }
 
-        const clauses = await em.find(PlayerClause, {
-          tournament,
-          ownerParticipant: participant,
-        }, { populate: ['dependantPlayer.realPlayer'] });
+        const participantSquad = await getLatestParticipantSquad(participant);
 
-        const realPlayerIds = [...new Set(clauses
-          .map((clause) => clause.dependantPlayer?.realPlayer?.id)
-          .filter((id): id is number => Number.isFinite(id)))];
+        const realPlayerIds = [...new Set((participantSquad?.startingRealPlayersIds ?? [])
+          .map((id) => Number.parseInt(String(id), 10))
+          .filter((id): id is number => Number.isFinite(id) && id > 0))];
 
         const mismatchMap = await buildPositionMismatchMap(participant);
 
