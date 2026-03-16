@@ -2,7 +2,8 @@ export interface playerPerformancePatchI {
   id: number;
   realPlayer?: number;
   matchday?: number;
+  league?: number;
+  match?: number | null;
   pointsObtained?: number;
-  played?: boolean;
   updateDate?: Date;
 }
