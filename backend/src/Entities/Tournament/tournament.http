@@ -50,3 +50,14 @@ DELETE http://127.0.0.1:3000/api/tournaments/1
 
 
 ### Nota: publicCode se genera automáticamente al crear torneo (único)
+
+
+### sumar puntos de fin de fecha por league/matchday (opcional match)
+POST http://127.0.0.1:3000/api/tournaments/sum-end-of-matchday-points
+Content-Type: application/json
+
+{
+  "leagueId": 1,
+  "matchdayNumber": 1,
+  "matchId": 1
+}

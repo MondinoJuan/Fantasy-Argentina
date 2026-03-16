@@ -339,6 +339,10 @@ export class ApiService {
     return this.http.get<any>(`${this.url}/external/sportsapipro/rankings/player-performances?sportId=${sportId}&competitionId=${competitionId}`);
   }
 
+  postTournamentSumEndOfMatchdayPoints(payload: { leagueId: number; matchdayNumber: number; matchId?: number }) {
+    return this.http.post<any>(`${this.url}/tournaments/sum-end-of-matchday-points`, payload);
+  }
+
   searchExternalLocalPersistedFixture(competitionId?: number | string) {
     const query = competitionId !== undefined && competitionId !== null
       ? `?competitionId=${competitionId}`

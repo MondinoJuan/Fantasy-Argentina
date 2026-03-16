@@ -90,12 +90,12 @@ INSERT INTO Bid (id, matchday_market_id, participant_id, offered_amount, status,
   (5, 5, 5, 26000000.00, 'ACTIVA', NOW(), NULL, NOW(), NOW());
 
 -- 12) PlayerPerformance
-INSERT INTO Player_Performance (id, real_player_id, matchday_id, points_obtained, played, update_date, created_at, updated_at) VALUES
-  (1, 1, 1, 6, 1, NOW(), NOW(), NOW()),
-  (2, 2, 1, 4, 1, NOW(), NOW(), NOW()),
-  (3, 3, 1, 8, 1, NOW(), NOW(), NOW()),
-  (4, 4, 1, 10, 1, NOW(), NOW(), NOW()),
-  (5, 5, 1, 3, 1, NOW(), NOW(), NOW());
+INSERT INTO Player_Performance (id, real_player_id, matchday_id, league_id, match_id, points_obtained, update_date, created_at, updated_at) VALUES
+  (1, 1, 1, 1, 1, 6, NOW(), NOW(), NOW()),
+  (2, 2, 1, 1, 1, 4, NOW(), NOW(), NOW()),
+  (3, 3, 1, 1, 2, 8, NOW(), NOW(), NOW()),
+  (4, 4, 1, 1, 2, 10, NOW(), NOW(), NOW()),
+  (5, 5, 1, 1, 3, 3, NOW(), NOW(), NOW());
 
 -- 13) ParticipantMatchdayPoints
 INSERT INTO Participant_Matchday_Points (id, participant_id, matchday_id, matchday_points, calc_date, created_at, updated_at) VALUES
