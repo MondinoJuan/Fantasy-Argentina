@@ -658,10 +658,14 @@ async function sumEndOfMatchdayPoints(req: Request, res: Response) {
           for (const [realPlayerId, playerPerformances] of performancesByRealPlayer.entries()) {
             const hasPositionMismatch = mismatchMap.get(realPlayerId) === true;
 
-            const contributedPoints = playerPerformances.reduce((total, performance) => {
+            const rawPoints = playerPerformances.reduce((total, performance) => {
               const points = Number(performance.pointsObtained ?? 0);
-              return total + (hasPositionMismatch ? points - 3 : points);
+              return total + points;
             }, 0);
+
+            const contributedPoints = hasPositionMismatch
+              ? rawPoints - 3
+              : rawPoints;
 
             const latestPerformance = playerPerformances
               .slice()
