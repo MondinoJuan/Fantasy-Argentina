@@ -66,12 +66,12 @@ INSERT INTO Matchday (id, league_id, season, matchday_number, start_date, end_da
   (5, 1, '2026', 5, DATE_ADD(CURDATE(), INTERVAL 9 DAY), DATE_ADD(CURDATE(), INTERVAL 10 DAY), 'FINISHED', NOW(), NOW());
 
 -- 9) Match
-INSERT INTO `Match` (id, matchday_id, external_api_id, home_team, away_team, start_date_time, status, created_at, updated_at) VALUES
-  (1, 1, 'MATCH-3001', 'River Plate', 'Boca Juniors', DATE_ADD(NOW(), INTERVAL 1 DAY), 'FINISHED', NOW(), NOW()),
-  (2, 2, 'MATCH-3002', 'Racing Club', 'Independiente', DATE_ADD(NOW(), INTERVAL 3 DAY), 'FINISHED', NOW(), NOW()),
-  (3, 3, 'MATCH-3003', 'San Lorenzo', 'River Plate', DATE_ADD(NOW(), INTERVAL 5 DAY), 'FINISHED', NOW(), NOW()),
-  (4, 4, 'MATCH-3004', 'Boca Juniors', 'Racing Club', DATE_ADD(NOW(), INTERVAL 7 DAY), 'FINISHED', NOW(), NOW()),
-  (5, 5, 'MATCH-3005', 'Independiente', 'San Lorenzo', DATE_ADD(NOW(), INTERVAL 9 DAY), 'FINISHED', NOW(), NOW());
+INSERT INTO `Match` (id, matchday_id, league_id, external_api_id, home_team, away_team, start_date_time, status, created_at, updated_at) VALUES
+  (1, 1, 1, 'MATCH-3001', 'River Plate', 'Boca Juniors', DATE_ADD(NOW(), INTERVAL 1 DAY), 'FINISHED', NOW(), NOW()),
+  (2, 2, 1, 'MATCH-3002', 'Racing Club', 'Independiente', DATE_ADD(NOW(), INTERVAL 3 DAY), 'FINISHED', NOW(), NOW()),
+  (3, 3, 1, 'MATCH-3003', 'San Lorenzo', 'River Plate', DATE_ADD(NOW(), INTERVAL 5 DAY), 'FINISHED', NOW(), NOW()),
+  (4, 4, 1, 'MATCH-3004', 'Boca Juniors', 'Racing Club', DATE_ADD(NOW(), INTERVAL 7 DAY), 'FINISHED', NOW(), NOW()),
+  (5, 5, 1, 'MATCH-3005', 'Independiente', 'San Lorenzo', DATE_ADD(NOW(), INTERVAL 9 DAY), 'FINISHED', NOW(), NOW());
 
 -- 10) MatchdayMarket
 INSERT INTO Matchday_Market (id, tournament_id, matchday_id, real_player_id, min_price, origin, seller_participant_id, creation_date, created_at, updated_at) VALUES

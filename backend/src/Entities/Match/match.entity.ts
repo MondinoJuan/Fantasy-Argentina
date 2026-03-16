@@ -1,6 +1,7 @@
 import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property, Unique, Rel } from '@mikro-orm/core';
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { Matchday } from '../Matchday/matchday.entity.js';
+import { League } from '../League/league.entity.js';
 import { MatchStatus } from '../../shared/domain-enums.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
 
@@ -9,6 +10,9 @@ import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity
 export class Match extends BaseEntity {
   @ManyToOne(() => Matchday, { nullable: false, deleteRule: 'cascade' })
   matchday!: Rel<Matchday>;
+
+  @ManyToOne(() => League, { nullable: false, deleteRule: 'cascade' })
+  league!: Rel<League>;
 
   @Property({ nullable: false })
   externalApiId!: string;

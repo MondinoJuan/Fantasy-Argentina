@@ -10,8 +10,7 @@ Content-Type: application/json
 
 {
   "matchdayId": "1",
-  "externalApiId": "1",
-  "matchdayId": "1",
+  "leagueId": "1",
   "externalApiId": "2",
   "homeTeam": "River Plate",
   "awayTeam": "Boca Juniors",
@@ -21,13 +20,11 @@ Content-Type: application/json
 
 ### actualizar un registro de Match por id
 PUT http://127.0.0.1:3000/api/matches/1
-PUT http://127.0.0.1:3000/api/matches/3
 Content-Type: application/json
 
 {
-  "matchdayId": "1",
-  "externalApiId": "1",
   "matchdayId": "3",
+  "leagueId": "1",
   "externalApiId": "2",
   "homeTeam": "River Plate actualizado",
   "awayTeam": "Boca Juniors actualizado",
@@ -40,8 +37,7 @@ PATCH http://127.0.0.1:3000/api/matches/1
 Content-Type: application/json
 
 {
-  "matchdayId": "1",
-  "externalApiId": "1",
+  "leagueId": "1",
   "homeTeam": "River Plate actualizado",
   "status": "finalizado"
 }

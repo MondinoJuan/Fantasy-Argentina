@@ -139,6 +139,7 @@ async function persistFixtureCompetitionInDb(
       const existing = await em.findOne(Match, { externalApiId: String(gameId) });
       if (existing) {
         existing.matchday = matchday;
+        existing.league = league;
         existing.homeTeam = String(asRecord(fixtureMatch.home).name ?? existing.homeTeam ?? 'TBD');
         existing.awayTeam = String(asRecord(fixtureMatch.away).name ?? existing.awayTeam ?? 'TBD');
         existing.startDateTime = new Date(String(fixtureMatch.startTime ?? existing.startDateTime?.toISOString?.() ?? startDate.toISOString()));
@@ -154,6 +155,7 @@ async function persistFixtureCompetitionInDb(
 
       em.create(Match, {
         matchday,
+        league,
         externalApiId: String(gameId),
         homeTeam: String(asRecord(fixtureMatch.home).name ?? 'TBD'),
         awayTeam: String(asRecord(fixtureMatch.away).name ?? 'TBD'),

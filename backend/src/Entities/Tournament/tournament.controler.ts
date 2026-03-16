@@ -303,9 +303,15 @@ async function persistFixtureAsMatchdaysAndMatches(
       }
 
       const existing = await em.findOne(Match, { externalApiId: String(gameId) });
+      if (existing) {
+        existing.matchday = matchday;
+        existing.league = league;
+      }
+
       if (!existing) {
         em.create(Match, {
           matchday,
+          league,
           externalApiId: String(gameId),
           homeTeam: String(asRecord(fixtureMatch.home).name ?? 'TBD'),
           awayTeam: String(asRecord(fixtureMatch.away).name ?? 'TBD'),

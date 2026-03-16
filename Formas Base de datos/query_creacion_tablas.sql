@@ -198,6 +198,7 @@ CREATE TABLE matchday (
 CREATE TABLE `match` (
   id               INT NOT NULL AUTO_INCREMENT,
   matchday_id      INT NOT NULL,
+  league_id        INT NOT NULL,
   external_api_id  VARCHAR(80) NOT NULL,
   home_team        VARCHAR(255) NOT NULL,
   away_team        VARCHAR(255) NOT NULL,
@@ -208,8 +209,12 @@ CREATE TABLE `match` (
   PRIMARY KEY (id),
   UNIQUE KEY uq_match_external_api_id (external_api_id),
   KEY idx_match_matchday (matchday_id),
+  KEY idx_match_league (league_id),
   CONSTRAINT fk_match_matchday
     FOREIGN KEY (matchday_id) REFERENCES matchday(id)
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_match_league
+    FOREIGN KEY (league_id) REFERENCES league(id)
     ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
