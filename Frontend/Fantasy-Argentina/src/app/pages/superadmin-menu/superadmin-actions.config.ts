@@ -6,7 +6,8 @@ export type SuperadminAction =
   | 'persistFixture'
   | 'rankingsByDate'
   | 'updateTeamSquad'
-  | 'syncPlayedMatchResults';
+  | 'syncPlayedMatchResults'
+  | 'sumEndOfMatchdayPoints';
 
 export type ActionField =
   | 'sportId'
@@ -17,7 +18,9 @@ export type ActionField =
   | 'descripcion'
   | 'cupoTitular'
   | 'cupoSuplente'
-  | 'teamIdEnApi';
+  | 'teamIdEnApi'
+  | 'matchdayNumber'
+  | 'matchId';
 
 export const SUPERADMIN_FIELD_LABELS: Record<ActionField, string> = {
   sportId: 'Sport ID',
@@ -29,6 +32,8 @@ export const SUPERADMIN_FIELD_LABELS: Record<ActionField, string> = {
   cupoTitular: 'Cupo titular',
   cupoSuplente: 'Cupo suplente',
   teamIdEnApi: 'Team ID en API',
+  matchdayNumber: 'Nro fecha',
+  matchId: 'IdMatch (opcional)',
 };
 
 export const SUPERADMIN_ACTION_CONFIG: Record<SuperadminAction, { title: string; fields: ActionField[] }> = {
@@ -63,5 +68,9 @@ export const SUPERADMIN_ACTION_CONFIG: Record<SuperadminAction, { title: string;
   syncPlayedMatchResults: {
     title: 'Actualizar resultados jugados',
     fields: ['competitionId'],
+  },
+  sumEndOfMatchdayPoints: {
+    title: 'Suma puntos de fin de fecha',
+    fields: ['leagueId', 'matchdayNumber', 'matchId'],
   },
 };

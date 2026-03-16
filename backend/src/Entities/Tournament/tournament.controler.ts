@@ -11,6 +11,10 @@ import { Match } from '../Match/match.entity.js';
 import { getCompetitionTeamsBySportAndCompetitionService } from '../ExternalApi/services/index.js';
 import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
+import { PlayerClause } from '../PlayerClause/playerClause.entity.js';
+import { PlayerPointsBreakdown } from '../PlayerPointsBreakdown/playerPointsBreakdown.entity.js';
+import { ParticipantMatchdayPoints } from '../ParticipantMatchdayPoints/participantMatchdayPoints.entity.js';
+import { ParticipantSquad } from '../ParticipantSquad/participantSquad.entity.js';
 import { TOURNAMENT_STATUSES, MATCHDAY_STATUSES, MATCH_STATUSES, isEnumValue } from '../../shared/domain-enums.js';
 import { setupParticipantAfterJoin } from './tournament-participation.service.js';
 
@@ -299,9 +303,15 @@ async function persistFixtureAsMatchdaysAndMatches(
       }
 
       const existing = await em.findOne(Match, { externalApiId: String(gameId) });
+      if (existing) {
+        existing.matchday = matchday;
+        existing.league = league;
+      }
+
       if (!existing) {
         em.create(Match, {
           matchday,
+          league,
           externalApiId: String(gameId),
           homeTeam: String(asRecord(fixtureMatch.home).name ?? 'TBD'),
           awayTeam: String(asRecord(fixtureMatch.away).name ?? 'TBD'),
@@ -374,19 +384,19 @@ async function syncPostponedMatchesAndPersistPlayerRatings(tournamentId: number)
         continue;
       }
 
-      let performance = await em.findOne(PlayerPerformance, { realPlayer, matchday: match.matchday });
+      let performance = await em.findOne(PlayerPerformance, { realPlayer, matchday: match.matchday, league: match.matchday.league, match });
 
       if (!performance) {
         performance = em.create(PlayerPerformance, {
           realPlayer,
           matchday: match.matchday,
           pointsObtained: ranking,
-          played: true,
+          league: match.matchday.league,
+          match,
           updateDate: new Date(),
         } as any);
       } else {
         performance.pointsObtained = ranking;
-        performance.played = true;
         performance.updateDate = new Date();
       }
     }
@@ -511,6 +521,218 @@ async function syncPostponedMatches(req: Request, res: Response) {
   }
 }
 
+
+
+
+const FORMATION_SLOT_POSITIONS: Record<string, Array<'goalkeeper' | 'defender' | 'midfielder' | 'forward'>> = {
+  '4-4-2': ['forward', 'forward', 'midfielder', 'midfielder', 'midfielder', 'midfielder', 'defender', 'defender', 'defender', 'defender', 'goalkeeper'],
+  '4-3-3': ['forward', 'forward', 'forward', 'midfielder', 'midfielder', 'midfielder', 'defender', 'defender', 'defender', 'defender', 'goalkeeper'],
+  '3-4-3': ['forward', 'forward', 'forward', 'midfielder', 'midfielder', 'midfielder', 'midfielder', 'defender', 'defender', 'defender', 'goalkeeper'],
+  '5-4-1': ['forward', 'midfielder', 'midfielder', 'midfielder', 'midfielder', 'defender', 'defender', 'defender', 'defender', 'defender', 'goalkeeper'],
+};
+
+function getExpectedSlotPositions(formationRaw: unknown): Array<'goalkeeper' | 'defender' | 'midfielder' | 'forward'> {
+  const formation = String(formationRaw ?? '4-4-2');
+  return FORMATION_SLOT_POSITIONS[formation] ?? FORMATION_SLOT_POSITIONS['4-4-2'];
+}
+
+async function getLatestParticipantSquad(participant: Participant): Promise<ParticipantSquad | null> {
+  const squads = await em.find(ParticipantSquad, { participant }, { orderBy: { acquisitionDate: 'desc' } });
+
+  if (squads.length === 0) {
+    return null;
+  }
+
+  const active = squads.find((squad) => !squad.releaseDate);
+  return active ?? squads[0];
+}
+
+async function buildPositionMismatchMap(participant: Participant): Promise<Map<number, boolean>> {
+  const mismatchMap = new Map<number, boolean>();
+  const squad = await getLatestParticipantSquad(participant);
+
+  if (!squad) {
+    return mismatchMap;
+  }
+
+  const expectedSlotPositions = getExpectedSlotPositions(squad.formation);
+  const startingIds = (squad.startingRealPlayersIds ?? []).slice(0, expectedSlotPositions.length);
+
+  if (startingIds.length === 0) {
+    return mismatchMap;
+  }
+
+  const realPlayers = await em.find(RealPlayer, { id: { $in: startingIds } });
+  const playerPositionById = new Map(realPlayers.map((player) => [player.id, player.position]));
+
+  startingIds.forEach((realPlayerId, index) => {
+    const expected = expectedSlotPositions[index] ?? 'midfielder';
+    const actual = playerPositionById.get(realPlayerId);
+
+    if (!actual) {
+      return;
+    }
+
+    mismatchMap.set(realPlayerId, actual !== expected);
+  });
+
+  return mismatchMap;
+}
+
+async function sumEndOfMatchdayPoints(req: Request, res: Response) {
+  try {
+    const leagueId = toInt(req.body?.leagueId);
+    const matchdayNumber = toInt(req.body?.matchdayNumber ?? req.body?.nroFecha);
+    const matchId = toInt(req.body?.matchId ?? req.body?.idMatch);
+
+    if (leagueId === null || matchdayNumber === null) {
+      res.status(400).json({ message: 'leagueId and matchdayNumber (or nroFecha) are required numbers' });
+      return;
+    }
+
+    const league = await em.findOne(League, { id: leagueId });
+    if (!league) {
+      res.status(404).json({ message: 'league not found' });
+      return;
+    }
+
+    const matchday = await em.findOne(Matchday, { league, matchdayNumber });
+    if (!matchday) {
+      res.status(404).json({ message: 'matchday not found for league and matchdayNumber' });
+      return;
+    }
+
+    const selectedMatch = matchId !== null
+      ? await em.findOne(Match, { id: matchId, matchday })
+      : null;
+
+    if (matchId !== null && !selectedMatch) {
+      res.status(404).json({ message: 'match not found for the selected league/matchday' });
+      return;
+    }
+
+    const tournaments = await em.find(Tournament, { league });
+    let processedParticipants = 0;
+    let upsertedBreakdowns = 0;
+
+    for (const tournament of tournaments) {
+      const participants = await em.find(Participant, { tournament });
+
+      for (const participant of participants) {
+        processedParticipants += 1;
+
+        if (!selectedMatch) {
+          await em.nativeDelete(PlayerPointsBreakdown, { participant, matchday });
+        } else {
+          const existing = await em.find(PlayerPointsBreakdown, { participant, matchday }, { populate: ['playerPerformance.match'] });
+          for (const breakdown of existing) {
+            if (breakdown.playerPerformance?.match?.id === selectedMatch.id) {
+              em.remove(breakdown);
+            }
+          }
+        }
+
+        const clauses = await em.find(PlayerClause, {
+          tournament,
+          ownerParticipant: participant,
+        }, { populate: ['dependantPlayer.realPlayer'] });
+
+        const realPlayerIds = [...new Set(clauses
+          .map((clause) => clause.dependantPlayer?.realPlayer?.id)
+          .filter((id): id is number => Number.isFinite(id)))];
+
+        const mismatchMap = await buildPositionMismatchMap(participant);
+
+        if (realPlayerIds.length > 0) {
+          const performances = await em.find(PlayerPerformance, {
+            realPlayer: { $in: realPlayerIds },
+            matchday,
+            league,
+            ...(selectedMatch ? { match: selectedMatch } : {}),
+          }, { populate: ['realPlayer'] });
+
+          const performancesByRealPlayer = new Map<number, PlayerPerformance[]>();
+          for (const performance of performances) {
+            const realPlayerId = Number((performance.realPlayer as any)?.id);
+            const list = performancesByRealPlayer.get(realPlayerId) ?? [];
+            list.push(performance);
+            performancesByRealPlayer.set(realPlayerId, list);
+          }
+
+          for (const [realPlayerId, playerPerformances] of performancesByRealPlayer.entries()) {
+            const hasPositionMismatch = mismatchMap.get(realPlayerId) === true;
+
+            const contributedPoints = playerPerformances.reduce((total, performance) => {
+              const points = Number(performance.pointsObtained ?? 0);
+              return total + (hasPositionMismatch ? points - 3 : points);
+            }, 0);
+
+            const latestPerformance = playerPerformances
+              .slice()
+              .sort((left, right) => new Date(right.updateDate).getTime() - new Date(left.updateDate).getTime())[0];
+
+            let breakdown = await em.findOne(PlayerPointsBreakdown, {
+              participant,
+              matchday,
+              realPlayer: realPlayerId,
+            });
+
+            if (!breakdown) {
+              breakdown = em.create(PlayerPointsBreakdown, {
+                participant,
+                matchday,
+                realPlayer: realPlayerId,
+                contributedPoints,
+                playerPerformance: latestPerformance,
+              } as any);
+            } else {
+              breakdown.contributedPoints = contributedPoints;
+              breakdown.playerPerformance = latestPerformance;
+            }
+
+            upsertedBreakdowns += 1;
+          }
+        }
+
+        const currentBreakdowns = await em.find(PlayerPointsBreakdown, { participant, matchday });
+        const matchdayPoints = currentBreakdowns.reduce((acc, item) => acc + Number(item.contributedPoints ?? 0), 0);
+
+        let participantMatchdayPoints = await em.findOne(ParticipantMatchdayPoints, { participant, matchday });
+        if (!participantMatchdayPoints) {
+          participantMatchdayPoints = em.create(ParticipantMatchdayPoints, {
+            participant,
+            matchday,
+            matchdayPoints,
+            calculationDate: new Date(),
+          } as any);
+        } else {
+          participantMatchdayPoints.matchdayPoints = matchdayPoints;
+          participantMatchdayPoints.calculationDate = new Date();
+        }
+
+        const allBreakdowns = await em.find(PlayerPointsBreakdown, { participant });
+        participant.totalScore = allBreakdowns.reduce((acc, item) => acc + Number(item.contributedPoints ?? 0), 0);
+      }
+    }
+
+    await em.flush();
+
+    res.status(200).json({
+      message: 'end of matchday points added successfully',
+      data: {
+        leagueId,
+        matchdayNumber,
+        matchId: selectedMatch?.id ?? null,
+        tournaments: tournaments.length,
+        processedParticipants,
+        upsertedBreakdowns,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
 async function update(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
@@ -541,4 +763,4 @@ async function remove(req: Request, res: Response) {
   }
 }
 
-export { sanitizeTournamentInput, findAll, findOne, add, update, remove, syncPostponedMatches, syncPostponedMatchesAndPersistPlayerRatings };
+export { sanitizeTournamentInput, findAll, findOne, add, update, remove, syncPostponedMatches, syncPostponedMatchesAndPersistPlayerRatings, sumEndOfMatchdayPoints };

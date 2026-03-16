@@ -42,10 +42,9 @@ export class InsideTournamentComponent implements OnInit {
   substitutePlayersForPitch: PitchPlayer[] = [];
   marketDependantIds: Array<{ dependantPlayerId: number; marketId: number }> = [];
 
-  rankingMode: 'total' | 'byMatchday' = 'total';
+  selectedRankingScope: 'total' | number = 'total';
   rankingRows: Array<{ participantName: string; points: number; }> = [];
   matchdaysForTournament: any[] = [];
-  selectedMatchdayId: number | null = null;
 
   participantSquadId: number | null = null;
 
@@ -82,15 +81,24 @@ export class InsideTournamentComponent implements OnInit {
     return this.tournament?.publicCode ?? 'Sin código';
   }
 
+
+  get rankingScopeOptions(): Array<{ value: 'total' | number; label: string }> {
+    const matchdayOptions = [...this.matchdaysForTournament]
+      .sort((left: any, right: any) => Number(left?.matchdayNumber ?? 0) - Number(right?.matchdayNumber ?? 0))
+      .map((matchday: any) => ({
+        value: this.extractId(matchday) ?? 0,
+        label: `Fecha ${Number(matchday?.matchdayNumber ?? 0)}`,
+      }))
+      .filter((option) => option.value > 0);
+
+    return [{ value: 'total', label: 'Total' }, ...matchdayOptions];
+  }
+
   get availableMoney(): number {
     return Number(this.participant?.availableMoney ?? this.participant?.bankBudget ?? 0);
   }
 
-  onRankingModeChange(): void {
-    this.rebuildRanking();
-  }
-
-  onMatchdayChange(): void {
+  onRankingScopeChange(): void {
     this.rebuildRanking();
   }
 
@@ -155,13 +163,11 @@ export class InsideTournamentComponent implements OnInit {
         const participantId = this.extractId(this.participant);
         this.bids = response.bids.data.filter((bid: any) => this.extractId(bid.participant) === participantId);
 
-        this.matchdaysForTournament = response.matchdays.data.filter(
-          (matchday: any) => this.extractId(matchday.league) === this.extractId(this.tournament.league)
-        );
+        this.matchdaysForTournament = response.matchdays.data
+          .filter((matchday: any) => this.extractId(matchday.league) === this.extractId(this.tournament.league))
+          .sort((left: any, right: any) => Number(left?.matchdayNumber ?? 0) - Number(right?.matchdayNumber ?? 0));
 
-        this.selectedMatchdayId = this.matchdaysForTournament.length > 0
-          ? this.extractId(this.matchdaysForTournament[0])
-          : null;
+        this.selectedRankingScope = 'total';
 
         this.rebuildSquadFromFormation();
         this.rebuildMarketFromDatabase();
@@ -273,7 +279,7 @@ export class InsideTournamentComponent implements OnInit {
       return;
     }
 
-    if (this.rankingMode === 'total') {
+    if (this.selectedRankingScope === 'total') {
       this.rankingRows = tournamentParticipants
         .map((participant) => ({
           participantName: this.resolveParticipantName(participant),
@@ -283,9 +289,9 @@ export class InsideTournamentComponent implements OnInit {
       return;
     }
 
-    const selectedMatchdayId = this.selectedMatchdayId;
+    const selectedMatchdayId = Number(this.selectedRankingScope);
 
-    if (!selectedMatchdayId) {
+    if (!Number.isFinite(selectedMatchdayId) || selectedMatchdayId <= 0) {
       this.rankingRows = tournamentParticipants
         .map((participant) => ({
           participantName: this.resolveParticipantName(participant),
