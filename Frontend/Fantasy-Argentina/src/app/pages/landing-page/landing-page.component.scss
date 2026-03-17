@@ -120,6 +120,18 @@ p { margin: 0.2rem 0; color: #4c2757; }
   animation: rise-in 0.45s ease;
 }
 
+
+.split-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.join-panel {
+  border-left: 1px solid rgba(82, 43, 91, 0.25);
+  padding-left: 1rem;
+}
+
 form {
   margin-top: 0.8rem;
   display: grid;
@@ -201,6 +213,17 @@ button {
   .header-top {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .split-card {
+    grid-template-columns: 1fr;
+  }
+
+  .join-panel {
+    border-left: 0;
+    border-top: 1px solid rgba(82, 43, 91, 0.25);
+    padding-left: 0;
+    padding-top: 1rem;
   }
 
   .tournament-grid {
