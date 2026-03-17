@@ -95,6 +95,20 @@ export class SuperadminMenuComponent {
     this.result = null;
 
     const form = this.actionForm.getRawValue();
+
+    if (this.currentAction === 'getPersistedFixture') {
+      const leagueId = Number(form.leagueId);
+
+      if (!Number.isFinite(leagueId) || leagueId <= 0) {
+        this.errorMessage = 'Ingresá un League ID válido.';
+        return;
+      }
+
+      this.closeModal();
+      this.router.navigate(['/fixture'], { queryParams: { leagueId } });
+      return;
+    }
+
     this.isLoading = true;
 
     const requests: Record<SuperadminAction, () => any> = {
