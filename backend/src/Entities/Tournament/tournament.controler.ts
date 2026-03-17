@@ -855,7 +855,7 @@ async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
             }
           }
 
-          winnerBid.status = 'accepted';
+          winnerBid.status = 'won';
 
           for (const lostBid of bids.slice(1)) {
             const loser = lostBid.participant as Participant;
@@ -863,7 +863,7 @@ async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
 
             loser.reservedMoney = Math.max(0, Number(loser.reservedMoney ?? 0) - offeredAmount);
             loser.availableMoney = Number(loser.availableMoney ?? 0) + offeredAmount;
-            lostBid.status = 'rejected';
+            lostBid.status = 'lost';
             lostBid.cancellationDate = now;
           }
         }

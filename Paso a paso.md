@@ -40,10 +40,10 @@ Debe poder seleccionarse la fecha y ver un ranking ordenado tambien de manera de
 - ¿Cómo calcular bien las Bids?
 
 ## A finalizar
-- Que se agregue un participant con codigo de tournament.
 - Implementar las negotiations.
 - Implementar las clausulas. Debo poder clickear las cards de mis jugadores.
 - Implementar la fechaHora de finalizacion de las pujas y que se le otorgue el realPlayer al participant. Incluido el manejo de pujas perdidas (que se eliminen luego de devolver la plata).
+- Agregar boton de getall de todas las entidades en superadmin-menu.
 
 ## Futuro
 * Separar los realPlayers linkeados al Participant por titulares y suplentes. Los suplentes no deberían sumar puntos.
