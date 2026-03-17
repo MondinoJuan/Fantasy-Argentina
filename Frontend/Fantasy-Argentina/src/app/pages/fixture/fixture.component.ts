@@ -1,5 +1,6 @@
 import { CommonModule, DatePipe } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../servicios/api.service';
 import { Location } from '@angular/common';
 
@@ -24,8 +25,6 @@ interface MatchdayGroup {
   matches: MatchView[];
 }
 
-const DEFAULT_COMPETITION_ID = 72;
-
 @Component({
   selector: 'app-fixture',
   standalone: true,
@@ -41,17 +40,25 @@ export class FixtureComponent implements OnInit {
   constructor(
     private readonly apiService: ApiService,
     private readonly location: Location,
+    private readonly route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
-    this.loadFixtureFromLocalDb();
+    const leagueId = Number(this.route.snapshot.queryParamMap.get('leagueId'));
+    this.loadFixtureFromLocalDb(Number.isFinite(leagueId) && leagueId > 0 ? leagueId : null);
   }
 
-  private loadFixtureFromLocalDb(): void {
+  private loadFixtureFromLocalDb(leagueId: number | null): void {
     this.isLoading = true;
     this.errorMessage = '';
 
-    this.apiService.searchExternalLocalPersistedFixture(DEFAULT_COMPETITION_ID).subscribe({
+    if (!leagueId) {
+      this.errorMessage = 'Debés indicar un League ID para ver el fixture persistido.';
+      this.isLoading = false;
+      return;
+    }
+
+    this.apiService.searchExternalLocalPersistedFixture({ leagueId }).subscribe({
       next: (response: any) => {
         const groups = Array.isArray(response?.data?.matchdays) ? response.data.matchdays : [];
 

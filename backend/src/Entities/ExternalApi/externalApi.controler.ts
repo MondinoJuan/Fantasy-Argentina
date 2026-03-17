@@ -522,10 +522,19 @@ async function postSportsApiProBuildCompetitionFixture(req: Request, res: Respon
 
 async function getSportsApiProLocalPersistedFixture(req: Request, res: Response) {
   const competitionId = parseRequiredNumber(req.query.competitionId as string | undefined);
+  const leagueId = parseRequiredNumber(req.query.leagueId as string | undefined);
 
   try {
-    const matchdaysWhere = competitionId ? { league: { idEnApi: competitionId } } : {};
-    const matchesWhere = competitionId ? { matchday: { league: { idEnApi: competitionId } } } : {};
+    const matchdaysWhere = leagueId
+      ? { league: { id: leagueId } }
+      : competitionId
+        ? { league: { idEnApi: competitionId } }
+        : {};
+    const matchesWhere = leagueId
+      ? { matchday: { league: { id: leagueId } } }
+      : competitionId
+        ? { matchday: { league: { idEnApi: competitionId } } }
+        : {};
 
     const matchdays = await em.find(Matchday, matchdaysWhere as any, { populate: ['league'] });
     const matches = await em.find(Match, matchesWhere as any, { populate: ['matchday', 'matchday.league'] });
