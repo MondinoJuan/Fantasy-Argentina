@@ -344,10 +344,23 @@ export class ApiService {
     return this.http.post<any>(`${this.url}/tournaments/sum-end-of-matchday-points`, payload);
   }
 
-  searchExternalLocalPersistedFixture(competitionId?: number | string) {
-    const query = competitionId !== undefined && competitionId !== null
-      ? `?competitionId=${competitionId}`
-      : '';
+
+  postTournamentSettleMarketAndRefreshByLeague(payload: { leagueId: number }) {
+    return this.http.post<any>(`${this.url}/tournaments/settle-market-and-refresh-by-league`, payload);
+  }
+
+  searchExternalLocalPersistedFixture(filters?: { competitionId?: number | string; leagueId?: number | string }) {
+    const params: string[] = [];
+
+    if (filters?.competitionId !== undefined && filters?.competitionId !== null) {
+      params.push(`competitionId=${filters.competitionId}`);
+    }
+
+    if (filters?.leagueId !== undefined && filters?.leagueId !== null) {
+      params.push(`leagueId=${filters.leagueId}`);
+    }
+
+    const query = params.length > 0 ? `?${params.join('&')}` : '';
 
     return this.http.get<any>(`${this.url}/external/sportsapipro/fixture/local${query}`);
   }

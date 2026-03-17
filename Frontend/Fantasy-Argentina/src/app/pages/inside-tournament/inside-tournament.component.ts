@@ -352,6 +352,13 @@ export class InsideTournamentComponent implements OnInit {
   }
 
   goToFixture(): void {
+    const leagueId = this.extractId(this.tournament?.league);
+
+    if (leagueId) {
+      this.router.navigate(['/fixture'], { queryParams: { leagueId } });
+      return;
+    }
+
     this.router.navigate(['/fixture']);
   }
 }
