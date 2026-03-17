@@ -50,3 +50,5 @@ Debe poder seleccionarse la fecha y ver un ranking ordenado tambien de manera de
 * Permitir que un User se linkee a un Tournament a partir de la creación de un Participant mediante el codigo del Tournament.
 * Si un realPlayer no está en la posición que le corresponde, que se le resten 3 puntos al puntaje obtenido.
 * Si un realPlayer es elegido como capitán por un Participant, que los puntos que le sume al mismo al final de una fecha sea x3.
+* Hay que mejorar el sistema de final de pujas. Si lo hace el superadmin es injusto, si lo hace un tiempo despues de la ultima puja no termina mas (se pueden hacer pujas indefinidas por $0), si lo hago a un tiempo despues del ultimo partido de la fecha se puede romper por partido postpuesto. ¿Qué hacer si dos personas ofertan la misma cantidad de dinero? Si hay una oferta = $0 tampoco deberia dar la puja por ganada.
+* El participant al poner un realPlayer en venta se le tiene que otorgar la posibilidad de venderlo rápido por una cantidad menor.
