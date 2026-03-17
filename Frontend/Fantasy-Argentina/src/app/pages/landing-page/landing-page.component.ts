@@ -27,11 +27,14 @@ export class LandingPageComponent implements OnInit {
   searchTerm = '';
   isLoading = true;
   isCreating = false;
+  isJoining = false;
   showCreateForm = false;
   menuOpen = false;
   errorMessage = '';
+  joinErrorMessage = '';
 
   readonly createTournamentForm;
+  readonly joinTournamentForm;
 
   get username(): string {
     return localStorage.getItem('currentUsername') ?? 'DT';
@@ -58,6 +61,11 @@ export class LandingPageComponent implements OnInit {
       initialBudget: [1000000, [Validators.required, Validators.min(100000)]],
       status: ['active', Validators.required]
     });
+
+
+    this.joinTournamentForm = this.fb.nonNullable.group({
+      publicCode: ['', [Validators.required, Validators.minLength(3)]],
+    });
   }
 
   ngOnInit(): void {
@@ -76,6 +84,8 @@ export class LandingPageComponent implements OnInit {
 
     if (!this.showCreateForm) {
       this.errorMessage = '';
+      this.joinErrorMessage = '';
+      this.joinTournamentForm.reset({ publicCode: '' });
     }
   }
 
@@ -171,6 +181,57 @@ export class LandingPageComponent implements OnInit {
     });
   }
 
+
+  joinTournamentByCode(): void {
+    this.joinErrorMessage = '';
+
+    if (this.joinTournamentForm.invalid) {
+      this.joinTournamentForm.markAllAsTouched();
+      return;
+    }
+
+    const userId = Number(localStorage.getItem('currentUserId'));
+    if (!userId) {
+      this.router.navigate(['/logIn']);
+      return;
+    }
+
+    const publicCode = this.joinTournamentForm.getRawValue().publicCode.trim().toUpperCase();
+
+    if (!publicCode) {
+      this.joinErrorMessage = 'Ingresá un código válido.';
+      return;
+    }
+
+    this.isJoining = true;
+
+    this.apiService.searchTournamentByPublicCode(publicCode).subscribe({
+      next: (tournamentResponse: any) => {
+        const tournamentId = Number(tournamentResponse?.data?.id);
+
+        this.apiService.joinParticipantByTournamentCode({ userId, tournamentCode: publicCode }).pipe(
+          finalize(() => this.isJoining = false),
+        ).subscribe({
+          next: () => {
+            this.showCreateForm = false;
+            this.joinTournamentForm.reset({ publicCode: '' });
+            if (Number.isFinite(tournamentId) && tournamentId > 0) {
+              this.router.navigate(['/inside-tournament'], { queryParams: { tournamentId } });
+              return;
+            }
+            this.loadTournaments(userId);
+          },
+          error: (error) => {
+            this.joinErrorMessage = error?.error?.message ?? 'No pudimos unirte al torneo con ese código.';
+          }
+        });
+      },
+      error: (error) => {
+        this.isJoining = false;
+        this.joinErrorMessage = error?.error?.message ?? 'No encontramos un torneo con ese código público.';
+      }
+    });
+  }
 
 
   openTournament(tournamentId?: number): void {

@@ -136,6 +136,7 @@ export class ApiService {
   // Tournaments
   searchTournaments() { return this.http.get<tournamentCollectionI>(`${this.url}/tournaments`); }
   searchTournamentById(id: number | string) { return this.http.get<responseTournamentI>(`${this.url}/tournaments/${id}`); }
+  searchTournamentByPublicCode(publicCode: string) { return this.http.get<responseTournamentI>(`${this.url}/tournaments/by-public-code/${encodeURIComponent(publicCode)}`); }
   postTournament(tournament: addTournamentI) { return this.http.post<responseTournamentI>(`${this.url}/tournaments`, tournament); }
   updateTournament(tournament: tournamentI) { return this.http.put<responseTournamentI>(`${this.url}/tournaments/${tournament.id}`, tournament); }
   patchTournament(tournament: tournamentPatchI) { return this.http.patch<responseTournamentI>(`${this.url}/tournaments/${tournament.id}`, tournament); }

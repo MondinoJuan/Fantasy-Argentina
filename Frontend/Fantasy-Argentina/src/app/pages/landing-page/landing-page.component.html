@@ -29,43 +29,58 @@
   </header>
 
   @if (showCreateForm) {
-    <article class="create-card">
-      <h2>Nuevo torneo</h2>
-      <form [formGroup]="createTournamentForm" (ngSubmit)="createTournament()">
-        <label>
-          Nombre del torneo
-          <input formControlName="name" placeholder="Ej: Amigos del Finde" />
-        </label>
-        <label>
-          Liga
-          <select formControlName="leagueId">
-            <option [ngValue]="0" disabled>Seleccioná una liga</option>
-            @for (league of leagues; track league.id) {
-              <option [ngValue]="league.id">{{ league.name }}</option>
-            }
-          </select>
-        </label>
-        <div class="grid-2">
+    <article class="create-card split-card">
+      <section>
+        <h2>Nuevo torneo</h2>
+        <form [formGroup]="createTournamentForm" (ngSubmit)="createTournament()">
           <label>
-            Deporte
-            <select formControlName="sportIdEnApi">
-              @for (sport of sportOptions; track sport) {
-                <option [ngValue]="sport.idEnApi">{{ sport.label }}</option>
+            Nombre del torneo
+            <input formControlName="name" placeholder="Ej: Amigos del Finde" />
+          </label>
+          <label>
+            Liga
+            <select formControlName="leagueId">
+              <option [ngValue]="0" disabled>Seleccioná una liga</option>
+              @for (league of leagues; track league.id) {
+                <option [ngValue]="league.id">{{ league.name }}</option>
               }
             </select>
           </label>
+          <div class="grid-2">
+            <label>
+              Deporte
+              <select formControlName="sportIdEnApi">
+                @for (sport of sportOptions; track sport) {
+                  <option [ngValue]="sport.idEnApi">{{ sport.label }}</option>
+                }
+              </select>
+            </label>
+            <label>
+              Presupuesto inicial
+              <input type="number" formControlName="initialBudget" />
+            </label>
+          </div>
+          <p><strong>Plantel fijo:</strong> 11 titulares + 5 suplentes (16 jugadores)</p>
+          @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+          <button type="submit" [disabled]="isCreating">{{ isCreating ? 'Creando...' : 'Crear y unirme' }}</button>
+        </form>
+        @if (isCreating) {
+          <app-loading-spinner label="Creando torneo" size="2rem" />
+        }
+      </section>
+
+      <section class="join-panel">
+        <h2>Unirme con código público</h2>
+        <p>Pegá el publicCode del torneo para entrar automáticamente.</p>
+        <form [formGroup]="joinTournamentForm" (ngSubmit)="joinTournamentByCode()">
           <label>
-            Presupuesto inicial
-            <input type="number" formControlName="initialBudget" />
+            Código público
+            <input formControlName="publicCode" placeholder="Ej: T-ABCDEFGH" />
           </label>
-        </div>
-        <p><strong>Plantel fijo:</strong> 11 titulares + 5 suplentes (16 jugadores)</p>
-        @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
-        <button type="submit" [disabled]="isCreating">{{ isCreating ? 'Creando...' : 'Crear y unirme' }}</button>
-      </form>
-      @if (isCreating) {
-        <app-loading-spinner label="Creando torneo" size="2rem" />
-      }
+          @if (joinErrorMessage) { <p class="error">{{ joinErrorMessage }}</p> }
+          <button type="submit" [disabled]="isJoining">{{ isJoining ? 'Uniéndome...' : 'Unirme por código' }}</button>
+        </form>
+      </section>
     </article>
   }
 

@@ -439,6 +439,28 @@ async function findOne(req: Request, res: Response) {
   }
 }
 
+async function findOneByPublicCode(req: Request, res: Response) {
+  try {
+    const publicCode = typeof req.params.publicCode === 'string' ? req.params.publicCode.trim() : '';
+
+    if (!publicCode) {
+      res.status(400).json({ message: 'publicCode is required' });
+      return;
+    }
+
+    const item = await em.findOne(Tournament, { publicCode }, { populate: ['league'] });
+
+    if (!item) {
+      res.status(404).json({ message: 'tournament not found by public code' });
+      return;
+    }
+
+    res.status(200).json({ message: 'found tournament by public code', data: item });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
 async function add(req: Request, res: Response) {
   try {
     const {
@@ -763,4 +785,4 @@ async function remove(req: Request, res: Response) {
   }
 }
 
-export { sanitizeTournamentInput, findAll, findOne, add, update, remove, syncPostponedMatches, syncPostponedMatchesAndPersistPlayerRatings, sumEndOfMatchdayPoints };
+export { sanitizeTournamentInput, findAll, findOne, findOneByPublicCode, add, update, remove, syncPostponedMatches, syncPostponedMatchesAndPersistPlayerRatings, sumEndOfMatchdayPoints };
