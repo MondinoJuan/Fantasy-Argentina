@@ -34,6 +34,14 @@ header {
 
 h1, h2, h3 { color: var(--royal-violet); }
 
+
+.actions-section {
+  margin-top: 1rem;
+}
+
+.actions-section h2 {
+  margin: 0 0 0.5rem;
+}
 .actions-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
