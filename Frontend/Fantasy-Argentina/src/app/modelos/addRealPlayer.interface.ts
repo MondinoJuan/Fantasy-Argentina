@@ -3,6 +3,8 @@ export interface addRealPlayerI {
   name: string;
   position: string;
   realTeam: number;
+  valueCurrency?: string;
+  value?: number;
   active: boolean;
   lastUpdate: Date;
 }

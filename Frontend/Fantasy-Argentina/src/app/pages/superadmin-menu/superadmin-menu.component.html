@@ -34,7 +34,7 @@
         <label *ngFor="let field of currentFields">
           {{ fieldLabels[field] }}
           <input
-            [type]="field === 'descripcion' ? 'text' : 'number'"
+            [type]="field === 'descripcion' || field === 'country' ? 'text' : 'number'"
             [formControlName]="field"
           >
         </label>

@@ -3,5 +3,4 @@ export interface addLeagueI {
   country: string;
   sport: string;
   idEnApi: number;
-  seasonNum?: number | null;
 }
