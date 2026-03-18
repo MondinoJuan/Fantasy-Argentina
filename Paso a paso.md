@@ -52,3 +52,20 @@ Debe poder seleccionarse la fecha y ver un ranking ordenado tambien de manera de
 * Si un realPlayer es elegido como capitán por un Participant, que los puntos que le sume al mismo al final de una fecha sea x3.
 * Hay que mejorar el sistema de final de pujas. Si lo hace el superadmin es injusto, si lo hace un tiempo despues de la ultima puja no termina mas (se pueden hacer pujas indefinidas por $0), si lo hago a un tiempo despues del ultimo partido de la fecha se puede romper por partido postpuesto. ¿Qué hacer si dos personas ofertan la misma cantidad de dinero? Si hay una oferta = $0 tampoco deberia dar la puja por ganada.
 * El participant al poner un realPlayer en venta se le tiene que otorgar la posibilidad de venderlo rápido por una cantidad menor.
+
+## Listado ligas
+SPORTSAPIPRO V2:
+7 - UEFA champions league
+8 - La liga
+16 - World Cup
+17 - Premier League
+23 - Serie A
+155 - Liga Profesional de Fútbol - season ID: 87913
+35 - Bundesliga
+679 - UEFA Europa league
+17015 - UEFA conference league
+357 - FIFA Club World Cup
+34 - Ligue 1
+384 - CONMEBOL Libertadores
+480 - CONMEBOL Sudamericana
+295 - World Cup Qual. CONMEBOL
