@@ -15,11 +15,11 @@ function asArray(value: unknown): unknown[] {
 }
 
 function normalizeCountryInput(country: string): string {
-  return country.trim().toLowerCase();
+  return country.trim();
 }
 
 async function getLeagueFromCountryLeagues(country: string, competitionId: number): Promise<UnknownRecord> {
-  const payload = asRecord(await requestSportsApiPro('/leagues', { country: normalizeCountryInput(country), refresh: 'true' }));
+  const payload = asRecord(await requestSportsApiPro('/leagues', { country: normalizeCountryInput(country) }));
   const leagues = asArray(asRecord(payload.country).leagues);
 
   const matched = leagues
