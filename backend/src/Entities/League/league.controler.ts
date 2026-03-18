@@ -212,13 +212,14 @@ async function syncByIdEnApi(req: Request, res: Response) {
   try {
     const sportId = Number.parseInt(String(req.body?.sportId ?? '1'), 10);
     const idEnApi = Number.parseInt(String(req.body?.idEnApi ?? ''), 10);
+    const country = String(req.body?.country ?? 'argentina').trim();
 
-    if (!Number.isFinite(sportId) || !Number.isFinite(idEnApi)) {
-      res.status(400).json({ message: 'sportId and idEnApi are required numbers' });
+    if (!Number.isFinite(sportId) || !Number.isFinite(idEnApi) || !country) {
+      res.status(400).json({ message: 'sportId, idEnApi and country are required' });
       return;
     }
 
-    const item = await persistNewLeagueService(sportId, idEnApi);
+    const item = await persistNewLeagueService(sportId, idEnApi, country);
     await em.flush();
     res.status(201).json({ message: 'league synced from sportsapipro', data: item });
   } catch (error: any) {

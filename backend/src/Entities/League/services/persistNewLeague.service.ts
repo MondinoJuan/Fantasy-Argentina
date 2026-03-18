@@ -1,30 +1,60 @@
 import { orm } from '../../../shared/db/orm.js';
 import { League } from '../league.entity.js';
-import { getCompetitionTeamsBySportAndCompetitionService } from '../../ExternalApi/services/getCompetitionTeamsBySportAndCompetition.service.js';
-import { persistTeamsByIdLeagueService } from '../../RealTeam/services/persistTeamsByIdLeague.service.js';
+import { requestSportsApiPro } from '../../../integrations/sportsapipro/sportsapipro.client.js';
 
 const em = orm.em;
 
-export async function persistNewLeagueService(sportId: number, competitionId: number) {
-  const external = await getCompetitionTeamsBySportAndCompetitionService(sportId, competitionId);
+type UnknownRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): UnknownRecord {
+  return value && typeof value === 'object' ? (value as UnknownRecord) : {};
+}
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function normalizeCountryInput(country: string): string {
+  return country.trim().toLowerCase();
+}
+
+async function getLeagueFromCountryLeagues(country: string, competitionId: number): Promise<UnknownRecord> {
+  const payload = asRecord(await requestSportsApiPro('/leagues', { country: normalizeCountryInput(country), refresh: 'true' }));
+  const leagues = asArray(asRecord(payload.country).leagues);
+
+  const matched = leagues
+    .map((item) => asRecord(item))
+    .find((item) => Number.parseInt(String(item.id ?? ''), 10) === competitionId);
+
+  if (!matched) {
+    throw new Error(`No encontré competitionId=${competitionId} en /leagues para country=${country}`);
+  }
+
+  return matched;
+}
+
+export async function persistNewLeagueService(sportId: number, competitionId: number, country = 'argentina') {
+  const external = await getLeagueFromCountryLeagues(country, competitionId);
 
   let league = await em.findOne(League, { idEnApi: competitionId });
+  const externalName = String(external.name ?? `League ${competitionId}`).trim();
+  const externalCountry = String(external.countryName ?? external.countrySlug ?? country ?? 'Unknown').trim();
+  const normalizedSport = String(sportId || 1);
 
   if (!league) {
     league = em.create(League, {
-      name: external.competitionName ?? `League ${competitionId}`,
-      country: external.countryName ?? 'Unknown',
-      sport: String(sportId),
+      name: externalName || `League ${competitionId}`,
+      country: externalCountry || 'Unknown',
+      sport: normalizedSport,
       idEnApi: competitionId,
-      seasonNum: external.seasonNum,
+      seasonNum: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
   } else {
-    league.name = external.competitionName ?? league.name;
-    league.country = external.countryName ?? league.country;
-    league.sport = String(sportId);
-    league.seasonNum = external.seasonNum;
+    league.name = externalName || league.name;
+    league.country = externalCountry || league.country;
+    league.sport = normalizedSport;
   }
 
   await em.flush();
@@ -33,10 +63,7 @@ export async function persistNewLeagueService(sportId: number, competitionId: nu
     throw new Error('Could not persist league id');
   }
 
-  const teamsSync = await persistTeamsByIdLeagueService(sportId, competitionId, league.id);
-
   return {
     league,
-    teamsSync,
   };
 }

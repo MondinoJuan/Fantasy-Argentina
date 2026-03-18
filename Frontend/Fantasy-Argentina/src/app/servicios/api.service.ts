@@ -311,7 +311,7 @@ export class ApiService {
     return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/build`, payload);
   }
 
-  syncLeagueByIdEnApi(payload: { sportId: number; idEnApi: number }) {
+  syncLeagueByIdEnApi(payload: { sportId: number; idEnApi: number; country: string }) {
     return this.http.post<any>(`${this.url}/leagues/sync/by-id-en-api`, payload);
   }
 
