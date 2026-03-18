@@ -72,9 +72,16 @@ POST http://127.0.0.1:3000/api/external/sportsapipro/fixture/build-competition
 Content-Type: application/json
 
 {
-  "sportId": 1,
-  "competitionId": 72
+  "competitionId": 155
 }
 
 ### SportsApiPro - rankings mapeados a playerPerformance local
 GET http://127.0.0.1:3000/api/external/sportsapipro/rankings/player-performances?sportId=1&competitionId=72
+
+### SportsApiPro - persistir última season en BD local por leagueIdEnApi
+POST http://127.0.0.1:3000/api/external/sportsapipro/seasons/persist-latest
+Content-Type: application/json
+
+{
+  "leagueIdEnApi": 155
+}

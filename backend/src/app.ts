@@ -23,6 +23,7 @@ import { NegotiationRouter } from './Entities/Negotiation/negotiation.routes.js'
 import { ExternalApiRouter } from './Entities/ExternalApi/externalApi.routes.js';
 import { SportRouter } from './Entities/Sport/sport.routes.js';
 import { DependantPlayerRouter } from './Entities/DependantPlayer/dependantPlayer.routes.js';
+import { UltSeasonRouter } from './Entities/UltSeason/ultSeason.routes.js';
 import "dotenv/config";
 
 const app = express();
@@ -55,6 +56,7 @@ app.use('/api/transactions', TransactionRouter)
 app.use('/api/negotiations', NegotiationRouter)
 app.use('/api/external', ExternalApiRouter)
 app.use('/api/sports', SportRouter)
+app.use('/api/ult-seasons', UltSeasonRouter)
 
 app.use((_, res) => {
     return res.status(404).send({ error: 'Resource not found' });

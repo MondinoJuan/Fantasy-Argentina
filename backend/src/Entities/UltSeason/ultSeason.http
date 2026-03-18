@@ -1,0 +1,10 @@
+### obtener todas las ult seasons
+GET http://127.0.0.1:3000/api/ult-seasons
+
+### sincronizar ultima season por league id en api
+POST http://127.0.0.1:3000/api/ult-seasons/sync/by-league-id-en-api
+Content-Type: application/json
+
+{
+  "leagueIdEnApi": 155
+}

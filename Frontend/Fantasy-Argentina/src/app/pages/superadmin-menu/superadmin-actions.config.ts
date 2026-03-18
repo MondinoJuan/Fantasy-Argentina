@@ -3,6 +3,7 @@ export type SuperadminAction =
   | 'persistTeams'
   | 'persistSport'
   | 'persistLeague'
+  | 'persistUltSeason'
   | 'persistFixture'
   | 'getPersistedFixture'
   | 'getAllUsers'
@@ -35,6 +36,7 @@ export type ActionField =
   | 'leagueId'
   | 'leagueIdEnApi'
   | 'idEnApi'
+  | 'country'
   | 'descripcion'
   | 'cupoTitular'
   | 'cupoSuplente'
@@ -48,6 +50,7 @@ export const SUPERADMIN_FIELD_LABELS: Record<ActionField, string> = {
   leagueId: 'League ID local (BDD)',
   leagueIdEnApi: 'League ID en API',
   idEnApi: 'League idEnApi (alta liga)',
+  country: 'País',
   descripcion: 'Descripción deporte',
   cupoTitular: 'Cupo titular',
   cupoSuplente: 'Cupo suplente',
@@ -60,8 +63,9 @@ export const SUPERADMIN_ACTION_CONFIG: Record<SuperadminAction, { title: string;
   persistPlayers: { title: 'Persistir jugadores', fields: ['leagueIdEnApi'] },
   persistTeams: { title: 'Persistir equipos', fields: ['leagueIdEnApi'] },
   persistSport: { title: 'Persistir deporte', fields: ['sportId', 'descripcion', 'cupoTitular', 'cupoSuplente'] },
-  persistLeague: { title: 'Persistir liga', fields: ['sportId', 'idEnApi'] },
-  persistFixture: { title: 'Persistir fixture', fields: ['sportId', 'competitionId'] },
+  persistLeague: { title: 'Persistir liga', fields: ['idEnApi', 'country'] },
+  persistUltSeason: { title: 'Persistir ultSeason', fields: ['leagueIdEnApi'] },
+  persistFixture: { title: 'Persistir fixture', fields: ['competitionId'] },
   getPersistedFixture: { title: 'Ver fixture persistido por League ID', fields: ['leagueId'] },
 
   getAllUsers: { title: 'Get all users', fields: [] },
