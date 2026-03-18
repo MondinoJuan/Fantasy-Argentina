@@ -353,6 +353,7 @@ export class ApiService {
 
 
 
+
   postExternalSyncPlayedResults(payload: { competitionId?: number }) {
     return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/sync-played-results`, payload);
   }

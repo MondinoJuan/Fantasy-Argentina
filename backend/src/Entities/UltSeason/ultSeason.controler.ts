@@ -92,7 +92,10 @@ async function remove(req: Request, res: Response) {
 
 async function syncByLeagueIdEnApi(req: Request, res: Response) {
   try {
-    const leagueIdEnApi = Number.parseInt(String(req.body?.leagueIdEnApi ?? ''), 10);
+    const leagueIdEnApi = Number.parseInt(
+      String(req.body?.leagueIdEnApi ?? req.query?.leagueIdEnApi ?? ''),
+      10,
+    );
 
     if (!Number.isFinite(leagueIdEnApi)) {
       res.status(400).json({ message: 'leagueIdEnApi is required' });
@@ -106,8 +109,33 @@ async function syncByLeagueIdEnApi(req: Request, res: Response) {
     }
 
     const payload = asRecord(await requestSportsApiPro(`/tournaments/${leagueIdEnApi}/seasons`));
+    const success = payload.success;
+    if (success !== true) {
+      res.status(502).json({
+        message: `La API devolvió success=false. Respuesta: ${JSON.stringify(payload)}`,
+      });
+      return;
+    }
+
+    const tournamentId = Number.parseInt(String(payload.tournamentId ?? ''), 10);
     const seasons = asArray(payload.seasons).map((item) => asRecord(item));
-    const latest = seasons[0] ?? {};
+    if (seasons.length === 0) {
+      res.status(502).json({ message: 'La respuesta no contiene seasons o la lista está vacía.' });
+      return;
+    }
+
+    const latest = seasons[0];
+    const latestTournamentId = Number.parseInt(String(latest.tournamentId ?? ''), 10);
+    if (
+      Number.isFinite(tournamentId)
+      && Number.isFinite(latestTournamentId)
+      && latestTournamentId !== leagueIdEnApi
+    ) {
+      res.status(502).json({
+        message: `El tournamentId de la última season (${latestTournamentId}) no coincide con el ingresado (${leagueIdEnApi}).`,
+      });
+      return;
+    }
 
     const idEnApi = Number.parseInt(String(latest.id ?? ''), 10);
     const desc = String(latest.year ?? '').trim();
@@ -135,11 +163,22 @@ async function syncByLeagueIdEnApi(req: Request, res: Response) {
 
     await em.flush();
 
+    const resultado = {
+      success: true,
+      tournamentId: leagueIdEnApi,
+      latestSeason: {
+        id: idEnApi,
+        year: desc,
+        tournamentId: Number.isFinite(latestTournamentId) ? latestTournamentId : leagueIdEnApi,
+      },
+    };
+
     res.status(201).json({
       message: 'latest season persisted',
       data: {
         league,
         ultSeason,
+        result: resultado,
       },
     });
   } catch (error: any) {
