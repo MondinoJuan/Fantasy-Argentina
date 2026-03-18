@@ -40,17 +40,29 @@ function readCountryFromTournament(row: UnknownRecord): string {
 }
 
 async function getLeagueFromCountryLeagues(country: string, competitionId: number): Promise<UnknownRecord> {
-  const payload = asRecord(await requestSportsApiPro('/tournaments', { refresh: 'true' }));
-  const tournaments = findFirstArray(payload).map((item) => asRecord(item));
+  console.log(`Buscando league en /leagues para country=${country} y competitionId=${competitionId}`);
 
-  const matched = tournaments.find((item) => {
+  const payload = asRecord(
+    await requestSportsApiPro('/api/leagues', { country, refresh: 'true' })
+  );
+
+  const leagues = asArray(asRecord(payload.country).leagues).map((item) => asRecord(item));
+
+  console.log(`Encontré ${leagues.length} leagues en /leagues`);
+
+  const matched = leagues.find((item) => {
     const id = Number.parseInt(String(item.id ?? ''), 10);
-    const tournamentCountry = readCountryFromTournament(item);
-    return id === competitionId && (!country || tournamentCountry === country);
+    return id === competitionId;
   });
 
+  console.log(
+    matched
+      ? `Encontré league: id=${matched.id}, name=${matched.name}`
+      : `No encontré league para competitionId=${competitionId} y country=${country}`
+  );
+
   if (!matched) {
-    throw new Error(`No encontré competitionId=${competitionId} en /tournaments para country=${country}`);
+    throw new Error(`No encontré competitionId=${competitionId} en /leagues para country=${country}`);
   }
 
   return matched;
