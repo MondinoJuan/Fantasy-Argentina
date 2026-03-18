@@ -14,20 +14,48 @@ function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
+function findFirstArray(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== 'object') return [];
+
+  for (const nested of Object.values(value as UnknownRecord)) {
+    const found = findFirstArray(nested);
+    if (found.length > 0) return found;
+  }
+
+  return [];
+}
+
 function normalizeCountryInput(country: string): string {
-  return country.trim();
+  return country.trim().toLowerCase();
+}
+
+function readCountryFromTournament(row: UnknownRecord): string {
+  const category = asRecord(row.category);
+  const country = asRecord(category.country);
+
+  return String(
+    row.countryName
+    ?? row.country
+    ?? category.name
+    ?? country.name
+    ?? '',
+  ).trim().toLowerCase();
 }
 
 async function getLeagueFromCountryLeagues(country: string, competitionId: number): Promise<UnknownRecord> {
-  const payload = asRecord(await requestSportsApiPro('/leagues', { country: normalizeCountryInput(country) }));
-  const leagues = asArray(asRecord(payload.country).leagues);
+  const payload = asRecord(await requestSportsApiPro('/tournaments', { refresh: 'true' }));
+  const tournaments = findFirstArray(payload).map((item) => asRecord(item));
+  const normalizedCountry = normalizeCountryInput(country);
 
-  const matched = leagues
-    .map((item) => asRecord(item))
-    .find((item) => Number.parseInt(String(item.id ?? ''), 10) === competitionId);
+  const matched = tournaments.find((item) => {
+    const id = Number.parseInt(String(item.id ?? ''), 10);
+    const tournamentCountry = readCountryFromTournament(item);
+    return id === competitionId && (!normalizedCountry || tournamentCountry === normalizedCountry);
+  });
 
   if (!matched) {
-    throw new Error(`No encontré competitionId=${competitionId} en /leagues para country=${country}`);
+    throw new Error(`No encontré competitionId=${competitionId} en /tournaments para country=${country}`);
   }
 
   return matched;
@@ -38,7 +66,14 @@ export async function persistNewLeagueService(sportId: number, competitionId: nu
 
   let league = await em.findOne(League, { idEnApi: competitionId });
   const externalName = String(external.name ?? `League ${competitionId}`).trim();
-  const externalCountry = String(external.countryName ?? external.countrySlug ?? country ?? 'Unknown').trim();
+  const externalCountry = String(
+    external.countryName
+    ?? external.country
+    ?? asRecord(external.category).name
+    ?? asRecord(asRecord(external.category).country).name
+    ?? country
+    ?? 'Unknown',
+  ).trim();
   const normalizedSport = String(sportId || 1);
 
   if (!league) {
