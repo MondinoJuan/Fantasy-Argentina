@@ -26,10 +26,6 @@ function findFirstArray(value: unknown): unknown[] {
   return [];
 }
 
-function normalizeCountryInput(country: string): string {
-  return country.trim().toLowerCase();
-}
-
 function readCountryFromTournament(row: UnknownRecord): string {
   const category = asRecord(row.category);
   const country = asRecord(category.country);
@@ -46,12 +42,11 @@ function readCountryFromTournament(row: UnknownRecord): string {
 async function getLeagueFromCountryLeagues(country: string, competitionId: number): Promise<UnknownRecord> {
   const payload = asRecord(await requestSportsApiPro('/tournaments', { refresh: 'true' }));
   const tournaments = findFirstArray(payload).map((item) => asRecord(item));
-  const normalizedCountry = normalizeCountryInput(country);
 
   const matched = tournaments.find((item) => {
     const id = Number.parseInt(String(item.id ?? ''), 10);
     const tournamentCountry = readCountryFromTournament(item);
-    return id === competitionId && (!normalizedCountry || tournamentCountry === normalizedCountry);
+    return id === competitionId && (!country || tournamentCountry === country);
   });
 
   if (!matched) {
