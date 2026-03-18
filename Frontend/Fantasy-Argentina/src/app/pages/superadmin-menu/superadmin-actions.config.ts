@@ -3,6 +3,7 @@ export type SuperadminAction =
   | 'persistTeams'
   | 'persistSport'
   | 'persistLeague'
+  | 'persistLatestSeason'
   | 'persistFixture'
   | 'getPersistedFixture'
   | 'getAllUsers'
@@ -61,7 +62,8 @@ export const SUPERADMIN_ACTION_CONFIG: Record<SuperadminAction, { title: string;
   persistTeams: { title: 'Persistir equipos', fields: ['leagueIdEnApi'] },
   persistSport: { title: 'Persistir deporte', fields: ['sportId', 'descripcion', 'cupoTitular', 'cupoSuplente'] },
   persistLeague: { title: 'Persistir liga', fields: ['sportId', 'idEnApi'] },
-  persistFixture: { title: 'Persistir fixture', fields: ['sportId', 'competitionId'] },
+  persistLatestSeason: { title: 'Persistir última season', fields: ['leagueIdEnApi'] },
+  persistFixture: { title: 'Persistir fixture', fields: ['competitionId'] },
   getPersistedFixture: { title: 'Ver fixture persistido por League ID', fields: ['leagueId'] },
 
   getAllUsers: { title: 'Get all users', fields: [] },

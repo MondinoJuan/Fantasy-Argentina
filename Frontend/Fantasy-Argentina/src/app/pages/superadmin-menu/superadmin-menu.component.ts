@@ -26,7 +26,7 @@ export class SuperadminMenuComponent {
   readonly fieldLabels = SUPERADMIN_FIELD_LABELS;
 
   readonly persistenceActions: SuperadminAction[] = [
-    'persistPlayers', 'persistTeams', 'persistSport', 'persistLeague', 'persistFixture',
+    'persistPlayers', 'persistTeams', 'persistSport', 'persistLeague', 'persistLatestSeason', 'persistFixture',
   ];
 
   readonly getAllActions: SuperadminAction[] = [
@@ -121,7 +121,8 @@ export class SuperadminMenuComponent {
         cupoSuplente: Number(form.cupoSuplente),
       }),
       persistLeague: () => this.apiService.syncLeagueByIdEnApi({ sportId: Number(form.sportId), idEnApi: Number(form.idEnApi) }),
-      persistFixture: () => this.apiService.postExternalFixtureBuildCompetition({ sportId: Number(form.sportId), competitionId: Number(form.competitionId) }),
+      persistLatestSeason: () => this.apiService.postExternalPersistLatestSeason({ leagueIdEnApi: Number(form.leagueIdEnApi) }),
+      persistFixture: () => this.apiService.postExternalFixtureBuildCompetition({ competitionId: Number(form.competitionId) }),
       getPersistedFixture: () => this.apiService.searchExternalLocalPersistedFixture({ leagueId: Number(form.leagueId) }),
       getAllUsers: () => this.apiService.searchUsers(),
       getAllSports: () => this.apiService.searchSports(),

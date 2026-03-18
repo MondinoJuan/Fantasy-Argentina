@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { RealPlayer } from './realPlayer.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { RealTeam } from '../RealTeam/realTeam.entity.js';
-import { getSportsApiProSquadByTeamService } from '../ExternalApi/services/index.js';
+import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
 import { PLAYER_POSITIONS, isEnumValue } from '../../shared/domain-enums.js';
 
 const em = orm.em;
@@ -18,13 +18,20 @@ function parseOptionalBodyNumber(value: unknown): number | null {
 }
 
 function sanitizeRealPlayerInput(req: Request, res: Response, next: NextFunction) {
+  const sanitizedValue = req.body.value === undefined ? undefined : toNumber(req.body.value);
+  const sanitizedValueCurrency = req.body.valueCurrency === undefined
+    ? undefined
+    : normalizeCurrencyCode(req.body.valueCurrency);
+
   req.body.sanitizeRealPlayerInput = {
-        idEnApi: req.body.idEnApi,
+    idEnApi: req.body.idEnApi,
     name: req.body.name,
     position: req.body.position,
     realTeam: req.body.realTeam ?? req.body.realTeamId,
+    valueCurrency: sanitizedValueCurrency,
+    value: sanitizedValue,
     active: req.body.active,
-    };
+  };
 
   Object.keys(req.body.sanitizeRealPlayerInput).forEach((key) => {
     if (req.body.sanitizeRealPlayerInput[key] === undefined) {
@@ -134,41 +141,35 @@ function toInt(value: unknown): number | null {
   return null;
 }
 
-function extractSquadMembers(payload: unknown): UnknownRecord[] {
-  const members: UnknownRecord[] = [];
+function toNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
 
-  const visit = (node: unknown) => {
-    if (Array.isArray(node)) {
-      node.forEach(visit);
-      return;
-    }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const normalized = value.replace(/[,\s]/g, '');
+    const parsed = Number.parseFloat(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
 
-    if (!node || typeof node !== 'object') return;
+  return null;
+}
 
-    const record = node as UnknownRecord;
-    const athleteId = toInt(record.id ?? record.athleteId ?? record.playerId);
-    const clubId = toInt(record.clubId ?? record.competitorId ?? asRecord(record.club).id);
-    const hasPosition = typeof asRecord(record.position).name === 'string' || typeof record.position === 'string';
+function normalizeCurrencyCode(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
 
-    if (
-      athleteId !== null
-      && clubId !== null
-      && typeof record.name === 'string'
-      && record.name.trim().length > 0
-      && hasPosition
-    ) {
-      members.push(record);
-    }
-
-    for (const child of Object.values(record)) visit(child);
-  };
-
-  visit(payload);
-  return members;
+  const normalized = value.trim().toUpperCase();
+  return normalized.length > 0 ? normalized : null;
 }
 
 function normalizePosition(positionRaw: unknown): "goalkeeper" | "defender" | "midfielder" | "forward" {
-  const value = String(positionRaw ?? '').toLowerCase();
+  const value = String(positionRaw ?? '').trim().toLowerCase();
+  if (value === 'gk' || value === 'g') return 'goalkeeper';
+  if (value === 'd' || value === 'df') return 'defender';
+  if (value === 'm' || value === 'mf') return 'midfielder';
+  if (value === 'f' || value === 'fw') return 'forward';
   if (value.includes('goal') || value.includes('keeper') || value.includes('gk')) return 'goalkeeper';
   if (value.includes('def') || value.includes('back')) return 'defender';
   if (value.includes('mid')) return 'midfielder';
@@ -177,16 +178,93 @@ function normalizePosition(positionRaw: unknown): "goalkeeper" | "defender" | "m
 }
 
 function readAthleteId(row: UnknownRecord): number | null {
-  return toInt(row.id ?? row.athleteId ?? row.playerId ?? row.player_id ?? row.athlete_id ?? row.player_key);
+  const player = asRecord(row.player);
+  return toInt(
+    player.id
+    ?? row.id
+    ?? row.athleteId
+    ?? row.playerId
+    ?? row.player_id
+    ?? row.athlete_id
+    ?? row.player_key,
+  );
 }
 
 function readPlayerName(row: UnknownRecord, athleteId: number): string {
-  return String(row.name ?? row.player_name ?? row.playerName ?? row.athleteName ?? row.athlete_name ?? `Player ${athleteId}`).trim();
+  const player = asRecord(row.player);
+  return String(
+    player.name
+    ?? row.name
+    ?? row.player_name
+    ?? row.playerName
+    ?? row.athleteName
+    ?? row.athlete_name
+    ?? `Player ${athleteId}`,
+  ).trim();
+}
+
+function readPlayerValueCurrency(row: UnknownRecord): string | null {
+  const player = asRecord(row.player);
+  const marketValue = asRecord(row.marketValue);
+  const proposedMarketValueRaw = asRecord(player.proposedMarketValueRaw);
+  return normalizeCurrencyCode(
+    proposedMarketValueRaw.currency
+    ?? player.currency
+    ?? player.marketValueCurrency
+    ?? player.valueCurrency
+    ?? row.valueCurrency
+    ?? row.currency
+    ?? row.marketValueCurrency
+    ?? row.value_currency
+    ?? marketValue.currency
+    ?? marketValue.currencyCode,
+  );
+}
+
+function readPlayerValue(row: UnknownRecord): number | null {
+  const player = asRecord(row.player);
+  const marketValue = asRecord(row.marketValue);
+  const proposedMarketValueRaw = asRecord(player.proposedMarketValueRaw);
+  return toNumber(
+    proposedMarketValueRaw.value
+    ?? player.proposedMarketValue
+    ?? player.value
+    ?? player.marketValue
+    ?? row.value
+    ?? row.marketValue
+    ?? row.market_value
+    ?? row.price
+    ?? row.marketPrice
+    ?? marketValue.value
+    ?? marketValue.amount,
+  );
+}
+
+function readPlayerPosition(row: UnknownRecord): "goalkeeper" | "defender" | "midfielder" | "forward" {
+  const player = asRecord(row.player);
+  const positionRecord = asRecord(row.position);
+  return normalizePosition(
+    player.position
+    ?? positionRecord.name
+    ?? row.position
+    ?? row.position_name
+    ?? row.positionText
+    ?? row.player_type,
+  );
+}
+
+function extractPlayersRows(payload: unknown): UnknownRecord[] {
+  const root = asRecord(payload);
+  const data = asRecord(root.data);
+  const players = Array.isArray(data.players) ? data.players : [];
+  return players
+    .map((item) => asRecord(item))
+    .filter((item) => toInt(readAthleteId(item)) !== null);
 }
 
 async function syncPlayersForTeam(team: RealTeam) {
-  const payload = await getSportsApiProSquadByTeamService(team.idEnApi);
-  const rows = extractSquadMembers(payload);
+  const payload = await requestSportsApiPro(`/teams/${team.idEnApi}/players`);
+  const rows = extractPlayersRows(payload);
   let created = 0;
   let updated = 0;
 
@@ -197,21 +275,33 @@ async function syncPlayersForTeam(team: RealTeam) {
     const idEnApi = athleteId;
 
     const name = readPlayerName(row, athleteId);
-    const positionRecord = asRecord(row.position);
-    const position = normalizePosition(positionRecord.name ?? row.position_name ?? row.positionText ?? row.player_type);
+    const position = readPlayerPosition(row);
+    const valueCurrency = readPlayerValueCurrency(row);
+    const value = readPlayerValue(row);
 
     const existing = await em.findOne(RealPlayer, { idEnApi });
     if (existing) {
       existing.name = name;
       existing.position = position;
       existing.realTeam = team;
+      existing.valueCurrency = valueCurrency;
+      existing.value = value;
       existing.active = true;
       existing.lastUpdate = new Date();
       updated += 1;
       continue;
     }
 
-    em.create(RealPlayer, { idEnApi, name, position, realTeam: team, active: true, lastUpdate: new Date() } as any);
+    em.create(RealPlayer, {
+      idEnApi,
+      name,
+      position,
+      realTeam: team,
+      valueCurrency,
+      value,
+      active: true,
+      lastUpdate: new Date(),
+    } as any);
     created += 1;
   }
 

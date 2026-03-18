@@ -327,8 +327,12 @@ export class ApiService {
     return this.http.post<any>(`${this.url}/real-players/sync/team-squad`, payload);
   }
 
-  postExternalFixtureBuildCompetition(payload: { sportId: number; competitionId: number }) {
+  postExternalFixtureBuildCompetition(payload: { competitionId: number }) {
     return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/build-competition`, payload);
+  }
+
+  postExternalPersistLatestSeason(payload: { leagueIdEnApi: number }) {
+    return this.http.post<any>(`${this.url}/external/sportsapipro/seasons/persist-latest`, payload);
   }
 
 
