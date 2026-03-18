@@ -14,74 +14,34 @@ function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
-function findFirstArray(value: unknown): unknown[] {
-  if (Array.isArray(value)) return value;
-  if (!value || typeof value !== 'object') return [];
-
-  for (const nested of Object.values(value as UnknownRecord)) {
-    const found = findFirstArray(nested);
-    if (found.length > 0) return found;
-  }
-
-  return [];
-}
-
-function readCountryFromTournament(row: UnknownRecord): string {
-  const category = asRecord(row.category);
-  const country = asRecord(category.country);
-
-  return String(
-    row.countryName
-    ?? row.country
-    ?? category.name
-    ?? country.name
-    ?? '',
-  ).trim().toLowerCase();
+function normalizeCountryInput(country: string): string {
+  const trimmed = country.trim().toLowerCase();
+  const noDiacritics = trimmed.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return noDiacritics.replace(/\s+/g, '-');
 }
 
 async function getLeagueFromCountryLeagues(country: string, competitionId: number): Promise<UnknownRecord> {
-  console.log(`Buscando league en /leagues para country=${country} y competitionId=${competitionId}`);
-
-  const payload = asRecord(
-    await requestSportsApiPro('/api/leagues', { country, refresh: 'true' })
-  );
-
+  const payload = asRecord(await requestSportsApiPro('/leagues', {
+    country: normalizeCountryInput(country),
+    refresh: 'true',
+  }));
   const leagues = asArray(asRecord(payload.country).leagues).map((item) => asRecord(item));
-
-  console.log(`Encontré ${leagues.length} leagues en /leagues`);
-
-  const matched = leagues.find((item) => {
-    const id = Number.parseInt(String(item.id ?? ''), 10);
-    return id === competitionId;
-  });
-
-  console.log(
-    matched
-      ? `Encontré league: id=${matched.id}, name=${matched.name}`
-      : `No encontré league para competitionId=${competitionId} y country=${country}`
-  );
+  const matched = leagues.find((item) => Number.parseInt(String(item.id ?? ''), 10) === competitionId);
 
   if (!matched) {
-    throw new Error(`No encontré competitionId=${competitionId} en /leagues para country=${country}`);
+    throw new Error('No se encontró la competición.');
   }
 
   return matched;
 }
 
-export async function persistNewLeagueService(sportId: number, competitionId: number, country = 'argentina') {
+export async function persistNewLeagueService(competitionId: number, country = 'argentina') {
   const external = await getLeagueFromCountryLeagues(country, competitionId);
 
   let league = await em.findOne(League, { idEnApi: competitionId });
   const externalName = String(external.name ?? `League ${competitionId}`).trim();
-  const externalCountry = String(
-    external.countryName
-    ?? external.country
-    ?? asRecord(external.category).name
-    ?? asRecord(asRecord(external.category).country).name
-    ?? country
-    ?? 'Unknown',
-  ).trim();
-  const normalizedSport = String(sportId || 1);
+  const externalCountry = String(country ?? 'Unknown').trim();
+  const normalizedSport = '1';
 
   if (!league) {
     league = em.create(League, {
@@ -89,7 +49,6 @@ export async function persistNewLeagueService(sportId: number, competitionId: nu
       country: externalCountry || 'Unknown',
       sport: normalizedSport,
       idEnApi: competitionId,
-      seasonNum: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });

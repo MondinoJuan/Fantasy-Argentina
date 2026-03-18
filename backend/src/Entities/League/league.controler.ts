@@ -13,12 +13,11 @@ function parseId(idParam: string | string[] | undefined) {
 
 function sanitizeLeagueInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeLeagueInput = {
-        name: req.body.name,
+    name: req.body.name,
     country: req.body.country,
     sport: req.body.sport,
     idEnApi: req.body.idEnApi,
-    seasonNum: req.body.seasonNum,
-    };
+  };
 
   Object.keys(req.body.sanitizeLeagueInput).forEach((key) => {
     if (req.body.sanitizeLeagueInput[key] === undefined) {
@@ -45,9 +44,6 @@ async function syncFromSportsApiPro(req: Request, res: Response) {
         if (!existing.sport) {
           existing.sport = 'Football';
         }
-        if (typeof externalLeague.seasonNum === 'number') {
-          existing.seasonNum = externalLeague.seasonNum;
-        }
         updated += 1;
         continue;
       }
@@ -57,7 +53,6 @@ async function syncFromSportsApiPro(req: Request, res: Response) {
         country: externalLeague.country,
         sport: 'Football',
         idEnApi: externalLeague.id,
-        seasonNum: typeof externalLeague.seasonNum === 'number' ? externalLeague.seasonNum : null,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -110,7 +105,6 @@ async function ensureByNameFromSportsApiPro(req: Request, res: Response) {
       country: matchedLeague.country,
       sport: 'Football',
       idEnApi: matchedLeague.id,
-      seasonNum: typeof matchedLeague.seasonNum === 'number' ? matchedLeague.seasonNum : null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -149,13 +143,13 @@ async function findByIdEnApi(req: Request, res: Response) {
       return;
     }
 
-    const sportId = Number.parseInt(String(req.query.sportId ?? '1'), 10);
-    if (!Number.isFinite(sportId)) {
-      res.status(400).json({ message: 'sportId query param must be a valid number' });
+    const country = String(req.query.country ?? 'argentina').trim();
+    if (!country) {
+      res.status(400).json({ message: 'country query param is required' });
       return;
     }
 
-    const persisted = await persistNewLeagueService(sportId, idEnApi);
+    const persisted = await persistNewLeagueService(idEnApi, country);
     res.status(201).json({ message: 'league not found locally, persisted from external provider', data: persisted.league });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -210,16 +204,15 @@ async function remove(req: Request, res: Response) {
 
 async function syncByIdEnApi(req: Request, res: Response) {
   try {
-    const sportId = Number.parseInt(String(req.body?.sportId ?? '1'), 10);
     const idEnApi = Number.parseInt(String(req.body?.idEnApi ?? ''), 10);
     const country = String(req.body?.country ?? 'argentina').trim();
 
-    if (!Number.isFinite(sportId) || !Number.isFinite(idEnApi) || !country) {
-      res.status(400).json({ message: 'sportId, idEnApi and country are required' });
+    if (!Number.isFinite(idEnApi) || !country) {
+      res.status(400).json({ message: 'idEnApi and country are required' });
       return;
     }
 
-    const item = await persistNewLeagueService(sportId, idEnApi, country);
+    const item = await persistNewLeagueService(idEnApi, country);
     await em.flush();
     res.status(201).json({ message: 'league synced from sportsapipro', data: item });
   } catch (error: any) {
