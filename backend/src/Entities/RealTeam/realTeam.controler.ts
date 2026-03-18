@@ -188,11 +188,11 @@ async function syncByLeagueIdEnApi(req: Request, res: Response) {
       return;
     }
 
-    const seasonsPayload = asRecord(await requestSportsApiPro(`/tournaments/${leagueIdEnApi}/seasons`));
+    const seasonsPayload = asRecord(await requestSportsApiPro(`/api/tournaments/${leagueIdEnApi}/seasons`));
     const seasonId = parseSeasonId(seasonsPayload);
 
     const rawTeamEvents = asRecord(await requestSportsApiPro(
-      `/tournament/${leagueIdEnApi}/season/${seasonId}/team-events`,
+      `/api/tournament/${leagueIdEnApi}/season/${seasonId}/team-events`,
       { type: 'total' },
     ));
     const teams = extractUniqueTeams(rawTeamEvents);
