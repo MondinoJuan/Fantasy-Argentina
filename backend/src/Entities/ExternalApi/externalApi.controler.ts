@@ -5,6 +5,7 @@ import { Matchday } from '../Matchday/matchday.entity.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
 import { Match } from '../Match/match.entity.js';
 import { League } from '../League/league.entity.js';
+import { Season } from '../Season/season.entity.js';
 import { MATCHDAY_STATUSES, MATCH_STATUSES, isEnumValue } from '../../shared/domain-enums.js';
 import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
 import {
@@ -682,6 +683,66 @@ async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Respo
   }
 }
 
+async function postSportsApiProPersistLatestSeason(req: Request, res: Response) {
+  const leagueIdEnApi = parseRequiredNumber(req.body?.leagueIdEnApi as string | undefined)
+    ?? parseRequiredNumber(req.query.leagueIdEnApi as string | undefined);
+
+  if (!leagueIdEnApi) {
+    return res.status(400).json({ message: 'leagueIdEnApi is required number' });
+  }
+
+  try {
+    const league = await em.findOne(League, { idEnApi: leagueIdEnApi });
+    if (!league) {
+      return res.status(404).json({ message: 'league not found locally by idEnApi. Sync league first.' });
+    }
+
+    const seasonsPayload = asRecord(await requestSportsApiPro(`/tournaments/${leagueIdEnApi}/seasons`));
+    const latestSeason = extractLatestSeasonFromTournamentSeasons(seasonsPayload);
+
+    const seasonIdEnAPI = toInt(latestSeason.id);
+    const seasonName = String(latestSeason.name ?? latestSeason.year ?? '').trim();
+
+    if (seasonIdEnAPI === null || !seasonName) {
+      return res.status(500).json({ message: 'Could not resolve latest season values from SportsApiPro payload' });
+    }
+
+    const localLeagueId = Number(league.id);
+    if (!Number.isFinite(localLeagueId) || localLeagueId <= 0) {
+      return res.status(500).json({ message: 'Local league id is invalid' });
+    }
+
+    let season = await em.findOne(Season, { leagueId: localLeagueId });
+
+    if (!season) {
+      season = em.create(Season, {
+        leagueId: localLeagueId,
+        temporada: seasonName,
+        idEnAPI: seasonIdEnAPI,
+      } as any);
+    } else {
+      season.temporada = seasonName;
+      season.idEnAPI = seasonIdEnAPI;
+    }
+
+    await em.flush();
+
+    return res.status(200).json({
+      message: 'latest season persisted',
+      data: {
+        league: {
+          id: league.id,
+          idEnApi: league.idEnApi,
+          name: league.name,
+        },
+        season,
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
 function extractRankedPlayersFromRatingsPayload(matchResult: any): Array<{ athleteId: number; ranking: number | null; matchDate: string | null; gameId: number | null; }> {
   const lineups = matchResult?.lineupsAndPlayerRankings;
   const matchDate = typeof matchResult?.match?.startTime === 'string' ? matchResult.match.startTime : null;
@@ -788,4 +849,5 @@ export {
   getSportsApiProLocalPersistedFixture,
   getSportsApiProRankingsWithLocalPerformances,
   postSportsApiProSyncPlayedMatchesResults,
+  postSportsApiProPersistLatestSeason,
 };

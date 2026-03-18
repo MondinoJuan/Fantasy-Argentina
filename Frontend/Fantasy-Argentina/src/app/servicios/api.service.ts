@@ -347,6 +347,11 @@ export class ApiService {
     return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/build-competition`, payload);
   }
 
+  postExternalPersistLatestSeason(payload: { leagueIdEnApi: number }) {
+    return this.http.post<any>(`${this.url}/external/sportsapipro/seasons/persist-latest`, payload);
+  }
+
+
 
 
   postExternalSyncPlayedResults(payload: { competitionId?: number }) {
