@@ -13,6 +13,8 @@ Content-Type: application/json
   "name": "Liga Profesional",
   "position": "forward",
   "realTeamId": "1",
+  "valueCurrency": "ARS",
+  "value": 5500000,
   "active": true
 }
 
@@ -25,6 +27,8 @@ Content-Type: application/json
   "name": "Liga Profesional actualizado",
   "position": "midfielder",
   "realTeamId": "1",
+  "valueCurrency": "USD",
+  "value": 1200000,
   "active": true
 }
 
@@ -36,6 +40,8 @@ Content-Type: application/json
   "idEnApi": "1",
   "name": "Liga Profesional actualizado",
   "position": "midfielder",
+  "valueCurrency": "EUR",
+  "value": 1350000
 }
 
 ### eliminar un registro de RealPlayer por id

@@ -54,7 +54,7 @@ function getSequentialSportsApiProKeys(): string[] {
 }
 
 function getSportsApiProConfig() {
-  const baseUrl = process.env.SPORTSAPIPRO_BASE_URL;
+  const baseUrl = process.env.SPORTSAPIPRO_BASE_URL_V2;
   const apiKeys = getSequentialSportsApiProKeys();
 
   if (apiKeys.length === 0) {
@@ -62,7 +62,7 @@ function getSportsApiProConfig() {
   }
 
   if (!baseUrl) {
-    throw new Error('Missing SPORTSAPIPRO_BASE_URL environment variable');
+    throw new Error('Missing SPORTSAPIPRO_BASE_URL_V2 environment variable');
   }
 
   return { apiKeys, baseUrl };

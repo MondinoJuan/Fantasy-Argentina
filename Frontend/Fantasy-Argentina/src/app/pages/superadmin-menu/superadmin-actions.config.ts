@@ -3,6 +3,7 @@ export type SuperadminAction =
   | 'persistTeams'
   | 'persistSport'
   | 'persistLeague'
+  | 'persistUltSeason'
   | 'persistFixture'
   | 'getPersistedFixture'
   | 'getAllUsers'
@@ -32,9 +33,11 @@ export type SuperadminAction =
 export type ActionField =
   | 'sportId'
   | 'competitionId'
+  | 'seasonId'
   | 'leagueId'
   | 'leagueIdEnApi'
   | 'idEnApi'
+  | 'country'
   | 'descripcion'
   | 'cupoTitular'
   | 'cupoSuplente'
@@ -45,9 +48,11 @@ export type ActionField =
 export const SUPERADMIN_FIELD_LABELS: Record<ActionField, string> = {
   sportId: 'Sport ID',
   competitionId: 'Competition ID',
+  seasonId: 'Season ID en API',
   leagueId: 'League ID local (BDD)',
   leagueIdEnApi: 'League ID en API',
   idEnApi: 'League idEnApi (alta liga)',
+  country: 'País',
   descripcion: 'Descripción deporte',
   cupoTitular: 'Cupo titular',
   cupoSuplente: 'Cupo suplente',
@@ -60,8 +65,9 @@ export const SUPERADMIN_ACTION_CONFIG: Record<SuperadminAction, { title: string;
   persistPlayers: { title: 'Persistir jugadores', fields: ['leagueIdEnApi'] },
   persistTeams: { title: 'Persistir equipos', fields: ['leagueIdEnApi'] },
   persistSport: { title: 'Persistir deporte', fields: ['sportId', 'descripcion', 'cupoTitular', 'cupoSuplente'] },
-  persistLeague: { title: 'Persistir liga', fields: ['sportId', 'idEnApi'] },
-  persistFixture: { title: 'Persistir fixture', fields: ['sportId', 'competitionId'] },
+  persistLeague: { title: 'Persistir liga', fields: ['idEnApi', 'country'] },
+  persistUltSeason: { title: 'Persistir ultSeason', fields: ['leagueIdEnApi'] },
+  persistFixture: { title: 'Persistir fixture', fields: ['competitionId', 'seasonId'] },
   getPersistedFixture: { title: 'Ver fixture persistido por League ID', fields: ['leagueId'] },
 
   getAllUsers: { title: 'Get all users', fields: [] },
@@ -83,7 +89,7 @@ export const SUPERADMIN_ACTION_CONFIG: Record<SuperadminAction, { title: string;
   getAllParticipantMatchdayPoints: { title: 'Get all participant matchday points', fields: [] },
   getLeaguesTournamentCounts: { title: 'Leagues persistidas + cantidad de tournaments', fields: [] },
 
-  rankingsByDate: { title: 'Recuperar rankings por jugador/fecha', fields: ['sportId', 'competitionId'] },
+  rankingsByDate: { title: 'Recuperar rankings por jugador/fecha', fields: ['competitionId'] },
   updateTeamSquad: { title: 'Actualizar plantilla de equipo', fields: ['teamIdEnApi'] },
   syncPlayedMatchResults: { title: 'Actualizar resultados jugados', fields: ['competitionId'] },
   sumEndOfMatchdayPoints: { title: 'Suma puntos de fin de fecha', fields: ['leagueId', 'matchdayNumber', 'matchId'] },

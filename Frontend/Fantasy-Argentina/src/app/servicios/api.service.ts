@@ -18,6 +18,7 @@ import { addRealTeamI } from '../modelos/addRealTeam.interface';
 import { addShieldingI } from '../modelos/addShielding.interface';
 import { addSportI } from '../modelos/addSport.interface';
 import { addTournamentI } from '../modelos/addTournament.interface';
+import { addUltSeasonI } from '../modelos/addUltSeason.interface';
 import { addTransactionI } from '../modelos/addTransaction.interface';
 import { addUserI } from '../modelos/addUser.interface';
 
@@ -111,11 +112,15 @@ import { transactionI } from '../modelos/transaction.interface';
 import { transactionPatchI } from '../modelos/transaction.patch.interface';
 import { transactionCollectionI } from '../modelos/transaction.collection.interface';
 import { responseTransactionI } from '../modelos/responseTransaction.interface';
+import { responseUltSeasonI } from '../modelos/responseUltSeason.interface';
 
 import { userI } from '../modelos/user.interface';
 import { userPatchI } from '../modelos/user.patch.interface';
 import { userCollectionI } from '../modelos/user.collection.interface';
 import { responseUserI } from '../modelos/responseUser.interface';
+import { ultSeasonCollectionI } from '../modelos/ultSeason.collection.interface';
+import { ultSeasonI } from '../modelos/ultSeason.interface';
+import { ultSeasonPatchI } from '../modelos/ultSeason.patch.interface';
 
 @Injectable({
   providedIn: 'root'
@@ -157,8 +162,8 @@ export class ApiService {
   // Leagues
   searchLeagues() { return this.http.get<leagueCollectionI>(`${this.url}/leagues`); }
   searchLeagueById(id: number | string) { return this.http.get<responseLeagueI>(`${this.url}/leagues/${id}`); }
-  searchLeagueByIdEnApi(idEnApi: number | string, sportId?: number | string) {
-    const query = sportId !== undefined ? `?sportId=${sportId}` : '';
+  searchLeagueByIdEnApi(idEnApi: number | string, country?: string) {
+    const query = country ? `?country=${encodeURIComponent(country)}` : '';
     return this.http.get<responseLeagueI>(`${this.url}/leagues/by-id-en-api/${idEnApi}${query}`);
   }
   ensureLeagueByName(name: string) { return this.http.post<responseLeagueI>(`${this.url}/leagues/ensure/by-name`, { name }); }
@@ -166,6 +171,17 @@ export class ApiService {
   updateLeague(league: leagueI) { return this.http.put<responseLeagueI>(`${this.url}/leagues/${league.id}`, league); }
   patchLeague(league: leaguePatchI) { return this.http.patch<responseLeagueI>(`${this.url}/leagues/${league.id}`, league); }
   removeLeague(id: number | string) { return this.http.delete<responseLeagueI>(`${this.url}/leagues/${id}`); }
+
+  // Ult Seasons
+  searchUltSeasons() { return this.http.get<ultSeasonCollectionI>(`${this.url}/ult-seasons`); }
+  searchUltSeasonById(id: number | string) { return this.http.get<responseUltSeasonI>(`${this.url}/ult-seasons/${id}`); }
+  postUltSeason(ultSeason: addUltSeasonI) { return this.http.post<responseUltSeasonI>(`${this.url}/ult-seasons`, ultSeason); }
+  updateUltSeason(ultSeason: ultSeasonI) { return this.http.put<responseUltSeasonI>(`${this.url}/ult-seasons/${ultSeason.id}`, ultSeason); }
+  patchUltSeason(ultSeason: ultSeasonPatchI) { return this.http.patch<responseUltSeasonI>(`${this.url}/ult-seasons/${ultSeason.id}`, ultSeason); }
+  removeUltSeason(id: number | string) { return this.http.delete<responseUltSeasonI>(`${this.url}/ult-seasons/${id}`); }
+  syncUltSeasonByLeagueIdEnApi(payload: { leagueIdEnApi: number }) {
+    return this.http.post<any>(`${this.url}/ult-seasons/sync/by-league-id-en-api`, payload);
+  }
 
   // Participants
   searchParticipants() { return this.http.get<participantCollectionI>(`${this.url}/participants`); }
@@ -311,7 +327,7 @@ export class ApiService {
     return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/build`, payload);
   }
 
-  syncLeagueByIdEnApi(payload: { sportId: number; idEnApi: number }) {
+  syncLeagueByIdEnApi(payload: { idEnApi: number; country: string }) {
     return this.http.post<any>(`${this.url}/leagues/sync/by-id-en-api`, payload);
   }
 
@@ -327,17 +343,18 @@ export class ApiService {
     return this.http.post<any>(`${this.url}/real-players/sync/team-squad`, payload);
   }
 
-  postExternalFixtureBuildCompetition(payload: { sportId: number; competitionId: number }) {
+  postExternalFixtureBuildCompetition(payload: { competitionId: number; seasonId: number }) {
     return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/build-competition`, payload);
   }
+
 
 
   postExternalSyncPlayedResults(payload: { competitionId?: number }) {
     return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/sync-played-results`, payload);
   }
 
-  searchExternalRankingsWithLocalPerformances(sportId: number | string, competitionId: number | string) {
-    return this.http.get<any>(`${this.url}/external/sportsapipro/rankings/player-performances?sportId=${sportId}&competitionId=${competitionId}`);
+  searchExternalRankingsWithLocalPerformances(competitionId: number | string) {
+    return this.http.get<any>(`${this.url}/external/sportsapipro/rankings/player-performances?competitionId=${competitionId}`);
   }
 
   postTournamentSumEndOfMatchdayPoints(payload: { leagueId: number; matchdayNumber: number; matchId?: number }) {
