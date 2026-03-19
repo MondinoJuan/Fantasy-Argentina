@@ -263,7 +263,7 @@ function extractPlayersRows(payload: unknown): UnknownRecord[] {
 }
 
 async function syncPlayersForTeam(team: RealTeam) {
-  const payload = await requestSportsApiPro(`/teams/${team.idEnApi}/players`);
+  const payload = await requestSportsApiPro(`/api/teams/${team.idEnApi}/players`);
   const rows = extractPlayersRows(payload);
   let created = 0;
   let updated = 0;

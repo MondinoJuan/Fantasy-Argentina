@@ -452,7 +452,7 @@ async function postSportsApiProBuildCompetitionFixture(req: Request, res: Respon
   }
 
   try {
-    const seasonsPayload = asRecord(await requestSportsApiPro(`/tournaments/${competitionId}/seasons`));
+    const seasonsPayload = asRecord(await requestSportsApiPro(`/api/tournaments/${competitionId}/seasons`));
     const latestSeason = extractLatestSeasonFromTournamentSeasons(seasonsPayload);
     const seasonId = toInt(latestSeason.id);
 
