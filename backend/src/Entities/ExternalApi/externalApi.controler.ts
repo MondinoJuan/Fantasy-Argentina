@@ -446,35 +446,48 @@ async function postSportsApiProFixtureBuild(req: Request, res: Response) {
 
 async function postSportsApiProBuildCompetitionFixture(req: Request, res: Response) {
   const competitionId = Number.parseInt(String(req.body?.competitionId ?? ''), 10);
+  const seasonId = Number.parseInt(String(req.body?.seasonId ?? ''), 10);
 
   if (!Number.isFinite(competitionId)) {
     return res.status(400).json({ message: 'competitionId is required number' });
   }
+  if (!Number.isFinite(seasonId)) {
+    return res.status(400).json({ message: 'seasonId is required number' });
+  }
 
   try {
-    const seasonsPayload = asRecord(await requestSportsApiPro(`/api/tournaments/${competitionId}/seasons`));
-    const latestSeason = extractLatestSeasonFromTournamentSeasons(seasonsPayload);
-    const seasonId = toInt(latestSeason.id);
-
-    if (seasonId === null) {
-      return res.status(500).json({ message: 'Could not resolve latest season id from SportsApiPro' });
+    const roundsPayload = asRecord(await requestSportsApiPro(`/api/tournament/${competitionId}/season/${seasonId}/rounds`));
+    if (roundsPayload.success !== true) {
+      return res.status(502).json({ message: `La API devolvió success=false en rounds. Respuesta: ${JSON.stringify(roundsPayload)}` });
     }
-
-    const roundsPayload = asRecord(await requestSportsApiPro(`/tournament/${competitionId}/season/${seasonId}/rounds`));
     const roundNumbers = extractRoundNumbers(roundsPayload);
-
-    if (roundNumbers.length === 0) {
-      return res.status(500).json({ message: 'Could not resolve round numbers from SportsApiPro' });
-    }
-
     const fixture: UnknownRecord[] = [];
+    const roundsSummary: Array<{ round: number; matchCount: number; matches: UnknownRecord[] }> = [];
 
     for (const roundNumber of roundNumbers) {
       const roundPayload = asRecord(
         await requestSportsApiPro(`/tournament/${competitionId}/season/${seasonId}/round/${roundNumber}`),
       );
-
-      fixture.push(...mapV2RoundEventsToFixture(roundNumber, roundPayload));
+      if (roundPayload.success !== true) {
+        return res.status(502).json({
+          message: `La API devolvió success=false en round=${roundNumber}. Respuesta: ${JSON.stringify(roundPayload)}`,
+        });
+      }
+      const roundFixture = mapV2RoundEventsToFixture(roundNumber, roundPayload);
+      fixture.push(...roundFixture);
+      roundsSummary.push({
+        round: roundNumber,
+        matchCount: roundFixture.length,
+        matches: roundFixture.map((match) => ({
+          id: match.gameId,
+          homeTeam: asRecord(match.home).name,
+          awayTeam: asRecord(match.away).name,
+          homeScore: asRecord(match.home).score,
+          awayScore: asRecord(match.away).score,
+          status: match.statusText,
+          startTimestamp: match.startTime,
+        })),
+      });
     }
 
     const uniqueTeamsCount = new Set(

@@ -72,7 +72,8 @@ POST http://127.0.0.1:3000/api/external/sportsapipro/fixture/build-competition
 Content-Type: application/json
 
 {
-  "competitionId": 155
+  "competitionId": 155,
+  "seasonId": 87913
 }
 
 ### SportsApiPro - rankings mapeados a playerPerformance local

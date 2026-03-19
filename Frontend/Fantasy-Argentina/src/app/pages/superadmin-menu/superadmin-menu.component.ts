@@ -48,6 +48,7 @@ export class SuperadminMenuComponent {
     this.actionForm = this.fb.group({
       sportId: [1, [Validators.required, Validators.min(1)]],
       competitionId: [72, [Validators.required, Validators.min(1)]],
+      seasonId: [0, [Validators.required, Validators.min(1)]],
       leagueId: [1, [Validators.required, Validators.min(1)]],
       leagueIdEnApi: [72, [Validators.required, Validators.min(1)]],
       idEnApi: [72, [Validators.required, Validators.min(1)]],
@@ -126,7 +127,10 @@ export class SuperadminMenuComponent {
         country: String(form.country ?? '').trim(),
       }),
       persistUltSeason: () => this.apiService.syncUltSeasonByLeagueIdEnApi({ leagueIdEnApi: Number(form.leagueIdEnApi) }),
-      persistFixture: () => this.apiService.postExternalFixtureBuildCompetition({ competitionId: Number(form.competitionId) }),
+      persistFixture: () => this.apiService.postExternalFixtureBuildCompetition({
+        competitionId: Number(form.competitionId),
+        seasonId: Number(form.seasonId),
+      }),
       getPersistedFixture: () => this.apiService.searchExternalLocalPersistedFixture({ leagueId: Number(form.leagueId) }),
       getAllUsers: () => this.apiService.searchUsers(),
       getAllSports: () => this.apiService.searchSports(),

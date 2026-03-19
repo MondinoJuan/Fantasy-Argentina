@@ -33,6 +33,7 @@ export type SuperadminAction =
 export type ActionField =
   | 'sportId'
   | 'competitionId'
+  | 'seasonId'
   | 'leagueId'
   | 'leagueIdEnApi'
   | 'idEnApi'
@@ -47,6 +48,7 @@ export type ActionField =
 export const SUPERADMIN_FIELD_LABELS: Record<ActionField, string> = {
   sportId: 'Sport ID',
   competitionId: 'Competition ID',
+  seasonId: 'Season ID en API',
   leagueId: 'League ID local (BDD)',
   leagueIdEnApi: 'League ID en API',
   idEnApi: 'League idEnApi (alta liga)',
@@ -65,7 +67,7 @@ export const SUPERADMIN_ACTION_CONFIG: Record<SuperadminAction, { title: string;
   persistSport: { title: 'Persistir deporte', fields: ['sportId', 'descripcion', 'cupoTitular', 'cupoSuplente'] },
   persistLeague: { title: 'Persistir liga', fields: ['idEnApi', 'country'] },
   persistUltSeason: { title: 'Persistir ultSeason', fields: ['leagueIdEnApi'] },
-  persistFixture: { title: 'Persistir fixture', fields: ['competitionId'] },
+  persistFixture: { title: 'Persistir fixture', fields: ['competitionId', 'seasonId'] },
   getPersistedFixture: { title: 'Ver fixture persistido por League ID', fields: ['leagueId'] },
 
   getAllUsers: { title: 'Get all users', fields: [] },
