@@ -181,6 +181,96 @@ function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
+function toIsoDateFromUnixTimestamp(value: unknown): string | null {
+  const seconds = toInt(value);
+  if (seconds === null) {
+    return null;
+  }
+
+  return new Date(seconds * 1000).toISOString();
+}
+
+function extractLatestSeasonFromTournamentSeasons(payload: UnknownRecord): UnknownRecord {
+  const seasons = asArray(payload.seasons);
+  const latest = seasons.length > 0 ? asRecord(seasons[0]) : {};
+
+  if (Object.keys(latest).length === 0) {
+    throw new Error('No seasons found for tournament in SportsApiPro');
+  }
+
+  return latest;
+}
+
+function extractRoundNumbers(payload: UnknownRecord): number[] {
+  const roundsRaw = asArray(asRecord(payload.data).rounds);
+
+  if (roundsRaw.length === 0) {
+    throw new Error('No pude encontrar el listado de rounds en la respuesta.');
+  }
+
+  const extractRoundFromText = (value: string): number | null => {
+    const match = value.match(/\d+/);
+    if (!match) return null;
+    const parsed = Number.parseInt(match[0], 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const parseRound = (value: unknown): number | null => {
+    if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
+
+    if (typeof value === 'string') {
+      const normalized = value.trim();
+      if (normalized.length === 0) return null;
+      if (/^\d+$/.test(normalized)) return Number.parseInt(normalized, 10);
+      return extractRoundFromText(normalized);
+    }
+
+    if (typeof value === 'object' && value !== null) {
+      const node = asRecord(value);
+      for (const key of ['round', 'number', 'value', 'name']) {
+        const parsed = parseRound(node[key]);
+        if (parsed !== null) return parsed;
+      }
+    }
+
+    return null;
+  };
+
+  const rounds = roundsRaw
+    .map((item) => parseRound(item))
+    .filter((round): round is number => round !== null && round > 0);
+
+  const unique = [...new Set(rounds)].sort((a, b) => a - b);
+  if (unique.length === 0) {
+    throw new Error('No pude parsear ningún round válido desde la respuesta.');
+  }
+
+  return unique;
+}
+
+function mapV2RoundEventsToFixture(roundNumber: number, payload: UnknownRecord): UnknownRecord[] {
+  const events = asArray(payload.events);
+
+  return events.map((eventNode) => {
+    const event = asRecord(eventNode);
+
+    return {
+      gameId: event.id,
+      roundNum: roundNumber,
+      statusText: event.status,
+      startTime: toIsoDateFromUnixTimestamp(event.startTimestamp),
+      home: {
+        name: event.homeTeam,
+        score: event.homeScore,
+      },
+      away: {
+        name: event.awayTeam,
+        score: event.awayScore,
+      },
+    } satisfies UnknownRecord;
+  });
+}
+
 function toNormalizedRanking(value: unknown): number {
   const parsed = typeof value === 'number'
     ? value
@@ -195,97 +285,25 @@ function toNormalizedRanking(value: unknown): number {
   return parsed;
 }
 
-function collectLineupLikeNodes(value: unknown): UnknownRecord[] {
-  const out: UnknownRecord[] = [];
-
-  const walk = (node: unknown) => {
-    if (Array.isArray(node)) {
-      for (const child of node) {
-        walk(child);
-      }
-      return;
-    }
-
-    if (!node || typeof node !== 'object') {
-      return;
-    }
-
-    const record = node as UnknownRecord;
-    if (Array.isArray(record.members) && ('formation' in record || 'hasFieldPositions' in record || 'status' in record)) {
-      out.push(record);
-    }
-
-    for (const nested of Object.values(record)) {
-      walk(nested);
-    }
-  };
-
-  walk(value);
-  return out;
-}
-
-function collectPlayerCatalogNodes(value: unknown): UnknownRecord[] {
-  const out: UnknownRecord[] = [];
-
-  const walk = (node: unknown) => {
-    if (Array.isArray(node)) {
-      for (const child of node) {
-        walk(child);
-      }
-      return;
-    }
-
-    if (!node || typeof node !== 'object') {
-      return;
-    }
-
-    const record = node as UnknownRecord;
-
-    const id = toInt(record.id);
-    const athleteId = toInt(record.athleteId);
-    if (id !== null && athleteId !== null) {
-      out.push(record);
-    }
-
-    for (const nested of Object.values(record)) {
-      walk(nested);
-    }
-  };
-
-  walk(value);
-  return out;
-}
-
-function extractAthleteRankingRowsFromGamePayload(payload: UnknownRecord): Array<{ athleteId: number; ranking: number }> {
-  const playerCatalog = collectPlayerCatalogNodes(payload);
-  const athleteIdByPlayerId = new Map<number, number>();
-
-  for (const player of playerCatalog) {
-    const playerId = toInt(player.id);
-    const athleteId = toInt(player.athleteId);
-
-    if (playerId === null || athleteId === null) {
-      continue;
-    }
-
-    athleteIdByPlayerId.set(playerId, athleteId);
-  }
-
+function extractAthleteRankingRowsFromLineupsPayload(payload: UnknownRecord): Array<{ athleteId: number; ranking: number }> {
   const rankingByAthleteId = new Map<number, number>();
-  const lineupNodes = collectLineupLikeNodes(payload);
+  const data = asRecord(payload.data);
 
-  for (const lineup of lineupNodes) {
-    for (const memberUnknown of asArray(lineup.members)) {
-      const member = asRecord(memberUnknown);
-      const memberId = toInt(member.id);
-      const athleteFromMember = toInt(member.athleteId);
-      const athleteId = athleteFromMember ?? (memberId !== null ? athleteIdByPlayerId.get(memberId) ?? null : null);
+  for (const sideKey of ['home', 'away']) {
+    const side = asRecord(data[sideKey]);
+    const players = asArray(side.players);
 
+    for (const itemNode of players) {
+      const item = asRecord(itemNode);
+      const player = asRecord(item.player);
+      const statistics = asRecord(item.statistics);
+
+      const athleteId = toInt(player.id);
       if (athleteId === null) {
         continue;
       }
 
-      rankingByAthleteId.set(athleteId, toNormalizedRanking(member.ranking));
+      rankingByAthleteId.set(athleteId, toNormalizedRanking(statistics.rating));
     }
   }
 
@@ -458,61 +476,76 @@ async function postSportsApiProFixtureBuild(req: Request, res: Response) {
 
 
 async function postSportsApiProBuildCompetitionFixture(req: Request, res: Response) {
-  const sportId = Number.parseInt(String(req.body?.sportId ?? ''), 10);
   const competitionId = Number.parseInt(String(req.body?.competitionId ?? ''), 10);
+  const seasonId = Number.parseInt(String(req.body?.seasonId ?? ''), 10);
 
-  if (!Number.isFinite(sportId) || !Number.isFinite(competitionId)) {
-    return res.status(400).json({ message: 'sportId and competitionId are required numbers' });
+  if (!Number.isFinite(competitionId)) {
+    return res.status(400).json({ message: 'competitionId is required number' });
+  }
+  if (!Number.isFinite(seasonId)) {
+    return res.status(400).json({ message: 'seasonId is required number' });
   }
 
   try {
-    const competitionData = await getCompetitionTeamsBySportAndCompetitionService(sportId, competitionId);
-    const fixtureRefs = await collectFixtureEventRefsFromTeamsService({
-      competitionId,
-      seasonNum: competitionData.seasonNum ?? new Date().getUTCFullYear(),
-      stageNum: competitionData.stageNum ?? 1,
-      teams: competitionData.teams.map((team) => ({ id: team.id, name: team.name ?? undefined })),
-    });
+    const roundsPayload = asRecord(await requestSportsApiPro(`/tournament/${competitionId}/season/${seasonId}/rounds`));
+    if (roundsPayload.success !== true) {
+      return res.status(502).json({ message: `La API devolvió success=false en rounds. Respuesta: ${JSON.stringify(roundsPayload)}` });
+    }
+    const roundNumbers = extractRoundNumbers(roundsPayload);
+    const fixture: UnknownRecord[] = [];
+    const roundsSummary: Array<{ round: number; matchCount: number; matches: UnknownRecord[] }> = [];
 
-    // Evitamos llamar /game por cada evento: usamos directamente lo recolectado en /games/fixtures y /games/results.
-    const fixture = fixtureRefs.eventRefs.map((eventRef) => ({
-      gameId: eventRef.gameId,
-      matchupId: `${eventRef.homeCompetitorId ?? 'na'}-${eventRef.awayCompetitorId ?? 'na'}-${eventRef.competitionId}`,
-      competitionId: eventRef.competitionId,
-      seasonNum: eventRef.seasonNum,
-      stageNum: eventRef.stageNum,
-      roundNum: eventRef.roundNum,
-      statusGroup: eventRef.statusGroup,
-      statusText: eventRef.statusText,
-      startTime: eventRef.startTime,
-      home: {
-        id: eventRef.homeCompetitorId,
-        name: eventRef.homeCompetitorName,
-        score: eventRef.homeCompetitorScore,
-      },
-      away: {
-        id: eventRef.awayCompetitorId,
-        name: eventRef.awayCompetitorName,
-        score: eventRef.awayCompetitorScore,
-      },
-      result: eventRef.homeCompetitorScore !== null && eventRef.awayCompetitorScore !== null
-        ? `${eventRef.homeCompetitorScore}-${eventRef.awayCompetitorScore}`
-        : null,
-      source: eventRef.source,
-    }));
+    for (const roundNumber of roundNumbers) {
+      const roundPayload = asRecord(
+        await requestSportsApiPro(`/tournament/${competitionId}/season/${seasonId}/round/${roundNumber}`),
+      );
+      if (roundPayload.success !== true) {
+        return res.status(502).json({
+          message: `La API devolvió success=false en round=${roundNumber}. Respuesta: ${JSON.stringify(roundPayload)}`,
+        });
+      }
+      const roundFixture = mapV2RoundEventsToFixture(roundNumber, roundPayload);
+      fixture.push(...roundFixture);
+      roundsSummary.push({
+        round: roundNumber,
+        matchCount: roundFixture.length,
+        matches: roundFixture.map((match) => ({
+          id: match.gameId,
+          homeTeam: asRecord(match.home).name,
+          awayTeam: asRecord(match.away).name,
+          homeScore: asRecord(match.home).score,
+          awayScore: asRecord(match.away).score,
+          status: match.statusText,
+          startTimestamp: match.startTime,
+        })),
+      });
+    }
+
+    const uniqueTeamsCount = new Set(
+      fixture.flatMap((match) => {
+        const homeTeam = String(asRecord(match.home).name ?? '').trim();
+        const awayTeam = String(asRecord(match.away).name ?? '').trim();
+        return [homeTeam, awayTeam].filter((team) => team.length > 0);
+      }),
+    ).size;
 
     const persistStats = await persistFixtureCompetitionInDb(
       competitionId,
-      competitionData.seasonNum ?? new Date().getUTCFullYear(),
-      fixture as UnknownRecord[],
-      competitionData.teams.length,
+      seasonId,
+      fixture,
+      uniqueTeamsCount,
     );
 
-    const data = { totalEvents: fixture.length, fixture };
+    const data = {
+      tournamentId: competitionId,
+      seasonId,
+      totalRounds: roundsSummary.length,
+      rounds: roundsSummary,
+    };
+
     return res.status(200).json({
       message: 'sportsapipro competition fixture built and persisted',
       data,
-      fixtureStats: fixtureRefs.stats,
       persistStats,
     });
   } catch (error: any) {
@@ -614,7 +647,7 @@ async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Respo
         continue;
       }
       try {
-        // 1 request por partido: usamos solo el gameId guardado en la BD local.
+        // 2 requests por partido: /game para marcador y /match/{id}/lineups para ratings por jugador.
         const gamePayload = (await requestSportsApiPro('/game', { gameId })) as UnknownRecord;
         const game = asRecord(gamePayload.game);
         const home = asRecord(game.homeCompetitor);
@@ -633,7 +666,8 @@ async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Respo
         match.awayScore = awayScore;
         match.status = 'finalizado';
 
-        const rankingRows = extractAthleteRankingRowsFromGamePayload(gamePayload);
+        const lineupsPayload = asRecord(await requestSportsApiPro(`/match/${gameId}/lineups`));
+        const rankingRows = extractAthleteRankingRowsFromLineupsPayload(lineupsPayload);
         processedAthleteRankings += rankingRows.length;
 
         for (const row of rankingRows) {

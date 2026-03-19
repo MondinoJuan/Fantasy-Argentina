@@ -219,13 +219,11 @@ async function ensureLeagueAndSportPersistence(sportId: number, competitionId: n
       name: competitionData.competitionName ?? `Competition ${competitionId}`,
       country: competitionData.countryName ?? 'Unknown',
       sport: sportName ?? `sport-${sportId}`,
-      seasonNum: competitionData.seasonNum,
     } as any);
   } else {
     league.name = competitionData.competitionName ?? league.name;
     league.country = competitionData.countryName ?? league.country;
     league.sport = sportName ?? league.sport;
-    league.seasonNum = competitionData.seasonNum;
   }
 
   for (const team of competitionData.teams) {
