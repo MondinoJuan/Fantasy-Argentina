@@ -487,7 +487,7 @@ async function postSportsApiProBuildCompetitionFixture(req: Request, res: Respon
   }
 
   try {
-    const roundsPayload = asRecord(await requestSportsApiPro(`/tournament/${competitionId}/season/${seasonId}/rounds`));
+    const roundsPayload = asRecord(await requestSportsApiPro(`/api/tournament/${competitionId}/season/${seasonId}/rounds`));
     if (roundsPayload.success !== true) {
       return res.status(502).json({ message: `La API devolvió success=false en rounds. Respuesta: ${JSON.stringify(roundsPayload)}` });
     }
@@ -497,7 +497,7 @@ async function postSportsApiProBuildCompetitionFixture(req: Request, res: Respon
 
     for (const roundNumber of roundNumbers) {
       const roundPayload = asRecord(
-        await requestSportsApiPro(`/tournament/${competitionId}/season/${seasonId}/round/${roundNumber}`),
+        await requestSportsApiPro(`/api/tournament/${competitionId}/season/${seasonId}/round/${roundNumber}`),
       );
       if (roundPayload.success !== true) {
         return res.status(502).json({
@@ -648,7 +648,7 @@ async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Respo
       }
       try {
         // 2 requests por partido: /game para marcador y /match/{id}/lineups para ratings por jugador.
-        const gamePayload = (await requestSportsApiPro('/game', { gameId })) as UnknownRecord;
+        const gamePayload = (await requestSportsApiPro('/api/game', { gameId })) as UnknownRecord;
         const game = asRecord(gamePayload.game);
         const home = asRecord(game.homeCompetitor);
         const away = asRecord(game.awayCompetitor);
@@ -666,7 +666,7 @@ async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Respo
         match.awayScore = awayScore;
         match.status = 'finalizado';
 
-        const lineupsPayload = asRecord(await requestSportsApiPro(`/match/${gameId}/lineups`));
+        const lineupsPayload = asRecord(await requestSportsApiPro(`/api/match/${gameId}/lineups`));
         const rankingRows = extractAthleteRankingRowsFromLineupsPayload(lineupsPayload);
         processedAthleteRankings += rankingRows.length;
 
@@ -754,7 +754,7 @@ async function getSportsApiProRankingsWithLocalPerformances(req: Request, res: R
       }
 
       try {
-        const payload = asRecord(await requestSportsApiPro(`/match/${apiMatchId}/lineups`));
+        const payload = asRecord(await requestSportsApiPro(`/api/match/${apiMatchId}/lineups`));
         if (payload.success !== true) {
           errors.push({ matchId: apiMatchId, message: 'lineups success=false' });
           continue;
