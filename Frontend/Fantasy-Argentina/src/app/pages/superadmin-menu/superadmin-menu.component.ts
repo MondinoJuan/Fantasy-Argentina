@@ -26,7 +26,7 @@ export class SuperadminMenuComponent {
   readonly fieldLabels = SUPERADMIN_FIELD_LABELS;
 
   readonly persistenceActions: SuperadminAction[] = [
-    'persistPlayers', 'persistTeams', 'persistSport', 'persistLeague', 'persistFixture',
+    'persistPlayers', 'persistTeams', 'persistSport', 'persistLeague', 'persistUltSeason', 'persistFixture',
   ];
 
   readonly getAllActions: SuperadminAction[] = [
@@ -48,9 +48,11 @@ export class SuperadminMenuComponent {
     this.actionForm = this.fb.group({
       sportId: [1, [Validators.required, Validators.min(1)]],
       competitionId: [72, [Validators.required, Validators.min(1)]],
+      seasonId: [0, [Validators.required, Validators.min(1)]],
       leagueId: [1, [Validators.required, Validators.min(1)]],
       leagueIdEnApi: [72, [Validators.required, Validators.min(1)]],
       idEnApi: [72, [Validators.required, Validators.min(1)]],
+      country: ['argentina', Validators.required],
       descripcion: ['Football', Validators.required],
       cupoTitular: [11, [Validators.required, Validators.min(1)]],
       cupoSuplente: [5, [Validators.required, Validators.min(0)]],
@@ -120,8 +122,15 @@ export class SuperadminMenuComponent {
         cupoTitular: Number(form.cupoTitular),
         cupoSuplente: Number(form.cupoSuplente),
       }),
-      persistLeague: () => this.apiService.syncLeagueByIdEnApi({ sportId: Number(form.sportId), idEnApi: Number(form.idEnApi) }),
-      persistFixture: () => this.apiService.postExternalFixtureBuildCompetition({ sportId: Number(form.sportId), competitionId: Number(form.competitionId) }),
+      persistLeague: () => this.apiService.syncLeagueByIdEnApi({
+        idEnApi: Number(form.idEnApi),
+        country: String(form.country ?? '').trim(),
+      }),
+      persistUltSeason: () => this.apiService.syncUltSeasonByLeagueIdEnApi({ leagueIdEnApi: Number(form.leagueIdEnApi) }),
+      persistFixture: () => this.apiService.postExternalFixtureBuildCompetition({
+        competitionId: Number(form.competitionId),
+        seasonId: Number(form.seasonId),
+      }),
       getPersistedFixture: () => this.apiService.searchExternalLocalPersistedFixture({ leagueId: Number(form.leagueId) }),
       getAllUsers: () => this.apiService.searchUsers(),
       getAllSports: () => this.apiService.searchSports(),
@@ -171,7 +180,7 @@ export class SuperadminMenuComponent {
           };
         }),
       ),
-      rankingsByDate: () => this.apiService.searchExternalRankingsWithLocalPerformances(Number(form.sportId), Number(form.competitionId)),
+      rankingsByDate: () => this.apiService.searchExternalRankingsWithLocalPerformances(Number(form.competitionId)),
       updateTeamSquad: () => this.apiService.syncTeamSquadByTeamIdEnApi({ teamIdEnApi: Number(form.teamIdEnApi) }),
       syncPlayedMatchResults: () => this.apiService.postExternalSyncPlayedResults({ competitionId: Number(form.competitionId) }),
       sumEndOfMatchdayPoints: () => this.apiService.postTournamentSumEndOfMatchdayPoints({
