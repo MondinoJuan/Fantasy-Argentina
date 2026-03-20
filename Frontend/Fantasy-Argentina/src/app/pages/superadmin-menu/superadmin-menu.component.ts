@@ -37,7 +37,7 @@ export class SuperadminMenuComponent {
   ];
 
   readonly updateActions: SuperadminAction[] = [
-    'rankingsByDate', 'updateTeamSquad', 'syncPlayedMatchResults', 'sumEndOfMatchdayPoints', 'settleMarketByLeague',
+    'rankingsByDate', 'updateTeamSquad', 'syncPlayedMatchResults', 'sumEndOfMatchdayPoints', 'settleMarketByLeague', 'translateRealPlayerPrices',
   ];
 
   constructor(
@@ -59,6 +59,8 @@ export class SuperadminMenuComponent {
       teamIdEnApi: [0, [Validators.min(1)]],
       matchdayNumber: [1, [Validators.required, Validators.min(1)]],
       matchId: [null],
+      limiteMin: [500000, [Validators.required]],
+      limiteMax: [15000000, [Validators.required]],
     });
   }
 
@@ -189,6 +191,9 @@ export class SuperadminMenuComponent {
         matchId: Number(form.matchId) > 0 ? Number(form.matchId) : undefined,
       }),
       settleMarketByLeague: () => this.apiService.postTournamentSettleMarketAndRefreshByLeague({ leagueId: Number(form.leagueId) }),
+      translateRealPlayerPrices: () => this.apiService.postRealPlayerTranslatePricesByLeague({
+        leagueId: Number(form.leagueId),
+      }),
     };
 
     requests[this.currentAction]().pipe(finalize(() => this.isLoading = false)).subscribe({

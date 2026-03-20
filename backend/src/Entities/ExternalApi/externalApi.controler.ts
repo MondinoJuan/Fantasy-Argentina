@@ -5,6 +5,8 @@ import { Matchday } from '../Matchday/matchday.entity.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
 import { Match } from '../Match/match.entity.js';
 import { League } from '../League/league.entity.js';
+import { Tournament } from '../Tournament/tournament.entity.js';
+import { RealTeam } from '../RealTeam/realTeam.entity.js';
 import { MATCHDAY_STATUSES, MATCH_STATUSES, isEnumValue } from '../../shared/domain-enums.js';
 import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
 import {
@@ -765,6 +767,116 @@ async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Respo
   }
 }
 
+
+function computeWeightedFormScore(values: number[]): number {
+  const weights = [0.5, 0.3, 0.2, 0.1, 0.05];
+  const limited = values.slice(0, 5);
+  const appliedWeights = weights.slice(0, limited.length);
+  const weightSum = appliedWeights.reduce((acc, item) => acc + item, 0);
+
+  if (limited.length === 0 || weightSum <= 0) {
+    return 0;
+  }
+
+  const weighted = limited.reduce((acc, value, index) => acc + (value * appliedWeights[index]), 0);
+  return weighted / weightSum;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+async function updateRealPlayerTranslatedValuesByLatestFormForCompetition(competitionId: number) {
+  const league = await em.findOne(League, { idEnApi: competitionId });
+  if (!league) {
+    return { skipped: true, reason: 'league not found locally' };
+  }
+
+  const tournament = await em.findOne(Tournament, { league: { id: league.id } } as any, { orderBy: { id: 'desc' } as any });
+  if (!tournament || typeof tournament.limiteMin !== 'number' || typeof tournament.limiteMax !== 'number') {
+    return { skipped: true, reason: 'tournament with limits not found for league', leagueId: league.id };
+  }
+
+  const limiteMin = Number(tournament.limiteMin);
+  const limiteMax = Number(tournament.limiteMax);
+  const range = limiteMax - limiteMin;
+
+  if (!Number.isFinite(range) || range <= 0) {
+    return { skipped: true, reason: 'invalid tournament limits', limiteMin, limiteMax, tournamentId: tournament.id };
+  }
+
+  const teams = await em.find(RealTeam, { league: { id: league.id } } as any, { fields: ['id'] as any });
+  const teamIds = teams.map((team: any) => Number(team.id)).filter((id) => Number.isFinite(id));
+
+  if (teamIds.length === 0) {
+    return { skipped: true, reason: 'no real teams in league', leagueId: league.id };
+  }
+
+  const players = await em.find(RealPlayer, { realTeam: { $in: teamIds } } as any);
+  let updatedPlayers = 0;
+
+  for (const player of players) {
+    const performances = await em.find(
+      PlayerPerformance,
+      { realPlayer: player, league: { id: league.id } } as any,
+      { orderBy: { updateDate: 'desc' } as any, limit: 5 },
+    );
+
+    const recentScores = performances
+      .map((item) => Number(item.pointsObtained))
+      .filter((score) => Number.isFinite(score));
+
+    if (recentScores.length === 0) {
+      continue;
+    }
+
+    const scoreForm = computeWeightedFormScore(recentScores);
+    const valorTradActual = typeof player.translatedValue === 'number' && Number.isFinite(player.translatedValue)
+      ? Number(player.translatedValue)
+      : limiteMin;
+
+    const pRaw = (valorTradActual - limiteMin) / range;
+    const p = clamp(Number.isFinite(pRaw) ? pRaw : 0, 0, 1);
+
+    const notaEsperada = 0 + (p * (10 - 0));
+    const desvio = scoreForm - notaEsperada;
+
+    if (desvio === 0) {
+      player.translatedValue = clamp(valorTradActual, limiteMin, limiteMax);
+      updatedPlayers += 1;
+      continue;
+    }
+
+    const factorSubida = 1 - p;
+    const factorBajada = p;
+    const k = 0.05;
+    const ajuste = k * desvio;
+
+    let nuevoValor = valorTradActual;
+
+    if (scoreForm > 6) {
+      nuevoValor = valorTradActual + (ajuste * factorSubida * valorTradActual);
+    } else if (scoreForm < 6) {
+      nuevoValor = valorTradActual + (ajuste * factorBajada * valorTradActual);
+    }
+
+    player.translatedValue = clamp(nuevoValor, limiteMin, limiteMax);
+    updatedPlayers += 1;
+  }
+
+  await em.flush();
+
+  return {
+    skipped: false,
+    leagueId: league.id,
+    tournamentId: tournament.id,
+    limiteMin,
+    limiteMax,
+    playersInLeague: players.length,
+    updatedPlayers,
+  };
+}
+
 async function getSportsApiProRankingsWithLocalPerformances(req: Request, res: Response) {
   const competitionId = parseRequiredNumber(req.query.competitionId as string | undefined);
 
@@ -867,6 +979,7 @@ async function getSportsApiProRankingsWithLocalPerformances(req: Request, res: R
     }
 
     await em.flush();
+    const translatedValuesUpdate = await updateRealPlayerTranslatedValuesByLatestFormForCompetition(competitionId);
 
     return res.status(200).json({
       message: 'rankings persisted for finalized matches',
@@ -881,6 +994,7 @@ async function getSportsApiProRankingsWithLocalPerformances(req: Request, res: R
         missingLocalPlayers,
         errors,
       },
+      translatedValuesUpdate,
     });
   } catch (error: any) {
     return res.status(500).json({ message: error.message });

@@ -26,6 +26,9 @@ export class RealPlayer extends BaseEntity {
   @Property({ type: 'float', nullable: true })
   value?: number | null = null;
 
+  @Property({ type: 'float', nullable: true })
+  translatedValue?: number | null = null;
+
   @Property({ nullable: false, default: true })
   active: boolean = true;
 
