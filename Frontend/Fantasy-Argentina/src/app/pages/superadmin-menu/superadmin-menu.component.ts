@@ -181,7 +181,7 @@ export class SuperadminMenuComponent {
         }),
       ),
       rankingsByDate: () => this.apiService.searchExternalRankingsWithLocalPerformances(Number(form.competitionId)),
-      updateTeamSquad: () => this.apiService.syncTeamSquadByTeamIdEnApi({ teamIdEnApi: Number(form.teamIdEnApi) }),
+      updateTeamSquad: () => this.apiService.syncPlayersByLeagueIdEnApi({ leagueId: Number(form.leagueId) }),
       syncPlayedMatchResults: () => this.apiService.postExternalSyncPlayedResults({ competitionId: Number(form.competitionId) }),
       sumEndOfMatchdayPoints: () => this.apiService.postTournamentSumEndOfMatchdayPoints({
         leagueId: Number(form.leagueId),
