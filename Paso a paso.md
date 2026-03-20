@@ -43,6 +43,57 @@ Debe poder seleccionarse la fecha y ver un ranking ordenado tambien de manera de
 - Implementar las negotiations.
 - Implementar las clausulas. Debo poder clickear las cards de mis jugadores.
 - Implementar la fechaHora de finalizacion de las pujas y que se le otorgue el realPlayer al participant. Incluido el manejo de pujas perdidas (que se eliminen luego de devolver la plata).
+- Agregar que al persistir realPlayers, si el value es 'null', coloque valueCurrency = 'EUR' y value = 2000000.
+- Agregarle una columna a RealPlayer que seria precioTraducido que depende de la league, no porque la league tenga una regla de negocio, sino porque depende del value del RealPlayer más barato y del más caro de una league.
+- El valor de un jugador no debería ajustarse de manera lineal, sino según qué tan cerca esté de sus límites.
+
+Si un jugador ya tiene un valor muy alto, como Aníbal Moreno en el ejemplo, significa que su precio está cerca del techo permitido. En ese caso, para sostenerse en ese valor debería rendir de forma casi perfecta de manera constante. Si empieza a encadenar partidos con puntajes muy bajos, su precio debería caer con fuerza. Si sus puntajes bajan pero siguen siendo aceptables, como varios 7 u 8, la caída debería existir, pero ser más moderada.
+
+En cambio, si un jugador ya tiene un valor muy bajo, significa que su precio está cerca del piso permitido. Para mantenerse en ese mínimo debería seguir teniendo rendimientos muy malos de forma sostenida. Si empieza a sacar buenas puntuaciones, su valor debería recuperarse. Y si encadena varios partidos buenos, el aumento tendría que ser importante, porque estaba subvaluado respecto de su rendimiento reciente.
+
+En resumen, la lógica sería que los jugadores cercanos al máximo sean más sensibles a una racha negativa, y los jugadores cercanos al mínimo sean más sensibles a una racha positiva.
+
+Para hacer una traducción del precio inicial de cada RealPlayer de una league:
+
+	valueReal_MinDeLeague --------------- limiteMin 
+	valueReal_MaxDeLeague --------------- limiteMax 
+	valueReal_dePlayer ----------------- X?
+
+	X = limiteMin + ((( valueReal_MaxDeLeague − valueReal_MinDeLeague ) / ( valueReal_dePlayer − valueReal_MinDeLeague )​) * (limiteMax − limiteMin ))
+
+Para hacer las correcciones en base al ultimo puntaje que obtuvo la ultima fecha:
+
+	1- Definir una nota esperada dependiendo del valor del jugador:
+        Se normaliza la posicion del jugador dentro del rango de precios:
+            p = ( valueTradActual − limiteMin ) / ( limiteMax − limiteMin )
+
+        Se decfine una nota esperada en funcion de esa posicion:
+            notaMinEsperada = 0
+            notaMaxEsperada = 10
+            notaEsperada = notaMinEsperada + p * ( notaMaxEsperada − notaMinEsperada )
+
+	2- desvio = puntaje - notaEsperada
+		* Si desvío < 0, baja el percio.
+		* Si desvío > 0, sube el precio.
+		* Si desvío = 0, queda igual.
+
+	3- Medir dónde está parado el value del realPlayer dentro del rango, se normaliza entre 0 y 1:
+		p = (valueTradActual - limiteMin) / (limiteMax - limiteMin)
+			* Si p aprox 0 -> está cerca del mínimo
+			* Si p aprox 1 -> está cerca del máximo
+
+	4- Realizar una corrección asimétrica, por ejemplo si debe subir y está cerca del mínimo, debe hacerlo en mayor medida a que si está cerca del máximo.
+		factorSubida = (1-p)
+		factorBajada = p
+
+	5- Función de corrección:
+		ajuste = k * desvío; k es una constante chica (0,03 ; 0,05)
+
+		* Si puntaje > 6: nuevoValor = valorTradActual + ajuste * factorSubida * valorTradActual
+		* Si puntaje < 6: nuevoValor = valorTradActual + ajuste * factorBajada * valorTradActual
+
+Si quiero hacerlo en base a los ultimos partidos, no en base al ultimo, debo usar un promedio ponderado de los ultimos y utilizar dicho promedio en vez de, puntaje:
+    scoreForm = 0.5 * notaultimo​ + 0.3 * notapenultimo ​+ 0.2 * notaantepenultimo​
 
 ## Futuro
 * Si un realPlayer es elegido como capitán por un Participant, que los puntos que le sume al mismo al final de una fecha sea x3.
