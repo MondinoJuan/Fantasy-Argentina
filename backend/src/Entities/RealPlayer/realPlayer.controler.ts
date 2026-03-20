@@ -442,8 +442,10 @@ async function translatePricesByLeague(req: Request, res: Response) {
         continue;
       }
 
-      const translated = limiteMin + (((valueReal_MaxDeLeague - valueReal_MinDeLeague) / (valueReal_dePlayer - valueReal_MinDeLeague)) * (limiteMax - limiteMin));
-      player.translatedValue = Number.isFinite(translated) ? translated : limiteMin;
+      const normalized = (valueReal_dePlayer - valueReal_MinDeLeague) / (valueReal_MaxDeLeague - valueReal_MinDeLeague);
+      const translated = limiteMin + (normalized * (limiteMax - limiteMin));
+      const clamped = Math.max(limiteMin, Math.min(limiteMax, translated));
+      player.translatedValue = Number.isFinite(clamped) ? clamped : limiteMin;
       updated += 1;
     }
 
