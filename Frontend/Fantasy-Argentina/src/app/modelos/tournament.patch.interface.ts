@@ -7,6 +7,8 @@ export interface tournamentPatchI {
   creationDate?: Date;
   initialBudget?: number;
   squadSize?: number;
+  limiteMin?: number;
+  limiteMax?: number;
   status?: TournamentStatus;
   clauseEnableDate?: Date;
 }

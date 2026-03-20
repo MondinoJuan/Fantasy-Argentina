@@ -343,6 +343,10 @@ export class ApiService {
     return this.http.post<any>(`${this.url}/real-players/sync/team-squad`, payload);
   }
 
+  postRealPlayerTranslatePricesByLeague(payload: { leagueId: number }) {
+    return this.http.post<any>(`${this.url}/real-players/translate-prices-by-league`, payload);
+  }
+
   postExternalFixtureBuildCompetition(payload: { competitionId: number; seasonId: number }) {
     return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/build-competition`, payload);
   }
