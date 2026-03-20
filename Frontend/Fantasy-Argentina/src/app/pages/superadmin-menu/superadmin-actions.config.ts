@@ -90,7 +90,7 @@ export const SUPERADMIN_ACTION_CONFIG: Record<SuperadminAction, { title: string;
   getLeaguesTournamentCounts: { title: 'Leagues persistidas + cantidad de tournaments', fields: [] },
 
   rankingsByDate: { title: 'Recuperar rankings por jugador/fecha', fields: ['competitionId'] },
-  updateTeamSquad: { title: 'Actualizar plantilla de equipo', fields: ['teamIdEnApi'] },
+  updateTeamSquad: { title: 'Actualizar plantilla de equipos por League ID', fields: ['leagueId'] },
   syncPlayedMatchResults: { title: 'Actualizar resultados jugados', fields: ['competitionId'] },
   sumEndOfMatchdayPoints: { title: 'Suma puntos de fin de fecha', fields: ['leagueId', 'matchdayNumber', 'matchId'] },
   settleMarketByLeague: { title: 'Cerrar pujas y renovar market por league', fields: ['leagueId'] },
