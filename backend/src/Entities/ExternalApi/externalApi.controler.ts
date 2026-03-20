@@ -49,6 +49,62 @@ function toNullableScore(value: unknown): number | null {
   return parsed;
 }
 
+function toNullableDateFromIsoOrUnix(value: unknown): Date | null {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  const unix = toInt(value);
+  if (unix !== null) {
+    const fromUnix = new Date(unix * 1000);
+    if (!Number.isNaN(fromUnix.getTime())) {
+      return fromUnix;
+    }
+  }
+
+  return null;
+}
+
+function normalizeMatchStatusFromApi(statusTypeRaw: unknown, hasValidScore: boolean): typeof MATCH_STATUSES[number] {
+  if (hasValidScore) {
+    return 'finalizado';
+  }
+
+  const statusType = typeof statusTypeRaw === 'string' ? statusTypeRaw.trim().toLowerCase() : '';
+  if (!statusType) {
+    return 'scheduled';
+  }
+
+  if (statusType.includes('finish') || statusType.includes('end')) {
+    return 'finalizado';
+  }
+  if (statusType.includes('progress') || statusType.includes('live') || statusType.includes('half')) {
+    return 'in_progress';
+  }
+  if (statusType.includes('postpon')) {
+    return 'postponed';
+  }
+  if (statusType.includes('cancel')) {
+    return 'cancelled';
+  }
+
+  return 'scheduled';
+}
+
+function extractMatchNodeFromMatchPayload(payload: UnknownRecord): UnknownRecord {
+  const direct = asRecord(payload.match);
+  if (Object.keys(direct).length > 0) {
+    return direct;
+  }
+
+  const data = asRecord(payload.data);
+  const eventNode = asRecord(data.event);
+  return eventNode;
+}
+
 function groupFixtureByRound(fixture: UnknownRecord[]): Array<{ roundNum: number; games: UnknownRecord[] }> {
   const byRound = new Map<number, UnknownRecord[]>();
 
@@ -625,75 +681,66 @@ async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Respo
     const where = competitionId
       ? {
         startDateTime: { $lt: now },
+        status: { $ne: 'finalizado' },
         matchday: { league: { idEnApi: competitionId } },
       }
-      : { startDateTime: { $lt: now } };
+      : {
+        startDateTime: { $lt: now },
+        status: { $ne: 'finalizado' },
+      };
 
     const matches = await em.find(Match, where as any, { populate: ['matchday', 'matchday.league'] });
 
     let updated = 0;
-    let skippedWithoutScore = 0;
-    let createdPerformances = 0;
-    let updatedPerformances = 0;
-    let missingLocalPlayers = 0;
-    let processedAthleteRankings = 0;
+    let missingPayloadData = 0;
     const errors: Array<{ gameId: string; message: string }> = [];
 
     for (const match of matches) {
       const gameId = Number.parseInt(String(match.externalApiId ?? ''), 10);
 
       if (!Number.isFinite(gameId)) {
-        skippedWithoutScore += 1;
+        missingPayloadData += 1;
         continue;
       }
       try {
-        // 2 requests por partido: /game para marcador y /match/{id}/lineups para ratings por jugador.
-        const gamePayload = (await requestSportsApiPro('/api/game', { gameId })) as UnknownRecord;
-        const game = asRecord(gamePayload.game);
-        const home = asRecord(game.homeCompetitor);
-        const away = asRecord(game.awayCompetitor);
+        const apiPayload = asRecord(await requestSportsApiPro(`/api/match/${gameId}`));
+        const apiMatch = extractMatchNodeFromMatchPayload(apiPayload);
 
-        const homeScore = toNullableScore(home.score);
-        const awayScore = toNullableScore(away.score);
-
-        if (homeScore === null || awayScore === null) {
-          match.status = 'scheduled';
-          skippedWithoutScore += 1;
+        if (Object.keys(apiMatch).length === 0) {
+          missingPayloadData += 1;
           continue;
+        }
+
+        const homeTeam = asRecord(apiMatch.homeTeam);
+        const awayTeam = asRecord(apiMatch.awayTeam);
+        const homeScoreNode = asRecord(apiMatch.homeScore);
+        const awayScoreNode = asRecord(apiMatch.awayScore);
+        const statusNode = asRecord(apiMatch.status);
+
+        const homeScore = toNullableScore(homeScoreNode.current ?? homeScoreNode.display ?? homeScoreNode.normaltime);
+        const awayScore = toNullableScore(awayScoreNode.current ?? awayScoreNode.display ?? awayScoreNode.normaltime);
+        const hasValidScore = homeScore !== null && awayScore !== null;
+
+        const resolvedStartDateTime = toNullableDateFromIsoOrUnix(
+          apiPayload.startTime
+          ?? apiMatch.startTime
+          ?? apiMatch.startTimestamp
+          ?? apiMatch.currentPeriodStartTimestamp,
+        );
+
+        if (typeof homeTeam.name === 'string' && homeTeam.name.trim().length > 0) {
+          match.homeTeam = homeTeam.name.trim();
+        }
+        if (typeof awayTeam.name === 'string' && awayTeam.name.trim().length > 0) {
+          match.awayTeam = awayTeam.name.trim();
+        }
+        if (resolvedStartDateTime) {
+          match.startDateTime = resolvedStartDateTime;
         }
 
         match.homeScore = homeScore;
         match.awayScore = awayScore;
-        match.status = 'finalizado';
-
-        const lineupsPayload = asRecord(await requestSportsApiPro(`/api/match/${gameId}/lineups`));
-        const rankingRows = extractAthleteRankingRowsFromLineupsPayload(lineupsPayload);
-        processedAthleteRankings += rankingRows.length;
-
-        for (const row of rankingRows) {
-          const realPlayer = await em.findOne(RealPlayer, { idEnApi: row.athleteId });
-          if (!realPlayer) {
-            missingLocalPlayers += 1;
-            continue;
-          }
-
-          let performance = await em.findOne(PlayerPerformance, { realPlayer, matchday: match.matchday, league: match.matchday.league, match });
-          if (!performance) {
-            performance = em.create(PlayerPerformance, {
-              realPlayer,
-              matchday: match.matchday,
-              pointsObtained: row.ranking,
-              league: match.matchday.league,
-              match,
-              updateDate: new Date(),
-            } as any);
-            createdPerformances += 1;
-          } else {
-            performance.pointsObtained = row.ranking;
-            performance.updateDate = new Date();
-            updatedPerformances += 1;
-          }
-        }
+        match.status = normalizeMatchStatusFromApi(statusNode.type ?? statusNode.description ?? statusNode.code, hasValidScore);
 
         updated += 1;
       } catch (error: any) {
@@ -709,11 +756,7 @@ async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Respo
         competitionId: competitionId ?? null,
         scannedMatches: matches.length,
         updatedMatches: updated,
-        skippedWithoutScore,
-        processedAthleteRankings,
-        createdPerformances,
-        updatedPerformances,
-        missingLocalPlayers,
+        missingPayloadData,
         errors,
       },
     });
