@@ -263,7 +263,7 @@ function extractPlayersRows(payload: unknown): UnknownRecord[] {
 }
 
 async function syncPlayersForTeam(team: RealTeam) {
-  const payload = await requestSportsApiPro(`/teams/${team.idEnApi}/players`);
+  const payload = await requestSportsApiPro(`/api/teams/${team.idEnApi}/players`);
   const rows = extractPlayersRows(payload);
   let created = 0;
   let updated = 0;
@@ -284,8 +284,8 @@ async function syncPlayersForTeam(team: RealTeam) {
       existing.name = name;
       existing.position = position;
       existing.realTeam = team;
-      existing.valueCurrency = valueCurrency;
-      existing.value = value;
+      existing.valueCurrency = valueCurrency ?? existing.valueCurrency ?? null;
+      existing.value = value ?? existing.value ?? null;
       existing.active = true;
       existing.lastUpdate = new Date();
       updated += 1;
