@@ -59,6 +59,8 @@ export class LandingPageComponent implements OnInit {
       leagueId: [0, [Validators.required, Validators.min(1)]],
       sportIdEnApi: [1, Validators.required],
       initialBudget: [1000000, [Validators.required, Validators.min(100000)]],
+      limiteMin: [500000, [Validators.required, Validators.min(1)]],
+      limiteMax: [15000000, [Validators.required, Validators.min(2)]],
       status: ['active', Validators.required]
     });
 
@@ -139,6 +141,12 @@ export class LandingPageComponent implements OnInit {
       return;
     }
 
+    if (Number(formValue.limiteMax) <= Number(formValue.limiteMin)) {
+      this.errorMessage = 'El límite máximo debe ser mayor al límite mínimo.';
+      this.isCreating = false;
+      return;
+    }
+
     const selectedSport = this.sportOptions.find((sport) => sport.idEnApi === Number(formValue.sportIdEnApi));
 
     this.apiService.postTournament({
@@ -149,6 +157,8 @@ export class LandingPageComponent implements OnInit {
       creationDate,
       initialBudget: Number(formValue.initialBudget),
       squadSize: 16,
+      limiteMin: Number(formValue.limiteMin),
+      limiteMax: Number(formValue.limiteMax),
       status: formValue.status as TournamentStatus,
       clauseEnableDate,
       creatorUserId: userId,
@@ -162,6 +172,8 @@ export class LandingPageComponent implements OnInit {
           leagueId: this.leagues[0]?.id ?? 0,
           sportIdEnApi: 1,
           initialBudget: 1000000,
+          limiteMin: 500000,
+          limiteMax: 15000000,
           status: 'active',
         });
 

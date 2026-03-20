@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { RealPlayer } from './realPlayer.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { RealTeam } from '../RealTeam/realTeam.entity.js';
+import { Tournament } from '../Tournament/tournament.entity.js';
 import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
 import { PLAYER_POSITIONS, isEnumValue } from '../../shared/domain-enums.js';
 
@@ -22,14 +23,17 @@ function sanitizeRealPlayerInput(req: Request, res: Response, next: NextFunction
   const sanitizedValueCurrency = req.body.valueCurrency === undefined
     ? undefined
     : normalizeCurrencyCode(req.body.valueCurrency);
+  const sanitizedTranslatedValue = req.body.translatedValue === undefined ? undefined : toNumber(req.body.translatedValue);
+  const shouldApplyValueFallback = isNullTextValue(req.body.value);
 
   req.body.sanitizeRealPlayerInput = {
     idEnApi: req.body.idEnApi,
     name: req.body.name,
     position: req.body.position,
     realTeam: req.body.realTeam ?? req.body.realTeamId,
-    valueCurrency: sanitizedValueCurrency,
-    value: sanitizedValue,
+    valueCurrency: shouldApplyValueFallback ? 'EUR' : sanitizedValueCurrency,
+    value: shouldApplyValueFallback ? 2_000_000 : sanitizedValue,
+    translatedValue: sanitizedTranslatedValue,
     active: req.body.active,
   };
 
@@ -262,6 +266,26 @@ function extractPlayersRows(payload: unknown): UnknownRecord[] {
     .filter((item) => toInt(readAthleteId(item)) !== null);
 }
 
+function isNullTextValue(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().toLowerCase() === 'null';
+}
+
+function normalizePersistedValue(value: number | null, valueRaw: unknown): number | null {
+  if (isNullTextValue(valueRaw)) {
+    return 2_000_000;
+  }
+
+  return value;
+}
+
+function normalizePersistedCurrency(valueCurrency: string | null, valueRaw: unknown): string | null {
+  if (isNullTextValue(valueRaw)) {
+    return 'EUR';
+  }
+
+  return valueCurrency;
+}
+
 async function syncPlayersForTeam(team: RealTeam) {
   const payload = await requestSportsApiPro(`/api/teams/${team.idEnApi}/players`);
   const rows = extractPlayersRows(payload);
@@ -276,8 +300,9 @@ async function syncPlayersForTeam(team: RealTeam) {
 
     const name = readPlayerName(row, athleteId);
     const position = readPlayerPosition(row);
-    const valueCurrency = readPlayerValueCurrency(row);
-    const value = readPlayerValue(row);
+    const valueRaw = asRecord(row.player).proposedMarketValue ?? asRecord(row.player).value ?? row.value ?? row.marketValue ?? row.market_value ?? null;
+    const valueCurrency = normalizePersistedCurrency(readPlayerValueCurrency(row), valueRaw);
+    const value = normalizePersistedValue(readPlayerValue(row), valueRaw);
 
     const existing = await em.findOne(RealPlayer, { idEnApi });
     if (existing) {
@@ -355,6 +380,96 @@ async function syncTeamSquadByTeamIdEnApi(req: Request, res: Response) {
   }
 }
 
+
+async function translatePricesByLeague(req: Request, res: Response) {
+  try {
+    const leagueId = parseOptionalBodyNumber(req.body?.leagueId);
+
+    if (leagueId === null || !Number.isFinite(leagueId) || leagueId <= 0) {
+      res.status(400).json({ message: 'leagueId is required number' });
+      return;
+    }
+
+    const tournament = await em.findOne(Tournament, { league: { id: leagueId } } as any, { orderBy: { id: 'desc' } as any });
+
+    if (!tournament || typeof tournament.limiteMin !== 'number' || typeof tournament.limiteMax !== 'number') {
+      res.status(400).json({ message: 'tournament with limiteMin/limiteMax is required for this league', data: { leagueId } });
+      return;
+    }
+
+    const limiteMin = Number(tournament.limiteMin);
+    const limiteMax = Number(tournament.limiteMax);
+
+    const realTeams = await em.find(RealTeam, { league: { id: leagueId } } as any, { fields: ['id'] as any });
+    const realTeamsIds = realTeams.map((team: any) => Number(team.id)).filter((id) => Number.isFinite(id));
+
+    if (realTeamsIds.length === 0) {
+      res.status(404).json({ message: 'no local real teams found for leagueId', data: { leagueId } });
+      return;
+    }
+
+    const realPlayers = await em.find(RealPlayer, { realTeam: { $in: realTeamsIds } } as any);
+
+    if (realPlayers.length === 0) {
+      res.status(404).json({ message: 'no local real players found for league teams', data: { leagueId, realTeamsIds } });
+      return;
+    }
+
+    const valuedPlayers = realPlayers.filter((player) => typeof player.value === 'number' && Number.isFinite(player.value));
+
+    if (valuedPlayers.length === 0) {
+      res.status(400).json({ message: 'real players for league have no numeric value to translate', data: { leagueId, realTeamsIds } });
+      return;
+    }
+
+    const values = valuedPlayers.map((player) => Number(player.value));
+    const valueReal_MinDeLeague = Math.min(...values);
+    const valueReal_MaxDeLeague = Math.max(...values);
+
+    let updated = 0;
+
+    for (const player of realPlayers) {
+      const valueReal_dePlayer = typeof player.value === 'number' && Number.isFinite(player.value) ? Number(player.value) : null;
+
+      if (valueReal_dePlayer === null) {
+        player.translatedValue = null;
+        continue;
+      }
+
+      if (valueReal_MaxDeLeague === valueReal_MinDeLeague || valueReal_dePlayer === valueReal_MinDeLeague) {
+        player.translatedValue = limiteMin;
+        updated += 1;
+        continue;
+      }
+
+      const normalized = (valueReal_dePlayer - valueReal_MinDeLeague) / (valueReal_MaxDeLeague - valueReal_MinDeLeague);
+      const translated = limiteMin + (normalized * (limiteMax - limiteMin));
+      const clamped = Math.max(limiteMin, Math.min(limiteMax, translated));
+      player.translatedValue = Number.isFinite(clamped) ? clamped : limiteMin;
+      updated += 1;
+    }
+
+    await em.flush();
+
+    res.status(200).json({
+      message: 'real player prices translated by league',
+      data: {
+        leagueId,
+        tournamentId: tournament.id,
+        limiteMin,
+        limiteMax,
+        valueReal_MinDeLeague,
+        valueReal_MaxDeLeague,
+        realTeamsIds,
+        realPlayersInLeague: realPlayers.length,
+        translatedPlayers: updated,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
 async function syncByLeagueIdEnApi(req: Request, res: Response) {
   try {
     const leagueId = parseOptionalBodyNumber(req.body?.leagueId);
@@ -398,4 +513,4 @@ async function syncByLeagueIdEnApi(req: Request, res: Response) {
     res.status(500).json({ message: error.message });
   }
 }
-export { sanitizeRealPlayerInput, findAll, findByIdEnApi, findOne, add, update, remove, syncByLeagueIdEnApi, syncTeamSquadByTeamIdEnApi };
+export { sanitizeRealPlayerInput, findAll, findByIdEnApi, findOne, add, update, remove, syncByLeagueIdEnApi, syncTeamSquadByTeamIdEnApi, translatePricesByLeague };

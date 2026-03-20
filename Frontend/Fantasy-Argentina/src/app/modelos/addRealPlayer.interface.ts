@@ -5,6 +5,7 @@ export interface addRealPlayerI {
   realTeam: number;
   valueCurrency?: string;
   value?: number;
+  translatedValue?: number | null;
   active: boolean;
   lastUpdate: Date;
 }

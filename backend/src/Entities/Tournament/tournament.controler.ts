@@ -63,6 +63,8 @@ function sanitizeTournamentInput(req: Request, res: Response, next: NextFunction
     creationDate: req.body.creationDate,
     initialBudget: req.body.initialBudget,
     squadSize: req.body.squadSize,
+    limiteMin: toNumber(req.body.limiteMin),
+    limiteMax: toNumber(req.body.limiteMax),
     status: req.body.status,
     clauseEnableDate: req.body.clauseEnableDate,
     creatorUserId: req.body.creatorUserId,
@@ -84,6 +86,20 @@ function asArray(value: unknown): unknown[] {
 
 function asRecord(value: unknown): UnknownRecord {
   return value && typeof value === 'object' ? (value as UnknownRecord) : {};
+}
+
+
+function toNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number.parseFloat(value.trim());
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
 }
 
 function toInt(value: unknown): number | null {
@@ -490,6 +506,16 @@ async function add(req: Request, res: Response) {
 
     if (!isEnumValue(TOURNAMENT_STATUSES, tournamentInput.status)) {
       res.status(400).json({ message: `status must be one of: ${TOURNAMENT_STATUSES.join(', ')}` });
+      return;
+    }
+
+    if (typeof tournamentInput.limiteMin !== 'number' || typeof tournamentInput.limiteMax !== 'number') {
+      res.status(400).json({ message: 'limiteMin and limiteMax are required numbers' });
+      return;
+    }
+
+    if (tournamentInput.limiteMax <= tournamentInput.limiteMin) {
+      res.status(400).json({ message: 'limiteMax must be greater than limiteMin' });
       return;
     }
 
