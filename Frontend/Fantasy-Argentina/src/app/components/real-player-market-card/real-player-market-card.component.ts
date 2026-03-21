@@ -14,6 +14,7 @@ export interface ResolvedMarketPlayer {
   teamName: string;
   totalScore: number;
   totalBids: number;
+  translatedValue: number | null;
 }
 
 @Component({
@@ -50,7 +51,7 @@ export class RealPlayerMarketCardComponent implements OnInit {
   }
 
   onBidClick(): void {
-    this.bidAmount = 100;
+    this.bidAmount = Number(this.player?.translatedValue ?? 0);
     this.bidError = '';
     this.existingBidForSelectedPlayer = null;
     this.showBidModal = true;
@@ -87,9 +88,15 @@ export class RealPlayerMarketCardComponent implements OnInit {
     const amount = Number(this.bidAmount);
     const previousAmount = Number(this.existingBidForSelectedPlayer?.offeredAmount ?? 0);
     const requiredIncrement = amount - previousAmount;
+    const translatedValue = Number(this.player?.translatedValue ?? 0);
 
     if (!Number.isFinite(amount) || amount < 0) {
       this.bidError = 'Ingresá un monto válido.';
+      return;
+    }
+
+    if (amount !== 0 && amount < translatedValue) {
+      this.bidError = `La oferta debe ser 0 o al menos $${translatedValue}.`;
       return;
     }
 
@@ -204,6 +211,7 @@ export class RealPlayerMarketCardComponent implements OnInit {
               teamName,
               totalScore,
               totalBids: Number(bidsInfo?.totalParticipants ?? bidsInfo?.totalBids ?? bidsInfo?.data?.length ?? 0),
+              translatedValue: realPlayer?.translatedValue ?? null,
             };
             this.isLoading = false;
           },
@@ -217,6 +225,7 @@ export class RealPlayerMarketCardComponent implements OnInit {
               teamName,
               totalScore: 0,
               totalBids: 0,
+              translatedValue: realPlayer?.translatedValue ?? null,
             };
             this.isLoading = false;
           },
@@ -227,6 +236,21 @@ export class RealPlayerMarketCardComponent implements OnInit {
         this.isLoading = false;
       },
     });
+  }
+
+  isBidInvalid(): boolean {
+    if (!this.player) return true;
+
+    const amount = Number(this.bidAmount);
+    const translatedValue = Number(this.player.translatedValue ?? 0);
+    const previousAmount = Number(this.existingBidForSelectedPlayer?.offeredAmount ?? 0);
+    const requiredIncrement = amount - previousAmount;
+
+    if (!Number.isFinite(amount) || amount < 0) return true;
+    if (amount !== 0 && amount < translatedValue) return true;
+    if (requiredIncrement > Number(this.availableMoney)) return true;
+
+    return false;
   }
 
   private getTotalPoints(realPlayerId: number, performances: any[]): number {

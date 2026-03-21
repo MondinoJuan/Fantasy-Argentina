@@ -45,13 +45,13 @@ Debe poder seleccionarse la fecha y ver un ranking ordenado tambien de manera de
 - Implementar la fechaHora de finalizacion de las pujas y que se le otorgue el realPlayer al participant. Incluido el manejo de pujas perdidas (que se eliminen luego de devolver la plata).
 - Agregar que al persistir realPlayers, si el value es 'null', coloque valueCurrency = 'EUR' y value = 2000000.
 - Agregarle una columna a RealPlayer que seria precioTraducido que depende de la league, no porque la league tenga una regla de negocio, sino porque depende del value del RealPlayer más barato y del más caro de una league.
-- El valor de un jugador no debería ajustarse de manera lineal, sino según qué tan cerca esté de sus límites.
+- El valor de un realPlayer no debería ajustarse de manera lineal, sino según qué tan cerca esté de sus límites.
 
-Si un jugador ya tiene un valor muy alto, como Aníbal Moreno en el ejemplo, significa que su precio está cerca del techo permitido. En ese caso, para sostenerse en ese valor debería rendir de forma casi perfecta de manera constante. Si empieza a encadenar partidos con puntajes muy bajos, su precio debería caer con fuerza. Si sus puntajes bajan pero siguen siendo aceptables, como varios 7 u 8, la caída debería existir, pero ser más moderada.
+Si un realPlayer ya tiene un valor muy alto, como Aníbal Moreno en el ejemplo, significa que su precio está cerca del techo permitido. En ese caso, para sostenerse en ese valor debería rendir de forma casi perfecta de manera constante. Si empieza a encadenar matchs con puntajes muy bajos, su precio debería caer con fuerza. Si sus puntajes bajan pero siguen siendo aceptables, como varios 7 u 8, la caída debería existir, pero ser más moderada.
 
-En cambio, si un jugador ya tiene un valor muy bajo, significa que su precio está cerca del piso permitido. Para mantenerse en ese mínimo debería seguir teniendo rendimientos muy malos de forma sostenida. Si empieza a sacar buenas puntuaciones, su valor debería recuperarse. Y si encadena varios partidos buenos, el aumento tendría que ser importante, porque estaba subvaluado respecto de su rendimiento reciente.
+En cambio, si un realPlayer ya tiene un valor muy bajo, significa que su precio está cerca del piso permitido. Para mantenerse en ese mínimo debería seguir teniendo rendimientos muy malos de forma sostenida. Si empieza a sacar buenas puntuaciones, su valor debería recuperarse. Y si encadena varios matchs buenos, el aumento tendría que ser importante, porque estaba subvaluado respecto de su rendimiento reciente.
 
-En resumen, la lógica sería que los jugadores cercanos al máximo sean más sensibles a una racha negativa, y los jugadores cercanos al mínimo sean más sensibles a una racha positiva.
+En resumen, la lógica sería que los realPlayers cercanos al máximo sean más sensibles a una racha negativa, y los realPlayers cercanos al mínimo sean más sensibles a una racha positiva.
 
 Para hacer una traducción del precio inicial de cada RealPlayer de una league:
 
@@ -100,6 +100,7 @@ Si quiero hacerlo en base a los ultimos partidos, no en base al ultimo, debo usa
 * Hay que mejorar el sistema de final de pujas. Si lo hace el superadmin es injusto, si lo hace un tiempo despues de la ultima puja no termina mas (se pueden hacer pujas indefinidas por $0), si lo hago a un tiempo despues del ultimo partido de la fecha se puede romper por partido postpuesto. ¿Qué hacer si dos personas ofertan la misma cantidad de dinero? Si hay una oferta = $0 tampoco deberia dar la puja por ganada.
 * El participant al poner un realPlayer en venta se le tiene que otorgar la posibilidad de venderlo rápido por una cantidad menor.
 * Manejar que pasa si un realPlayer deja de estar en una league despues de haber jugado algun matchday.
+* Si un participant tiene mas de un realPlayer por slot a la hora de sumar puntos, se restan 10 puntos por la cantidad de slots en los que suceda.
 
 ## Listado ligas
 SPORTSAPIPRO V2:
