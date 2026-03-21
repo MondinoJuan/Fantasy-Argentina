@@ -15,7 +15,6 @@ import { CommonModule } from '@angular/common';
 })
 export class SignUpComponent {
   readonly signUpForm;
-  private readonly SUPERADMIN_CODE = 'SUPERADMIN-2026';
 
   isLoading = false;
   errorMessage = '';
@@ -50,7 +49,8 @@ export class SignUpComponent {
       mail: formValue.mail,
       password: formValue.password,
       registrationDate: new Date(),
-      type: formValue.superadminCode === this.SUPERADMIN_CODE ? 'SUPERADMIN' as const : 'USER' as const,
+      type: 'USER' as const,
+      superadminCode: formValue.superadminCode,
     };
 
     this.apiService.postUser(payload)

@@ -863,7 +863,23 @@ async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
 
           processedBids += bids.length;
 
-          const winnerBid = bids[0];
+          const competitiveBids = bids.filter((bid) => Number(bid.offeredAmount ?? 0) > 0);
+
+          if (competitiveBids.length === 0) {
+            for (const bid of bids) {
+              const participant = bid.participant as Participant;
+              const offeredAmount = Number(bid.offeredAmount ?? 0);
+
+              participant.reservedMoney = Math.max(0, Number(participant.reservedMoney ?? 0) - offeredAmount);
+              participant.availableMoney = Number(participant.availableMoney ?? 0) + offeredAmount;
+              bid.status = 'lost';
+              bid.cancellationDate = now;
+            }
+
+            continue;
+          }
+
+          const winnerBid = competitiveBids[0];
           const winnerParticipant = winnerBid.participant as Participant;
           const winnerAmount = Number(winnerBid.offeredAmount ?? 0);
 
@@ -881,7 +897,10 @@ async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
 
           winnerBid.status = 'won';
 
-          for (const lostBid of bids.slice(1)) {
+          for (const lostBid of bids) {
+            if (lostBid === winnerBid) {
+              continue;
+            }
             const loser = lostBid.participant as Participant;
             const offeredAmount = Number(lostBid.offeredAmount ?? 0);
 
