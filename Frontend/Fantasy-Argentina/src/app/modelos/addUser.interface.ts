@@ -5,4 +5,5 @@ export interface addUserI {
   password: string;
   registrationDate: Date;
   type: UserType;
+  superadminCode?: string;
 }

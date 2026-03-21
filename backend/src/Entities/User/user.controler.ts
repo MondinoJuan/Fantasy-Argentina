@@ -16,6 +16,7 @@ function sanitizeUserInput(req: Request, res: Response, next: NextFunction) {
         password: req.body.password,
         mail: req.body.mail,
         type: req.body.type,
+        superadminCode: req.body.superadminCode,
     };
 
   Object.keys(req.body.sanitizeUserInput).forEach((key) => {
@@ -24,6 +25,22 @@ function sanitizeUserInput(req: Request, res: Response, next: NextFunction) {
     }
   });
   next();
+}
+
+function resolveUserTypeForCreation(rawType: unknown, rawSuperadminCode: unknown) {
+  const requestedType = isEnumValue(USER_TYPES, rawType) ? rawType : 'USER';
+  const configuredSuperadminCode = process.env.SUPERADMIN_SIGNUP_CODE;
+  const providedCode = typeof rawSuperadminCode === 'string' ? rawSuperadminCode.trim() : '';
+  const validSuperadminCode = configuredSuperadminCode !== undefined
+    && configuredSuperadminCode.length > 0
+    && providedCode.length > 0
+    && providedCode === configuredSuperadminCode;
+
+  if (validSuperadminCode) {
+    return 'SUPERADMIN' as const;
+  }
+
+  return requestedType === 'SUPERADMIN' ? 'USER' as const : requestedType;
 }
 
 async function findAll(req: Request, res: Response) {
@@ -49,8 +66,9 @@ async function add(req: Request, res: Response) {
   try {
     const userInput = {
       ...req.body.sanitizeUserInput,
-      type: isEnumValue(USER_TYPES, req.body.sanitizeUserInput.type) ? req.body.sanitizeUserInput.type : 'USER',
+      type: resolveUserTypeForCreation(req.body.sanitizeUserInput.type, req.body.sanitizeUserInput.superadminCode),
     };
+    delete (userInput as any).superadminCode;
 
     const item = em.create(User, userInput);
     await em.flush();
