@@ -1,1 +1,65 @@
-<p>rivals-real-player-list works!</p>
+<div class="rival-card" [class.rival-card--highlighted]="highlighted" cdkAccordionItem [expanded]="expanded">
+  <button class="rival-summary" type="button" (click)="toggleExpanded()">
+    <span class="rival-summary__name">{{ username }}</span>
+    <span class="rival-summary__points">{{ totalScore }} pts</span>
+    <span class="rival-summary__icon">{{ expanded ? '⌄' : '›' }}</span>
+  </button>
+
+  <div class="rival-content" *ngIf="expanded">
+    <h4>Titulares</h4>
+    <button
+      type="button"
+      class="player-row"
+      *ngFor="let player of starters"
+      (click)="openPlayerModal(player)"
+    >
+      <span>{{ player.name }}</span>
+      <span>{{ player.totalScore }} pts</span>
+      <span>{{ player.position }}</span>
+      <span>${{ player.translatedValue | number:'1.0-0' }}</span>
+    </button>
+
+    <h4>Suplentes</h4>
+    <button
+      type="button"
+      class="player-row"
+      *ngFor="let player of substitutes"
+      (click)="openPlayerModal(player)"
+    >
+      <span>{{ player.name }}</span>
+      <span>{{ player.totalScore }} pts</span>
+      <span>{{ player.position }}</span>
+      <span>${{ player.translatedValue | number:'1.0-0' }}</span>
+    </button>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showModal">
+  <div class="modal-content">
+    <h3>{{ selectedPlayer?.name }}</h3>
+    <p>Valor: ${{ selectedPlayer?.translatedValue ?? 0 | number:'1.0-0' }}</p>
+    <p>Cláusula: ${{ selectedPlayer?.clauseValue ?? 0 | number:'1.0-0' }}</p>
+
+    <label>
+      {{ isOwnerLoggedUser ? 'Monto para blindar' : 'Monto de la oferta' }}
+      <input type="number" min="0" step="1" [(ngModel)]="operationAmount" />
+    </label>
+
+    <p class="error" *ngIf="modalError">{{ modalError }}</p>
+
+    <div class="modal-actions">
+      <button type="button" (click)="closeModal()" [disabled]="isSubmitting">Cancelar</button>
+      <button type="button" (click)="submitPrimaryAction()" [disabled]="isSubmitting">
+        {{ isOwnerLoggedUser ? 'OK (Blindar)' : 'Enviar oferta' }}
+      </button>
+      <button
+        type="button"
+        *ngIf="!isOwnerLoggedUser"
+        (click)="payClause()"
+        [disabled]="isSubmitting || !clauseEnabled"
+      >
+        Pagar cláusula
+      </button>
+    </div>
+  </div>
+</div>
