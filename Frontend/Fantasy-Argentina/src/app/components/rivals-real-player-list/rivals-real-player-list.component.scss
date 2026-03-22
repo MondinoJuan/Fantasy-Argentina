@@ -1,86 +1,306 @@
+// ─────────────────────────────────────────────
+// Design tokens — extraídos de la estética
+// de la pantalla (fondo vino/morado oscuro,
+// acentos cyan/dorado, cards translúcidas)
+// ─────────────────────────────────────────────
+$bg-deep:        #2d1b3d;        // fondo base morado oscuro
+$bg-card:        #3a2250;        // superficie de card
+$bg-card-hover:  #46295f;        // card hover
+$bg-highlighted: #1e3a5f;        // rival destacado (azul marino)
+$border-subtle:  rgba(255,255,255,0.08);
+$border-accent:  rgba(255,255,255,0.18);
+
+$text-primary:   #f0eaf8;
+$text-secondary: rgba(240,234,248,0.55);
+$text-muted:     rgba(240,234,248,0.35);
+
+$accent-cyan:    #00d4d4;        // stats / puntos
+$accent-gold:    #f0c040;        // elementos destacados
+$accent-green:   #4caf7d;        // GK / botones primarios
+$accent-blue:    #4a90d9;        // DEF / MID
+$accent-red:     #e05c5c;        // error / cancelar
+
+$radius-card:    0.75rem;
+$radius-btn:     0.375rem;
+$transition:     0.18s ease;
+
+// ─────────────────────────────────────────────
+// Rival card (contenedor principal)
+// ─────────────────────────────────────────────
 .rival-card {
-  border: 1px solid #252525;
-  border-radius: 0.5rem;
-  margin-bottom: 0.8rem;
+  border: 1px solid $border-subtle;
+  border-radius: $radius-card;
+  margin-bottom: 0.75rem;
   overflow: hidden;
-  background: #fff;
+  background: $bg-card;
+  box-shadow:
+    0 2px 8px rgba(0,0,0,0.35),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+  transition: box-shadow $transition, border-color $transition;
+
+  &:hover {
+    border-color: $border-accent;
+    box-shadow:
+      0 4px 16px rgba(0,0,0,0.45),
+      inset 0 1px 0 rgba(255,255,255,0.1);
+  }
 }
 
 .rival-card--highlighted {
-  border-color: #3f51b5;
-  background: #eef1ff;
+  border-color: rgba($accent-cyan, 0.45);
+  background: $bg-highlighted;
+
+  &:hover {
+    border-color: rgba($accent-cyan, 0.7);
+  }
 }
 
+// ─────────────────────────────────────────────
+// Encabezado del rival (botón resumen)
+// ─────────────────────────────────────────────
 .rival-summary {
   width: 100%;
   border: 0;
   background: transparent;
-  padding: 0.9rem 1rem;
+  padding: 0.85rem 1rem;
   display: grid;
   grid-template-columns: 1fr auto auto;
-  gap: 0.8rem;
+  gap: 0.75rem;
   align-items: center;
   cursor: pointer;
+  color: $text-primary;
+  transition: background $transition;
+
+  &:hover {
+    background: rgba(255,255,255,0.04);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent-cyan;
+    outline-offset: -2px;
+  }
 }
 
-.rival-summary__name { font-weight: 700; text-align: left; }
-.rival-summary__points { border-left: 2px solid #111; padding-left: 0.8rem; }
-.rival-summary__icon { font-size: 1.5rem; line-height: 1; }
+.rival-summary__name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-align: left;
+  letter-spacing: 0.01em;
+  color: $text-primary;
+}
 
+.rival-summary__points {
+  padding-left: 0.75rem;
+  border-left: 2px solid rgba($accent-cyan, 0.5);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: $accent-cyan;
+  white-space: nowrap;
+}
+
+.rival-summary__icon {
+  font-size: 1.1rem;
+  line-height: 1;
+  color: $text-secondary;
+  transition: color $transition, transform $transition;
+
+  .rival-card:hover & {
+    color: $accent-cyan;
+    transform: scale(1.15);
+  }
+}
+
+// ─────────────────────────────────────────────
+// Contenido expandido
+// ─────────────────────────────────────────────
 .rival-content {
-  border-top: 1px solid #111;
-  padding: 0.75rem;
+  border-top: 1px solid $border-subtle;
+  padding: 0.6rem 0.75rem 0.75rem;
 }
 
+// ─────────────────────────────────────────────
+// Fila de jugador
+// ─────────────────────────────────────────────
 .player-row {
   width: 100%;
   border: 0;
-  border-bottom: 2px solid #111;
+  border-bottom: 1px solid $border-subtle;
   background: transparent;
-  padding: 0.55rem 0.2rem;
+  padding: 0.55rem 0.25rem;
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr;
   text-align: left;
   cursor: pointer;
+  color: $text-primary;
+  font-size: 0.82rem;
+  transition: background $transition;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: rgba(255,255,255,0.05);
+    border-radius: 0.3rem;
+  }
+
+  // columnas de stats con color accent
+  > *:not(:first-child) {
+    color: $text-secondary;
+    font-variant-numeric: tabular-nums;
+  }
+
+  > *:nth-child(3) { color: $accent-cyan; }   // puntos
 }
 
+// ─────────────────────────────────────────────
+// Modal
+// ─────────────────────────────────────────────
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 30;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .modal-content {
-  background: #fff;
-  border-radius: 0.8rem;
+  background: $bg-card;
+  border: 1px solid $border-accent;
+  border-radius: $radius-card;
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.6),
+    inset 0 1px 0 rgba(255,255,255,0.08);
   max-width: 460px;
-  width: 100%;
-  padding: 1rem;
+  width: calc(100% - 2rem);
+  padding: 1.25rem;
+  color: $text-primary;
+  animation: slideUp 0.2s ease;
+
+  h2, h3 {
+    color: $text-primary;
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  label {
+    display: grid;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    color: $text-secondary;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  input {
+    border: 1px solid $border-accent;
+    border-radius: $radius-btn;
+    padding: 0.5rem 0.65rem;
+    background: rgba(0,0,0,0.3);
+    color: $text-primary;
+    font-size: 0.9rem;
+    transition: border-color $transition, box-shadow $transition;
+
+    &::placeholder { color: $text-muted; }
+
+    &:focus {
+      outline: none;
+      border-color: $accent-cyan;
+      box-shadow: 0 0 0 3px rgba($accent-cyan, 0.18);
+    }
+  }
 }
 
-.modal-content label {
-  display: grid;
-  gap: 0.4rem;
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-.modal-content input {
-  border: 1px solid #777;
-  border-radius: 0.5rem;
-  padding: 0.45rem;
-}
-
+// ─────────────────────────────────────────────
+// Acciones del modal
+// ─────────────────────────────────────────────
 .modal-actions {
-  margin-top: 0.8rem;
+  margin-top: 1rem;
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+
+  // botón primario (confirmar / ofertar)
+  button[type="submit"],
+  .btn-primary {
+    flex: 1;
+    min-width: 100px;
+    padding: 0.55rem 1rem;
+    border: 0;
+    border-radius: $radius-btn;
+    background: $accent-green;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background $transition, transform $transition, box-shadow $transition;
+
+    &:hover {
+      background: lighten($accent-green, 8%);
+      box-shadow: 0 2px 10px rgba($accent-green, 0.4);
+      transform: translateY(-1px);
+    }
+    &:active { transform: translateY(0); }
+  }
+
+  // botón secundario (cancelar)
+  button[type="button"],
+  .btn-secondary {
+    flex: 1;
+    min-width: 100px;
+    padding: 0.55rem 1rem;
+    border: 1px solid $border-accent;
+    border-radius: $radius-btn;
+    background: transparent;
+    color: $text-secondary;
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background $transition, color $transition, border-color $transition;
+
+    &:hover {
+      background: rgba(255,255,255,0.07);
+      color: $text-primary;
+      border-color: rgba(255,255,255,0.3);
+    }
+  }
 }
 
+// ─────────────────────────────────────────────
+// Error
+// ─────────────────────────────────────────────
 .error {
-  color: #b3261e;
+  color: $accent-red;
   font-weight: 700;
+  font-size: 0.82rem;
+  margin-top: 0.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+
+  &::before {
+    content: "⚠";
+    font-size: 0.9em;
+  }
 }
