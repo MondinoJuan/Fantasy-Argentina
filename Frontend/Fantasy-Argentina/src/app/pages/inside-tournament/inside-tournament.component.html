@@ -91,13 +91,28 @@
 
           <div class="actions">
             <button type="button" *ngIf="isNegotiationBuyer(negotiation)" (click)="cancelNegotiation(negotiation)">Cancelar</button>
-            <button type="button" *ngIf="isNegotiationSeller(negotiation)" (click)="acceptNegotiation(negotiation)">Aceptar</button>
-            <button type="button" *ngIf="isNegotiationSeller(negotiation)" (click)="rejectNegotiation(negotiation)">Rechazar</button>
-            <button type="button" *ngIf="isNegotiationSeller(negotiation)" (click)="counterNegotiation(negotiation)">Proponer otro monto</button>
+            <button type="button" *ngIf="canRespondToNegotiation(negotiation)" (click)="acceptNegotiation(negotiation)">Aceptar</button>
+            <button type="button" *ngIf="canRespondToNegotiation(negotiation)" (click)="rejectNegotiation(negotiation)">Rechazar</button>
+            <button type="button" *ngIf="canRespondToNegotiation(negotiation)" (click)="openCounterNegotiationModal(negotiation)">Modificar monto</button>
           </div>
         </article>
       </div>
     </section>
+
+    <div class="negotiation-modal-backdrop" *ngIf="showNegotiationAmountModal">
+      <div class="negotiation-modal">
+        <h3>Modificar monto de negociación</h3>
+        <label>
+          Nuevo monto
+          <input type="number" min="1" step="1" [(ngModel)]="negotiationAmountInput">
+        </label>
+        <p class="state error" *ngIf="negotiationAmountError">{{ negotiationAmountError }}</p>
+        <div class="actions">
+          <button type="button" (click)="closeCounterNegotiationModal()" [disabled]="isSavingNegotiationAmount">Cancelar</button>
+          <button type="button" (click)="saveNegotiationAmountChange()" [disabled]="isSavingNegotiationAmount">Guardar</button>
+        </div>
+      </div>
+    </div>
 
     <section class="panel">
       <h2>Equipos rivales (otros participants)</h2>

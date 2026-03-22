@@ -63,6 +63,11 @@ export class InsideTournamentComponent implements OnInit {
   dependantByRealPlayerId = new Map<number, any>();
   playerClauseByDependantId = new Map<number, any>();
   visibleNegotiations: any[] = [];
+  showNegotiationAmountModal = false;
+  negotiationForAmountEdit: any = null;
+  negotiationAmountInput = 0;
+  negotiationAmountError = '';
+  isSavingNegotiationAmount = false;
 
   constructor(
     private readonly apiService: ApiService,
@@ -370,27 +375,50 @@ export class InsideTournamentComponent implements OnInit {
     return this.extractId(negotiation?.sellerParticipant) === this.loggedParticipantId;
   }
 
+  canRespondToNegotiation(negotiation: any): boolean {
+    return this.getNegotiationResponderParticipantId(negotiation) === this.loggedParticipantId;
+  }
+
+  openCounterNegotiationModal(negotiation: any): void {
+    if (!this.canRespondToNegotiation(negotiation)) return;
+    this.negotiationForAmountEdit = negotiation;
+    this.negotiationAmountInput = Number(negotiation?.agreedAmount ?? 0);
+    this.negotiationAmountError = '';
+    this.isSavingNegotiationAmount = false;
+    this.showNegotiationAmountModal = true;
+  }
+
+  closeCounterNegotiationModal(): void {
+    this.showNegotiationAmountModal = false;
+    this.negotiationForAmountEdit = null;
+    this.negotiationAmountInput = 0;
+    this.negotiationAmountError = '';
+    this.isSavingNegotiationAmount = false;
+  }
+
   cancelNegotiation(negotiation: any): void {
     if (!this.isNegotiationBuyer(negotiation)) return;
     this.rollbackNegotiationAndDelete(negotiation);
   }
 
   rejectNegotiation(negotiation: any): void {
-    if (!this.isNegotiationSeller(negotiation)) return;
+    if (!this.canRespondToNegotiation(negotiation)) return;
     this.rollbackNegotiationAndDelete(negotiation);
   }
 
-  counterNegotiation(negotiation: any): void {
-    if (!this.isNegotiationSeller(negotiation)) return;
+  saveNegotiationAmountChange(): void {
+    const negotiation = this.negotiationForAmountEdit;
+    if (!negotiation) return;
+    if (!this.canRespondToNegotiation(negotiation)) {
+      this.negotiationAmountError = 'No te toca responder esta oferta.';
+      return;
+    }
 
-    const currentAmount = Number(negotiation?.agreedAmount ?? 0);
-    const rawInput = window.prompt('Nuevo monto propuesto', `${currentAmount}`);
-    if (rawInput === null) return;
-
-    const nextAmount = Number(rawInput);
+    const nextAmount = Number(this.negotiationAmountInput);
     if (!Number.isFinite(nextAmount) || nextAmount <= 0) return;
 
     const buyerId = this.extractId(negotiation?.buyerParticipant) ?? 0;
+    const sellerId = this.extractId(negotiation?.sellerParticipant) ?? 0;
     const buyer = this.participantById.get(buyerId);
     if (!buyer) return;
 
@@ -408,11 +436,12 @@ export class InsideTournamentComponent implements OnInit {
     const buyerReserved = Number(buyer?.reservedMoney ?? 0);
 
     if (delta > buyerAvailable) return;
+    this.isSavingNegotiationAmount = true;
 
     this.apiService.patchNegotiation({
       id: this.extractId(negotiation)!,
       agreedAmount: nextAmount,
-      status: 'countered',
+      status: this.loggedParticipantId === sellerId ? 'countered' : 'active',
       publicationDate: new Date(),
     }).subscribe({
       next: () => {
@@ -421,14 +450,25 @@ export class InsideTournamentComponent implements OnInit {
           availableMoney: Math.max(0, buyerAvailable - delta),
           reservedMoney: Math.max(0, buyerReserved + delta),
         }).subscribe({
-          next: () => this.loadTournamentPage(true),
+          next: () => {
+            this.closeCounterNegotiationModal();
+            this.loadTournamentPage(true);
+          },
+          error: (error: any) => {
+            this.negotiationAmountError = error?.error?.message ?? 'No se pudo actualizar el monto.';
+            this.isSavingNegotiationAmount = false;
+          }
         });
+      },
+      error: (error: any) => {
+        this.negotiationAmountError = error?.error?.message ?? 'No se pudo actualizar el monto.';
+        this.isSavingNegotiationAmount = false;
       },
     });
   }
 
   acceptNegotiation(negotiation: any): void {
-    if (!this.isNegotiationSeller(negotiation)) return;
+    if (!this.canRespondToNegotiation(negotiation)) return;
 
     const sellerId = this.extractId(negotiation?.sellerParticipant) ?? 0;
     const buyerId = this.extractId(negotiation?.buyerParticipant) ?? 0;
@@ -571,6 +611,22 @@ export class InsideTournamentComponent implements OnInit {
         this.participantById.get(buyerId).relatedNegotiations.push(negotiation);
       }
     }
+  }
+
+  private getNegotiationResponderParticipantId(negotiation: any): number | null {
+    const status = String(negotiation?.status ?? 'active');
+    const sellerId = this.extractId(negotiation?.sellerParticipant);
+    const buyerId = this.extractId(negotiation?.buyerParticipant);
+
+    if (status === 'countered') {
+      return buyerId;
+    }
+
+    if (status === 'active') {
+      return sellerId;
+    }
+
+    return null;
   }
 
   private resolveParticipantName(participant: any): string {
