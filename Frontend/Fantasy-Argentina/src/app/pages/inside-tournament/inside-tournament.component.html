@@ -77,17 +77,45 @@
 
     <section class="panel">
       <h2>Negociaciones</h2>
-      <p>Total: {{ negotiations.length }}</p>
+      <p>Total visibles para vos: {{ visibleNegotiations.length }}</p>
+      <p *ngIf="visibleNegotiations.length === 0">Todavía no tenés negociaciones activas.</p>
+      <div class="negotiation-list" *ngIf="visibleNegotiations.length > 0">
+        <article class="negotiation-item" *ngFor="let negotiation of visibleNegotiations">
+          <strong>{{ getNegotiationPlayerName(negotiation) }}</strong>
+          <p>
+            Comprador: {{ negotiation?.buyerParticipant?.user?.username ?? ('Participant #' + (negotiation?.buyerParticipant?.id ?? '?')) }}
+            —
+            Vendedor: {{ negotiation?.sellerParticipant?.user?.username ?? ('Participant #' + (negotiation?.sellerParticipant?.id ?? '?')) }}
+          </p>
+          <p>Oferta: ${{ (negotiation?.agreedAmount ?? 0) | number:'1.0-0' }} — Estado: {{ negotiation?.status ?? 'active' }}</p>
+
+          <div class="actions">
+            <button type="button" *ngIf="isNegotiationBuyer(negotiation)" (click)="cancelNegotiation(negotiation)">Cancelar</button>
+            <button type="button" *ngIf="isNegotiationSeller(negotiation)" (click)="acceptNegotiation(negotiation)">Aceptar</button>
+            <button type="button" *ngIf="isNegotiationSeller(negotiation)" (click)="rejectNegotiation(negotiation)">Rechazar</button>
+            <button type="button" *ngIf="isNegotiationSeller(negotiation)" (click)="counterNegotiation(negotiation)">Proponer otro monto</button>
+          </div>
+        </article>
+      </div>
     </section>
 
     <section class="panel">
       <h2>Equipos rivales (otros participants)</h2>
-      <p *ngIf="rivals.length === 0">Por ahora no hay rivales en este torneo.</p>
-      <ul *ngIf="rivals.length > 0">
-        <li *ngFor="let rival of rivals">
-          {{ rival?.user?.username || ('Participant #' + (rival?.id ?? '?')) }} — {{ rival?.totalScore ?? 0 }} pts
-        </li>
-      </ul>
+      <p *ngIf="participantsOrdered.length === 0">Por ahora no hay participants cargados en este torneo.</p>
+      <app-rivals-real-player-list
+        *ngFor="let listedParticipant of participantsOrdered"
+        [participant]="listedParticipant"
+        [participantSquad]="getParticipantSquad(listedParticipant)"
+        [tournamentId]="tournament?.id"
+        [loggedParticipantId]="loggedParticipantId"
+        [participantById]="participantById"
+        [realPlayerById]="realPlayerById"
+        [dependantByRealPlayerId]="dependantByRealPlayerId"
+        [playerClauseByDependantId]="playerClauseByDependantId"
+        [clauseEnabled]="isClauseEnabled"
+        [highlighted]="loggedParticipantId === listedParticipant?.id"
+        (updated)="onRivalListUpdated()"
+      />
     </section>
 
     <section class="panel">
