@@ -2,10 +2,11 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { forkJoin, Observable, of } from 'rxjs';
 import { ApiService } from '../../servicios/api.service';
 import { FootballPitchComponent, PitchPlayer } from '../../components/football-pitch/football-pitch.component';
 import { RealPlayerMarketCardComponent } from '../../components/real-player-market-card/real-player-market-card.component';
+import { RivalsRealPlayerListComponent } from '../../components/rivals-real-player-list/rivals-real-player-list.component';
 
 interface SquadPlayerView {
   id?: number;
@@ -18,7 +19,7 @@ interface SquadPlayerView {
 @Component({
   selector: 'app-inside-tournament',
   standalone: true,
-  imports: [CommonModule, FormsModule, FootballPitchComponent, RealPlayerMarketCardComponent],
+  imports: [CommonModule, FormsModule, FootballPitchComponent, RealPlayerMarketCardComponent, RivalsRealPlayerListComponent],
   templateUrl: './inside-tournament.component.html',
   styleUrl: './inside-tournament.component.scss'
 })
@@ -29,6 +30,7 @@ export class InsideTournamentComponent implements OnInit {
   tournament: any = null;
   participant: any = null;
   rivals: any[] = [];
+  participantsOrdered: any[] = [];
 
   isLoading = true;
   errorMessage = '';
@@ -53,6 +55,19 @@ export class InsideTournamentComponent implements OnInit {
   private allRealPlayers: any[] = [];
   private allParticipantPoints: any[] = [];
   allPlayerPerformances: any[] = [];
+  allDependantPlayers: any[] = [];
+  allPlayerClauses: any[] = [];
+
+  participantById = new Map<number, any>();
+  realPlayerById = new Map<number, any>();
+  dependantByRealPlayerId = new Map<number, any>();
+  playerClauseByDependantId = new Map<number, any>();
+  visibleNegotiations: any[] = [];
+  showNegotiationAmountModal = false;
+  negotiationForAmountEdit: any = null;
+  negotiationAmountInput = 0;
+  negotiationAmountError = '';
+  isSavingNegotiationAmount = false;
 
   constructor(
     private readonly apiService: ApiService,
@@ -123,6 +138,8 @@ export class InsideTournamentComponent implements OnInit {
       participants: this.apiService.searchParticipants(),
       participantSquads: this.apiService.searchParticipantSquads(),
       realPlayers: this.apiService.searchRealPlayers(),
+      dependantPlayers: this.apiService.searchDependantPlayers(),
+      playerClauses: this.apiService.searchPlayerClauses(),
       matchdayMarkets: this.apiService.searchMatchdayMarkets(),
       negotiations: this.apiService.searchNegotiations(),
       bids: this.apiService.searchBids(),
@@ -151,9 +168,15 @@ export class InsideTournamentComponent implements OnInit {
 
         const currentParticipantId = this.extractId(this.participant);
         this.rivals = tournamentParticipants.filter((item: any) => this.extractId(item) !== currentParticipantId);
+        this.participantsOrdered = [
+          ...tournamentParticipants.filter((item: any) => this.extractId(item) === currentParticipantId),
+          ...tournamentParticipants.filter((item: any) => this.extractId(item) !== currentParticipantId),
+        ];
 
         this.allParticipantSquads = response.participantSquads.data;
         this.allRealPlayers = response.realPlayers.data;
+        this.allDependantPlayers = response.dependantPlayers?.data ?? [];
+        this.allPlayerClauses = response.playerClauses?.data ?? [];
         this.allParticipantPoints = response.participantMatchdayPoints.data;
         this.allPlayerPerformances = response.playerPerformances?.data ?? [];
 
@@ -168,6 +191,7 @@ export class InsideTournamentComponent implements OnInit {
           .sort((left: any, right: any) => Number(left?.matchdayNumber ?? 0) - Number(right?.matchdayNumber ?? 0));
 
         this.selectedRankingScope = 'total';
+        this.rebuildMapsAndNegotiationViews();
 
         this.rebuildSquadFromFormation();
         this.rebuildMarketFromDatabase();
@@ -314,6 +338,295 @@ export class InsideTournamentComponent implements OnInit {
         };
       })
       .sort((a, b) => b.points - a.points);
+  }
+
+  get loggedParticipantId(): number {
+    return this.extractId(this.participant) ?? 0;
+  }
+
+  get isClauseEnabled(): boolean {
+    const clauseDate = this.tournament?.clauseEnableDate ? new Date(this.tournament.clauseEnableDate) : null;
+    if (!clauseDate || Number.isNaN(clauseDate.getTime())) {
+      return false;
+    }
+
+    return clauseDate.getTime() <= Date.now();
+  }
+
+  getParticipantSquad(participant: any): any | null {
+    const participantId = this.extractId(participant);
+    if (!participantId) return null;
+    return this.allParticipantSquads.find((item) => this.extractId(item.participant) === participantId) ?? null;
+  }
+
+  getNegotiationPlayerName(negotiation: any): string {
+    const dependantId = this.extractId(negotiation?.dependantPlayer) ?? 0;
+    const dependant = this.allDependantPlayers.find((item) => this.extractId(item) === dependantId);
+    const realPlayerId = this.extractId(dependant?.realPlayer) ?? 0;
+    const realPlayer = this.realPlayerById.get(realPlayerId);
+    return realPlayer?.name ?? `Jugador #${realPlayerId || '?'}`;
+  }
+
+  isNegotiationBuyer(negotiation: any): boolean {
+    return this.extractId(negotiation?.buyerParticipant) === this.loggedParticipantId;
+  }
+
+  isNegotiationSeller(negotiation: any): boolean {
+    return this.extractId(negotiation?.sellerParticipant) === this.loggedParticipantId;
+  }
+
+  canRespondToNegotiation(negotiation: any): boolean {
+    return this.getNegotiationResponderParticipantId(negotiation) === this.loggedParticipantId;
+  }
+
+  openCounterNegotiationModal(negotiation: any): void {
+    if (!this.canRespondToNegotiation(negotiation)) return;
+    this.negotiationForAmountEdit = negotiation;
+    this.negotiationAmountInput = Number(negotiation?.agreedAmount ?? 0);
+    this.negotiationAmountError = '';
+    this.isSavingNegotiationAmount = false;
+    this.showNegotiationAmountModal = true;
+  }
+
+  closeCounterNegotiationModal(): void {
+    this.showNegotiationAmountModal = false;
+    this.negotiationForAmountEdit = null;
+    this.negotiationAmountInput = 0;
+    this.negotiationAmountError = '';
+    this.isSavingNegotiationAmount = false;
+  }
+
+  cancelNegotiation(negotiation: any): void {
+    if (!this.isNegotiationBuyer(negotiation)) return;
+    this.rollbackNegotiationAndDelete(negotiation);
+  }
+
+  rejectNegotiation(negotiation: any): void {
+    if (!this.canRespondToNegotiation(negotiation)) return;
+    this.rollbackNegotiationAndDelete(negotiation);
+  }
+
+  saveNegotiationAmountChange(): void {
+    const negotiation = this.negotiationForAmountEdit;
+    if (!negotiation) return;
+    if (!this.canRespondToNegotiation(negotiation)) {
+      this.negotiationAmountError = 'No te toca responder esta oferta.';
+      return;
+    }
+
+    const nextAmount = Number(this.negotiationAmountInput);
+    if (!Number.isFinite(nextAmount) || nextAmount <= 0) return;
+
+    const buyerId = this.extractId(negotiation?.buyerParticipant) ?? 0;
+    const sellerId = this.extractId(negotiation?.sellerParticipant) ?? 0;
+    const buyer = this.participantById.get(buyerId);
+    if (!buyer) return;
+
+    const dependantId = this.extractId(negotiation?.dependantPlayer) ?? 0;
+    const dependant = this.allDependantPlayers.find((item) => this.extractId(item) === dependantId);
+    const realPlayerId = this.extractId(dependant?.realPlayer) ?? 0;
+    const realPlayer = this.realPlayerById.get(realPlayerId);
+    const translatedValue = Number(realPlayer?.translatedValue ?? 0);
+
+    if (nextAmount <= translatedValue) return;
+
+    const previousAmount = Number(negotiation?.agreedAmount ?? 0);
+    const delta = nextAmount - previousAmount;
+    const buyerAvailable = Number(buyer?.availableMoney ?? 0);
+    const buyerReserved = Number(buyer?.reservedMoney ?? 0);
+
+    if (delta > buyerAvailable) return;
+    this.isSavingNegotiationAmount = true;
+
+    this.apiService.patchNegotiation({
+      id: this.extractId(negotiation)!,
+      agreedAmount: nextAmount,
+      status: this.loggedParticipantId === sellerId ? 'countered' : 'active',
+      publicationDate: new Date(),
+    }).subscribe({
+      next: () => {
+        this.apiService.patchParticipant({
+          id: buyerId,
+          availableMoney: Math.max(0, buyerAvailable - delta),
+          reservedMoney: Math.max(0, buyerReserved + delta),
+        }).subscribe({
+          next: () => {
+            this.closeCounterNegotiationModal();
+            this.loadTournamentPage(true);
+          },
+          error: (error: any) => {
+            this.negotiationAmountError = error?.error?.message ?? 'No se pudo actualizar el monto.';
+            this.isSavingNegotiationAmount = false;
+          }
+        });
+      },
+      error: (error: any) => {
+        this.negotiationAmountError = error?.error?.message ?? 'No se pudo actualizar el monto.';
+        this.isSavingNegotiationAmount = false;
+      },
+    });
+  }
+
+  acceptNegotiation(negotiation: any): void {
+    if (!this.canRespondToNegotiation(negotiation)) return;
+
+    const sellerId = this.extractId(negotiation?.sellerParticipant) ?? 0;
+    const buyerId = this.extractId(negotiation?.buyerParticipant) ?? 0;
+    const amount = Number(negotiation?.agreedAmount ?? 0);
+    const dependantId = this.extractId(negotiation?.dependantPlayer) ?? 0;
+    const dependant = this.allDependantPlayers.find((item) => this.extractId(item) === dependantId);
+    const realPlayerId = this.extractId(dependant?.realPlayer) ?? 0;
+
+    const buyer = this.participantById.get(buyerId);
+    const seller = this.participantById.get(sellerId);
+    if (!buyer || !seller || !realPlayerId) return;
+
+    this.transferRealPlayer(realPlayerId, sellerId, buyerId).subscribe({
+      next: () => {
+        forkJoin({
+          negotiation: this.apiService.patchNegotiation({
+            id: this.extractId(negotiation)!,
+            status: 'accepted',
+            effectiveDate: new Date(),
+          }),
+          buyer: this.apiService.patchParticipant({
+            id: buyerId,
+            reservedMoney: Math.max(0, Number(buyer?.reservedMoney ?? 0) - amount),
+            bankBudget: Math.max(0, Number(buyer?.bankBudget ?? 0) - amount),
+          }),
+          seller: this.apiService.patchParticipant({
+            id: sellerId,
+            bankBudget: Number(seller?.bankBudget ?? 0) + amount,
+            availableMoney: Number(seller?.availableMoney ?? 0) + amount,
+          }),
+        }).subscribe({
+          next: () => this.loadTournamentPage(true),
+        });
+      },
+    });
+  }
+
+  onRivalListUpdated(): void {
+    this.loadTournamentPage(true);
+  }
+
+  private rollbackNegotiationAndDelete(negotiation: any): void {
+    const buyerId = this.extractId(negotiation?.buyerParticipant) ?? 0;
+    const amount = Number(negotiation?.agreedAmount ?? 0);
+    const buyer = this.participantById.get(buyerId);
+    if (!buyer) return;
+
+    this.apiService.patchParticipant({
+      id: buyerId,
+      availableMoney: Number(buyer?.availableMoney ?? 0) + amount,
+      reservedMoney: Math.max(0, Number(buyer?.reservedMoney ?? 0) - amount),
+    }).subscribe({
+      next: () => {
+        this.apiService.removeNegotiation(this.extractId(negotiation)!).subscribe({
+          next: () => this.loadTournamentPage(true),
+        });
+      },
+    });
+  }
+
+  private transferRealPlayer(realPlayerId: number, fromParticipantId: number, toParticipantId: number): Observable<unknown> {
+    const sellerSquad = this.allParticipantSquads.find((item) => this.extractId(item?.participant) === fromParticipantId);
+    const buyerSquad = this.allParticipantSquads.find((item) => this.extractId(item?.participant) === toParticipantId);
+
+    if (!sellerSquad || !buyerSquad) return of(null as unknown);
+
+    const sellerStarting = this.normalizeIdCollection(sellerSquad?.startingRealPlayersIds ?? sellerSquad?.starting_real_players_ids)
+      .filter((id) => id !== realPlayerId);
+    const sellerSubs = this.normalizeIdCollection(sellerSquad?.substitutesRealPlayersIds ?? sellerSquad?.substitutes_real_players_ids)
+      .filter((id) => id !== realPlayerId);
+
+    const buyerSubs = this.normalizeIdCollection(buyerSquad?.substitutesRealPlayersIds ?? buyerSquad?.substitutes_real_players_ids);
+    if (!buyerSubs.includes(realPlayerId)) {
+      buyerSubs.push(realPlayerId);
+    }
+
+    return forkJoin({
+      seller: this.apiService.patchParticipantSquad({
+        id: this.extractId(sellerSquad)!,
+        startingRealPlayersIds: sellerStarting,
+        substitutesRealPlayersIds: sellerSubs,
+      }),
+      buyer: this.apiService.patchParticipantSquad({
+        id: this.extractId(buyerSquad)!,
+        substitutesRealPlayersIds: buyerSubs,
+      }),
+    }) as Observable<unknown>;
+  }
+
+  private rebuildMapsAndNegotiationViews(): void {
+    this.participantById = new Map<number, any>();
+    for (const participant of [this.participant, ...this.rivals]) {
+      const id = this.extractId(participant);
+      if (id) {
+        const squad = this.allParticipantSquads.find((item) => this.extractId(item.participant) === id) ?? null;
+        this.participantById.set(id, { ...participant, participantSquad: squad, relatedNegotiations: [] });
+      }
+    }
+
+    this.realPlayerById = new Map<number, any>();
+    for (const player of this.allRealPlayers) {
+      const playerId = this.extractId(player);
+      if (!playerId) continue;
+      const totalScore = this.allPlayerPerformances
+        .filter((perf: any) => this.extractId(perf?.realPlayer) === playerId)
+        .reduce((sum: number, perf: any) => sum + Number(perf?.pointsObtained ?? 0), 0);
+      this.realPlayerById.set(playerId, { ...player, totalScore });
+    }
+
+    this.dependantByRealPlayerId = new Map<number, any>();
+    for (const dependant of this.allDependantPlayers) {
+      if (this.extractId(dependant?.tournament) !== this.tournamentId) continue;
+      const realPlayerId = this.extractId(dependant?.realPlayer);
+      if (realPlayerId) {
+        this.dependantByRealPlayerId.set(realPlayerId, dependant);
+      }
+    }
+
+    this.playerClauseByDependantId = new Map<number, any>();
+    for (const clause of this.allPlayerClauses) {
+      if (this.extractId(clause?.tournament) !== this.tournamentId) continue;
+      const dependantId = this.extractId(clause?.dependantPlayer);
+      if (dependantId) {
+        this.playerClauseByDependantId.set(dependantId, clause);
+      }
+    }
+
+    this.visibleNegotiations = this.negotiations.filter((item: any) =>
+      this.extractId(item?.buyerParticipant) === this.loggedParticipantId
+      || this.extractId(item?.sellerParticipant) === this.loggedParticipantId
+    );
+
+    for (const negotiation of this.visibleNegotiations) {
+      const sellerId = this.extractId(negotiation?.sellerParticipant);
+      const buyerId = this.extractId(negotiation?.buyerParticipant);
+      if (sellerId && this.participantById.has(sellerId)) {
+        this.participantById.get(sellerId).relatedNegotiations.push(negotiation);
+      }
+      if (buyerId && this.participantById.has(buyerId)) {
+        this.participantById.get(buyerId).relatedNegotiations.push(negotiation);
+      }
+    }
+  }
+
+  private getNegotiationResponderParticipantId(negotiation: any): number | null {
+    const status = String(negotiation?.status ?? 'active');
+    const sellerId = this.extractId(negotiation?.sellerParticipant);
+    const buyerId = this.extractId(negotiation?.buyerParticipant);
+
+    if (status === 'countered') {
+      return buyerId;
+    }
+
+    if (status === 'active') {
+      return sellerId;
+    }
+
+    return null;
   }
 
   private resolveParticipantName(participant: any): string {

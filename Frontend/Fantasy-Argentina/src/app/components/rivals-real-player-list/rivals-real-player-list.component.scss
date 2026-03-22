@@ -1,0 +1,86 @@
+.rival-card {
+  border: 1px solid #252525;
+  border-radius: 0.5rem;
+  margin-bottom: 0.8rem;
+  overflow: hidden;
+  background: #fff;
+}
+
+.rival-card--highlighted {
+  border-color: #3f51b5;
+  background: #eef1ff;
+}
+
+.rival-summary {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0.9rem 1rem;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.8rem;
+  align-items: center;
+  cursor: pointer;
+}
+
+.rival-summary__name { font-weight: 700; text-align: left; }
+.rival-summary__points { border-left: 2px solid #111; padding-left: 0.8rem; }
+.rival-summary__icon { font-size: 1.5rem; line-height: 1; }
+
+.rival-content {
+  border-top: 1px solid #111;
+  padding: 0.75rem;
+}
+
+.player-row {
+  width: 100%;
+  border: 0;
+  border-bottom: 2px solid #111;
+  background: transparent;
+  padding: 0.55rem 0.2rem;
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  text-align: left;
+  cursor: pointer;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+}
+
+.modal-content {
+  background: #fff;
+  border-radius: 0.8rem;
+  max-width: 460px;
+  width: 100%;
+  padding: 1rem;
+}
+
+.modal-content label {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.modal-content input {
+  border: 1px solid #777;
+  border-radius: 0.5rem;
+  padding: 0.45rem;
+}
+
+.modal-actions {
+  margin-top: 0.8rem;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.error {
+  color: #b3261e;
+  font-weight: 700;
+}

@@ -203,6 +203,50 @@ h2 { font-size: 1.5rem; margin-bottom: 1rem; }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
 
+.negotiation-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.negotiation-item {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(82, 43, 91, 0.22);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.negotiation-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 25;
+}
+
+.negotiation-modal {
+  width: min(420px, calc(100vw - 2rem));
+  background: #fff8f4;
+  border: 1px solid rgba(82, 43, 91, 0.42);
+  border-radius: 0.9rem;
+  padding: 1rem;
+}
+
+.negotiation-modal input {
+  width: 100%;
+  border: 1px solid rgba(82, 43, 91, 0.4);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.55rem;
+  margin-top: 0.3rem;
+}
+
 .card {
   border: 2px solid rgba(82,43,91,.25);
   border-radius: 0.9rem;
