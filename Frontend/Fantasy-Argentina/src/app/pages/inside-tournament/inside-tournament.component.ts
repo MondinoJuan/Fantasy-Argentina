@@ -351,6 +351,7 @@ export class InsideTournamentComponent implements OnInit {
     }
 
     return clauseDate.getTime() <= Date.now();
+    //return true;
   }
 
   getParticipantSquad(participant: any): any | null {
