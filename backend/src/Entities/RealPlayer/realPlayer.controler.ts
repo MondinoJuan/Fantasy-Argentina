@@ -270,8 +270,12 @@ function isNullTextValue(value: unknown): boolean {
   return typeof value === 'string' && value.trim().toLowerCase() === 'null';
 }
 
+function shouldApplyPersistedValueFallback(value: number | null, valueRaw: unknown): boolean {
+  return value === null || isNullTextValue(valueRaw) || valueRaw === null;
+}
+
 function normalizePersistedValue(value: number | null, valueRaw: unknown): number | null {
-  if (isNullTextValue(valueRaw)) {
+  if (shouldApplyPersistedValueFallback(value, valueRaw)) {
     return 2_000_000;
   }
 
@@ -279,6 +283,14 @@ function normalizePersistedValue(value: number | null, valueRaw: unknown): numbe
 }
 
 function normalizePersistedCurrency(valueCurrency: string | null, valueRaw: unknown): string | null {
+  if (valueCurrency === null && (isNullTextValue(valueRaw) || valueRaw === null)) {
+    return 'EUR';
+  }
+
+  if (valueRaw === null) {
+    return 'EUR';
+  }
+
   if (isNullTextValue(valueRaw)) {
     return 'EUR';
   }
