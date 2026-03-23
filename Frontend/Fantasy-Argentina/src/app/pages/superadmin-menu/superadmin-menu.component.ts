@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { finalize, map } from 'rxjs/operators';
 import { ApiService } from '../../servicios/api.service';
+import { AuthService } from '../../servicios/auth.service';
 
 import { ActionField, SuperadminAction, SUPERADMIN_ACTION_CONFIG, SUPERADMIN_FIELD_LABELS } from './superadmin-actions.config';
 
@@ -43,6 +44,7 @@ export class SuperadminMenuComponent {
   constructor(
     private readonly fb: FormBuilder,
     private readonly apiService: ApiService,
+    private readonly authService: AuthService,
     private readonly router: Router,
   ) {
     this.actionForm = this.fb.group({
@@ -86,9 +88,7 @@ export class SuperadminMenuComponent {
   }
 
   logout(): void {
-    localStorage.removeItem('currentUserId');
-    localStorage.removeItem('currentUsername');
-    localStorage.removeItem('currentUserType');
+    this.authService.clearSession();
     this.router.navigate(['/logIn']);
   }
 
