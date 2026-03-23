@@ -21,7 +21,7 @@ function normalizeCountryInput(country: string): string {
 }
 
 async function getLeagueFromCountryLeagues(country: string, competitionId: number): Promise<UnknownRecord> {
-  const payload = asRecord(await requestSportsApiPro('/leagues', {
+  const payload = asRecord(await requestSportsApiPro('/api/leagues', {
     country: normalizeCountryInput(country),
     refresh: 'true',
   }));
