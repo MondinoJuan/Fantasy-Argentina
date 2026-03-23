@@ -364,7 +364,10 @@ export class ApiService {
   }
 
   searchExternalRankingsWithLocalPerformances(competitionId: number | string) {
-    return this.http.get<any>(`${this.url}/external/sportsapipro/rankings/player-performances?competitionId=${competitionId}`);
+    return this.http.post<any>(
+      `${this.url}/external/sportsapipro/rankings/player-performances`,
+      { competitionId }
+    );
   }
 
   postTournamentSumEndOfMatchdayPoints(payload: { leagueId: number; matchdayNumber: number; matchId?: number }) {
