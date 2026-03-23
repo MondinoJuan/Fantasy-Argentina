@@ -9,6 +9,7 @@ import { LoadingSpinnerComponent } from '../../components/loading-spinner/loadin
 import { tournamentI } from '../../modelos/tournament.interface';
 import { leagueI } from '../../modelos/league.interface';
 import { TournamentStatus } from '../../modelos/domain-enums.types';
+import { AuthService } from '../../servicios/auth.service';
 
 @Component({
   selector: 'app-landing-page',
@@ -37,7 +38,7 @@ export class LandingPageComponent implements OnInit {
   readonly joinTournamentForm;
 
   get username(): string {
-    return localStorage.getItem('currentUsername') ?? 'DT';
+    return this.authService.getCurrentUser()?.username ?? 'DT';
   }
 
   get filteredTournaments(): tournamentI[] {
@@ -52,6 +53,7 @@ export class LandingPageComponent implements OnInit {
   constructor(
     private readonly fb: FormBuilder,
     private readonly apiService: ApiService,
+    private readonly authService: AuthService,
     private readonly router: Router
   ) {
     this.createTournamentForm = this.fb.nonNullable.group({
@@ -106,9 +108,7 @@ export class LandingPageComponent implements OnInit {
 
   logout(): void {
     this.closeMenu();
-    localStorage.removeItem('currentUserId');
-    localStorage.removeItem('currentUsername');
-    localStorage.removeItem('currentUserType');
+    this.authService.clearSession();
     this.router.navigate(['/logIn']);
   }
 

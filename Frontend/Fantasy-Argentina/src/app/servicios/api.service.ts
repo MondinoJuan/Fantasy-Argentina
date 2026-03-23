@@ -130,6 +130,12 @@ export class ApiService {
 
   constructor(private readonly http: HttpClient) {}
 
+  // Auth
+  login(payload: { mail: string; password: string }) {
+    return this.http.post<{ message: string; data: { token: string; user: any } }>(`${this.url}/auth/login`, payload);
+  }
+  me() { return this.http.get<{ message: string; data: any }>(`${this.url}/auth/me`); }
+
   // Users
   searchUsers() { return this.http.get<userCollectionI>(`${this.url}/users`); }
   searchUserById(id: number | string) { return this.http.get<responseUserI>(`${this.url}/users/${id}`); }
