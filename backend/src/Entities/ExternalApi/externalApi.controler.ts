@@ -786,11 +786,11 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-async function updateRealPlayerTranslatedValuesByLatestFormForCompetition(competitionId: number) {
-  const league = await em.findOne(League, { idEnApi: competitionId });
+async function updateRealPlayerTranslatedValuesByLatestFormForCompetition(competitionId: number, localEm: typeof orm.em) {
+  const league = await localEm.findOne(League, { idEnApi: competitionId });
   if (!league) return { skipped: true, reason: 'league not found locally' };
 
-  const tournament = await em.findOne(
+  const tournament = await localEm.findOne(
     Tournament,
     { league: { id: league.id } } as any,
     { orderBy: { id: 'desc' } as any },
@@ -898,122 +898,116 @@ async function getSportsApiProRankingsWithLocalPerformances(req: Request, res: R
     return res.status(400).json({ message: 'competitionId body param is required number' });
   }
 
-  try {
-    const matches = await em.find(
-      Match,
-      { status: 'finalizado', matchday: { league: { idEnApi: competitionId } } } as any,
-      { populate: ['matchday', 'matchday.league'] },
-    );
+  // Responde inmediatamente
+  res.status(202).json({ message: 'processing started', competitionId });
 
-    const finalizedMatchApiIds = matches
-      .map((match) => Number.parseInt(String(match.externalApiId ?? ''), 10))
-      .filter((id) => Number.isFinite(id));
+  // Procesa en background con su propio em forkeado
+  const forkedEm = orm.em.fork();
+  processRankingsInBackground(competitionId, forkedEm).catch((err) => {
+    console.error('[rankings-background] error:', err?.message ?? err);
+  });
+}
 
-    let processedMatches = 0;
-    let processedPlayers = 0;
-    let createdPerformances = 0;
-    let updatedPerformances = 0;
-    let missingLocalPlayers = 0;
-    const errors: Array<{ matchId: number; message: string }> = [];
+async function processRankingsInBackground(competitionId: number, localEm: typeof orm.em) {
+  const matches = await localEm.find(
+    Match,
+    { status: 'finalizado', matchday: { league: { idEnApi: competitionId } } } as any,
+    { populate: ['matchday', 'matchday.league'] },
+  );
 
-    for (const match of matches) {
-      const apiMatchId = Number.parseInt(String(match.externalApiId ?? ''), 10);
-      if (!Number.isFinite(apiMatchId)) {
+  let processedMatches = 0;
+  let processedPlayers = 0;
+  let createdPerformances = 0;
+  let updatedPerformances = 0;
+  let missingLocalPlayers = 0;
+  const errors: Array<{ matchId: number; message: string }> = [];
+
+  for (const match of matches) {
+    const apiMatchId = Number.parseInt(String(match.externalApiId ?? ''), 10);
+    if (!Number.isFinite(apiMatchId)) continue;
+
+    try {
+      const payload = asRecord(await requestSportsApiPro(`/api/match/${apiMatchId}/lineups`));
+      if (payload.success !== true) {
+        errors.push({ matchId: apiMatchId, message: 'lineups success=false' });
         continue;
       }
 
-      try {
-        const payload = asRecord(await requestSportsApiPro(`/api/match/${apiMatchId}/lineups`));
-        if (payload.success !== true) {
-          errors.push({ matchId: apiMatchId, message: 'lineups success=false' });
+      const data = asRecord(payload.data);
+      const allPlayers = [
+        ...asArray(asRecord(data.home).players),
+        ...asArray(asRecord(data.away).players),
+      ];
+
+      for (const playerNode of allPlayers) {
+        const row = asRecord(playerNode);
+        if (row.played !== true) continue;
+
+        const player = asRecord(row.player);
+        const statistics = asRecord(row.statistics);
+
+        const playerIdEnApi = Number.parseInt(String(player.id ?? ''), 10);
+        if (!Number.isFinite(playerIdEnApi)) continue;
+
+        const realPlayer = await localEm.findOne(RealPlayer, { idEnApi: playerIdEnApi });
+        if (!realPlayer) {
+          missingLocalPlayers += 1;
           continue;
         }
 
-        const data = asRecord(payload.data);
-        const homePlayers = asArray(asRecord(data.home).players);
-        const awayPlayers = asArray(asRecord(data.away).players);
-        const allPlayers = [...homePlayers, ...awayPlayers];
+        const ratingRaw = statistics.rating;
+        const rating = typeof ratingRaw === 'number'
+          ? ratingRaw
+          : Number.parseFloat(String(ratingRaw ?? '0'));
+        const normalizedRating = Number.isFinite(rating) ? rating : 0;
 
-        for (const playerNode of allPlayers) {
-          const row = asRecord(playerNode);
-          if (row.played !== true) {
-            continue;
-          }
+        let performance = await localEm.findOne(PlayerPerformance, {
+          realPlayer,
+          matchday: match.matchday,
+          league: match.matchday.league,
+          match,
+        });
 
-          const player = asRecord(row.player);
-          const statistics = asRecord(row.statistics);
-
-          const playerIdEnApi = Number.parseInt(String(player.id ?? ''), 10);
-          if (!Number.isFinite(playerIdEnApi)) {
-            continue;
-          }
-
-          const realPlayer = await em.findOne(RealPlayer, { idEnApi: playerIdEnApi });
-          if (!realPlayer) {
-            missingLocalPlayers += 1;
-            continue;
-          }
-
-          const ratingRaw = statistics.rating;
-          const rating = typeof ratingRaw === 'number'
-            ? ratingRaw
-            : Number.parseFloat(String(ratingRaw ?? '0'));
-          const normalizedRating = Number.isFinite(rating) ? rating : 0;
-
-          let performance = await em.findOne(PlayerPerformance, {
+        if (!performance) {
+          localEm.create(PlayerPerformance, {
             realPlayer,
             matchday: match.matchday,
             league: match.matchday.league,
             match,
-          });
-
-          if (!performance) {
-            performance = em.create(PlayerPerformance, {
-              realPlayer,
-              matchday: match.matchday,
-              league: match.matchday.league,
-              match,
-              pointsObtained: normalizedRating,
-              updateDate: new Date(),
-            } as any);
-            createdPerformances += 1;
-          } else {
-            performance.pointsObtained = normalizedRating;
-            performance.updateDate = new Date();
-            updatedPerformances += 1;
-          }
-
-          processedPlayers += 1;
+            pointsObtained: normalizedRating,
+            updateDate: new Date(),
+          } as any);
+          createdPerformances += 1;
+        } else {
+          performance.pointsObtained = normalizedRating;
+          performance.updateDate = new Date();
+          updatedPerformances += 1;
         }
 
-        processedMatches += 1;
-      } catch (error: any) {
-        errors.push({ matchId: apiMatchId, message: error?.message ?? 'unknown error' });
+        processedPlayers += 1;
       }
+
+      processedMatches += 1;
+    } catch (error: any) {
+      errors.push({ matchId: apiMatchId, message: error?.message ?? 'unknown error' });
     }
-
-    await em.flush();
-    const translatedValuesUpdate = await updateRealPlayerTranslatedValuesByLatestFormForCompetition(competitionId);
-
-    return res.status(200).json({
-      message: 'rankings persisted for finalized matches',
-      data: {
-        competitionId,
-        finalizedMatchIds: finalizedMatchApiIds,
-        totalFinalizedMatches: finalizedMatchApiIds.length,
-        processedMatches,
-        processedPlayers,
-        createdPerformances,
-        updatedPerformances,
-        missingLocalPlayers,
-        errors,
-      },
-      translatedValuesUpdate,
-    });
-  } catch (error: any) {
-    return res.status(500).json({ message: error.message });
   }
+
+  await localEm.flush();
+
+  await updateRealPlayerTranslatedValuesByLatestFormForCompetition(competitionId, localEm);
+
+  console.log('[rankings-background] done', {
+    competitionId,
+    processedMatches,
+    processedPlayers,
+    createdPerformances,
+    updatedPerformances,
+    missingLocalPlayers,
+    errors,
+  });
 }
+
 export {
   getSportsApiProPlayerById,
   getSportsApiProPlayersByTeam,
