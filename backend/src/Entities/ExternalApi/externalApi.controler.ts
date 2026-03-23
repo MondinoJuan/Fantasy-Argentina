@@ -469,7 +469,7 @@ async function getSportsApiProTeamDetailByTeam(req: Request, res: Response) {
 
 async function getSportsApiProCompetitionTeams(req: Request, res: Response) {
   const sportId = parseRequiredNumber(req.query.sportId as string | undefined);
-  const competitionId = parseRequiredNumber(req.query.competitionId as string | undefined);
+  const competitionId = parseRequiredNumber(req.body.competitionId as string | undefined);
 
   if (!sportId || !competitionId) {
     return res.status(400).json({ message: 'sportId and competitionId query params are required numbers' });
@@ -485,7 +485,7 @@ async function getSportsApiProCompetitionTeams(req: Request, res: Response) {
 
 async function getSportsApiProLatestMatchdayRatings(req: Request, res: Response) {
   const sportId = parseRequiredNumber(req.query.sportId as string | undefined);
-  const competitionId = parseRequiredNumber(req.query.competitionId as string | undefined);
+  const competitionId = parseRequiredNumber(req.body.competitionId as string | undefined);
 
   if (!sportId || !competitionId) {
     return res.status(400).json({ message: 'sportId and competitionId query params are required numbers' });
@@ -612,7 +612,7 @@ async function postSportsApiProBuildCompetitionFixture(req: Request, res: Respon
 }
 
 async function getSportsApiProLocalPersistedFixture(req: Request, res: Response) {
-  const competitionId = parseRequiredNumber(req.query.competitionId as string | undefined);
+  const competitionId = parseRequiredNumber(req.body.competitionId as string | undefined);
   const leagueId = parseRequiredNumber(req.query.leagueId as string | undefined);
 
   try {
@@ -788,11 +788,13 @@ function clamp(value: number, min: number, max: number): number {
 
 async function updateRealPlayerTranslatedValuesByLatestFormForCompetition(competitionId: number) {
   const league = await em.findOne(League, { idEnApi: competitionId });
-  if (!league) {
-    return { skipped: true, reason: 'league not found locally' };
-  }
+  if (!league) return { skipped: true, reason: 'league not found locally' };
 
-  const tournament = await em.findOne(Tournament, { league: { id: league.id } } as any, { orderBy: { id: 'desc' } as any });
+  const tournament = await em.findOne(
+    Tournament,
+    { league: { id: league.id } } as any,
+    { orderBy: { id: 'desc' } as any },
+  );
   if (!tournament || typeof tournament.limiteMin !== 'number' || typeof tournament.limiteMax !== 'number') {
     return { skipped: true, reason: 'tournament with limits not found for league', leagueId: league.id };
   }
@@ -813,32 +815,47 @@ async function updateRealPlayerTranslatedValuesByLatestFormForCompetition(compet
   }
 
   const players = await em.find(RealPlayer, { realTeam: { $in: teamIds } } as any);
+
+  // ✅ UNA sola query para todas las performances de todos los jugadores
+  const playerIds = players.map((p: any) => p.id);
+  const allPerformances = await em.find(
+    PlayerPerformance,
+    { realPlayer: { $in: playerIds }, league: { id: league.id } } as any,
+    { orderBy: { updateDate: 'desc' } as any },
+  );
+
+  // Agrupar en memoria: Map<playerId, performances[]>
+  const performancesByPlayer = new Map<number, typeof allPerformances>();
+  for (const perf of allPerformances) {
+    const pid = Number((perf as any).realPlayer?.id ?? (perf as any).realPlayer);
+    if (!Number.isFinite(pid)) continue;
+
+    const existing = performancesByPlayer.get(pid) ?? [];
+    if (existing.length < 5) {
+      existing.push(perf);
+      performancesByPlayer.set(pid, existing);
+    }
+  }
+
   let updatedPlayers = 0;
 
   for (const player of players) {
-    const performances = await em.find(
-      PlayerPerformance,
-      { realPlayer: player, league: { id: league.id } } as any,
-      { orderBy: { updateDate: 'desc' } as any, limit: 5 },
-    );
-
+    const performances = performancesByPlayer.get(Number((player as any).id)) ?? [];
     const recentScores = performances
       .map((item) => Number(item.pointsObtained))
       .filter((score) => Number.isFinite(score));
 
-    if (recentScores.length === 0) {
-      continue;
-    }
+    if (recentScores.length === 0) continue;
 
     const scoreForm = computeWeightedFormScore(recentScores);
-    const valorTradActual = typeof player.translatedValue === 'number' && Number.isFinite(player.translatedValue)
-      ? Number(player.translatedValue)
-      : limiteMin;
+    const valorTradActual =
+      typeof player.translatedValue === 'number' && Number.isFinite(player.translatedValue)
+        ? Number(player.translatedValue)
+        : limiteMin;
 
     const pRaw = (valorTradActual - limiteMin) / range;
     const p = clamp(Number.isFinite(pRaw) ? pRaw : 0, 0, 1);
-
-    const notaEsperada = 0 + (p * (10 - 0));
+    const notaEsperada = p * 10;
     const desvio = scoreForm - notaEsperada;
 
     if (desvio === 0) {
@@ -847,17 +864,14 @@ async function updateRealPlayerTranslatedValuesByLatestFormForCompetition(compet
       continue;
     }
 
-    const factorSubida = 1 - p;
-    const factorBajada = p;
     const k = 0.05;
     const ajuste = k * desvio;
 
     let nuevoValor = valorTradActual;
-
     if (scoreForm > 6) {
-      nuevoValor = valorTradActual + (ajuste * factorSubida * valorTradActual);
+      nuevoValor = valorTradActual + ajuste * (1 - p) * valorTradActual;
     } else if (scoreForm < 6) {
-      nuevoValor = valorTradActual + (ajuste * factorBajada * valorTradActual);
+      nuevoValor = valorTradActual + ajuste * p * valorTradActual;
     }
 
     player.translatedValue = clamp(nuevoValor, limiteMin, limiteMax);
