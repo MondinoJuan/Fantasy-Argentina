@@ -33,16 +33,7 @@ El Participant puede aumentar el Shielding de cada uno de sus RealPlayer gastand
 Dentro de cada Tournament se debería poder observar en un apartado, una tabla que liste a los Users dentro de un Tournament (la relacion se da mediante Participant) ordenados de manera descendente por la cantidad de puntaje total de cada uno.
 Debe poder seleccionarse la fecha y ver un ranking ordenado tambien de manera descendete por los puntos de cada Participant, pero esta vez no por los puntos totales, sino que por los puntos obtenidos en dicha fecha por cada uno.
 
-## Dudas
-- No se cómo invocar la función de suma de puntajes a los Participant. Tal vez hacerlo cada vez que se actualicen los puntajes de cada RealPlayer (si el Participant lo tiene referenciado, que se le sume dicho "ranking" al puntaje del mismo), pero como hago para que se sumen solamente los puntajes actualizados recientemente y no todos los previos. 
-* Capaz se podria hacer con un trigger? que cada vez que se cree un PlayerPerformance se sume el puntaje almacenado en la propiedad pointsObtained al puntaje del Participant en totalScore.
-
-- ¿Cómo calcular bien las Bids?
-
-## A finalizar
-- Implementar las negotiations.
-- Implementar las clausulas. Debo poder clickear las cards de mis jugadores.
-- Implementar la fechaHora de finalizacion de las pujas y que se le otorgue el realPlayer al participant. Incluido el manejo de pujas perdidas (que se eliminen luego de devolver la plata).
+# Funcionamiento
 - Agregar que al persistir realPlayers, si el value es 'null', coloque valueCurrency = 'EUR' y value = 2000000.
 - Agregarle una columna a RealPlayer que seria precioTraducido que depende de la league, no porque la league tenga una regla de negocio, sino porque depende del value del RealPlayer más barato y del más caro de una league.
 - El valor de un realPlayer no debería ajustarse de manera lineal, sino según qué tan cerca esté de sus límites.
@@ -95,12 +86,17 @@ Para hacer las correcciones en base al ultimo puntaje que obtuvo la ultima fecha
 Si quiero hacerlo en base a los ultimos partidos, no en base al ultimo, debo usar un promedio ponderado de los ultimos y utilizar dicho promedio en vez de, puntaje:
     scoreForm = 0.5 * notaultimo​ + 0.3 * notapenultimo ​+ 0.2 * notaantepenultimo​
 
+## Dudas
+- No se cómo invocar la función de suma de puntajes a los Participant. Tal vez hacerlo cada vez que se actualicen los puntajes de cada RealPlayer (si el Participant lo tiene referenciado, que se le sume dicho "ranking" al puntaje del mismo), pero como hago para que se sumen solamente los puntajes actualizados recientemente y no todos los previos. 
+* Capaz se podria hacer con un trigger? que cada vez que se cree un PlayerPerformance se sume el puntaje almacenado en la propiedad pointsObtained al puntaje del Participant en totalScore.
+
+## A finalizar
+- Me falta probar el tema del 100% de las pujas = $0.
+
 ## Futuro
 * Si un realPlayer es elegido como capitán por un Participant, que los puntos que le sume al mismo al final de una fecha sea x3.
 * Hay que mejorar el sistema de final de pujas. Si lo hace el superadmin es injusto, si lo hace un tiempo despues de la ultima puja no termina mas (se pueden hacer pujas indefinidas por $0), si lo hago a un tiempo despues del ultimo partido de la fecha se puede romper por partido postpuesto. ¿Qué hacer si dos personas ofertan la misma cantidad de dinero? Si hay una oferta = $0 tampoco deberia dar la puja por ganada.
 * El participant al poner un realPlayer en venta se le tiene que otorgar la posibilidad de venderlo rápido por una cantidad menor.
-* Manejar que pasa si un realPlayer deja de estar en una league despues de haber jugado algun matchday.
-* Si un participant tiene mas de un realPlayer por slot a la hora de sumar puntos, se restan 10 puntos por la cantidad de slots en los que suceda.
 
 ## Listado ligas
 SPORTSAPIPRO V2:
