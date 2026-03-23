@@ -878,10 +878,10 @@ async function updateRealPlayerTranslatedValuesByLatestFormForCompetition(compet
 }
 
 async function getSportsApiProRankingsWithLocalPerformances(req: Request, res: Response) {
-  const competitionId = parseRequiredNumber(req.query.competitionId as string | undefined);
+  const competitionId = parseRequiredNumber(req.body?.competitionId as string | undefined);
 
   if (!competitionId) {
-    return res.status(400).json({ message: 'competitionId query param is required number' });
+    return res.status(400).json({ message: 'competitionId body param is required number' });
   }
 
   try {
