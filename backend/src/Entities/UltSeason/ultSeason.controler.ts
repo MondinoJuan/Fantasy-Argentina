@@ -108,7 +108,7 @@ async function syncByLeagueIdEnApi(req: Request, res: Response) {
       return;
     }
 
-    const payload = asRecord(await requestSportsApiPro(`/tournaments/${leagueIdEnApi}/seasons`));
+    const payload = asRecord(await requestSportsApiPro(`/api/tournaments/${leagueIdEnApi}/seasons`));
     const success = payload.success;
     if (success !== true) {
       res.status(502).json({
