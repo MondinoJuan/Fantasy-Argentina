@@ -247,7 +247,7 @@ function toIsoDateFromUnixTimestamp(value: unknown): string | null {
 
   return new Date(seconds * 1000).toISOString();
 }
-
+/*
 function extractLatestSeasonFromTournamentSeasons(payload: UnknownRecord): UnknownRecord {
   const seasons = asArray(payload.seasons);
   const latest = seasons.length > 0 ? asRecord(seasons[0]) : {};
@@ -258,7 +258,7 @@ function extractLatestSeasonFromTournamentSeasons(payload: UnknownRecord): Unkno
 
   return latest;
 }
-
+*/
 function extractRoundNumbers(payload: UnknownRecord): number[] {
   const roundsRaw = asArray(asRecord(payload.data).rounds);
 
@@ -342,7 +342,7 @@ function toNormalizedRanking(value: unknown): number {
 
   return parsed;
 }
-
+/*
 function extractAthleteRankingRowsFromLineupsPayload(payload: UnknownRecord): Array<{ athleteId: number; ranking: number }> {
   const rankingByAthleteId = new Map<number, number>();
   const data = asRecord(payload.data);
@@ -367,7 +367,7 @@ function extractAthleteRankingRowsFromLineupsPayload(payload: UnknownRecord): Ar
 
   return [...rankingByAthleteId.entries()].map(([athleteId, ranking]) => ({ athleteId, ranking }));
 }
-
+*/
 function parseRequiredNumber(value: string | string[] | undefined): number | null {
   const raw = Array.isArray(value) ? value[0] : value;
   const parsed = Number.parseInt(raw ?? '', 10);

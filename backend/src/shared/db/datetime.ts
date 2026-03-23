@@ -1,3 +1,5 @@
+
+/*
 const pad = (value: number): string => value.toString().padStart(2, '0');
 
 export function toMysqlDateTime(value: string | Date): string {
@@ -28,3 +30,4 @@ export function toNullableMysqlDateTime(value: string | Date | null | undefined)
 export function toMysqlDate(value: string | Date): string {
   return toMysqlDateTime(value).slice(0, 10);
 }
+*/

@@ -222,7 +222,7 @@ function isPostponedMatch(game: UnknownRecord): boolean {
   const status = String(game.statusText ?? '').toLowerCase();
   return status.includes('postpon') || status.includes('aplaz');
 }
-
+/*
 async function ensureLeagueAndSportPersistence(sportId: number, competitionId: number, sportName?: string) {
   const competitionData = await getCompetitionTeamsBySportAndCompetitionService(sportId, competitionId);
 
@@ -293,8 +293,8 @@ async function ensureLeagueAndSportPersistence(sportId: number, competitionId: n
   }
 
   return { league, competitionData };
-}
-
+}*/
+/*
 async function persistFixtureAsMatchdaysAndMatches(
   league: League,
   fixtureData: UnknownRecord[],
@@ -363,7 +363,7 @@ async function persistFixtureAsMatchdaysAndMatches(
     }
   }
 }
-
+*/
 async function syncPostponedMatchesAndPersistPlayerRatings(tournamentId: number): Promise<UnknownRecord[]> {
   let currentRaw = '';
 
