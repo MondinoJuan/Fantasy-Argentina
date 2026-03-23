@@ -126,7 +126,7 @@ import { ultSeasonPatchI } from '../modelos/ultSeason.patch.interface';
   providedIn: 'root'
 })
 export class ApiService {
-  private readonly url = '/api';
+  private readonly url = 'https://fantasy-argentina-production.up.railway.app/api';
 
   constructor(private readonly http: HttpClient) {}
 
