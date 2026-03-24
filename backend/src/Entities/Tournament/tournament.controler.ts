@@ -7,7 +7,7 @@ import { Matchday } from '../Matchday/matchday.entity.js';
 import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
 import { League } from '../League/league.entity.js';
 import { RealTeam } from '../RealTeam/realTeam.entity.js';
-import { Match } from '../Match/match.entity.js';
+import { GameMatch } from '../GameMatch/gameMatch.entity.js';
 import { getCompetitionTeamsBySportAndCompetitionService } from '../ExternalApi/services/index.js';
 import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
@@ -331,14 +331,14 @@ async function persistFixtureAsMatchdaysAndMatches(
         continue;
       }
 
-      const existing = await em.findOne(Match, { externalApiId: String(gameId) });
+      const existing = await em.findOne(GameMatch, { externalApiId: String(gameId) });
       if (existing) {
         existing.matchday = matchday;
         existing.league = league;
       }
 
       if (!existing) {
-        em.create(Match, {
+        em.create(GameMatch, {
           matchday,
           league,
           externalApiId: String(gameId),
@@ -395,7 +395,7 @@ async function syncPostponedMatchesAndPersistPlayerRatings(tournamentId: number)
       continue;
     }
 
-    const match = await em.findOne(Match, { externalApiId: String(gameId) }, { populate: ['matchday'] });
+    const match = await em.findOne(GameMatch, { externalApiId: String(gameId) }, { populate: ['matchday'] });
     if (!match) {
       continue;
     }
@@ -644,7 +644,7 @@ async function sumEndOfMatchdayPoints(req: Request, res: Response) {
   try {
     const leagueId = toInt(req.body?.leagueId);
     const matchdayNumber = toInt(req.body?.matchdayNumber ?? req.body?.nroFecha);
-    const matchId = toInt(req.body?.matchId ?? req.body?.idMatch);
+    const matchId = toInt(req.body?.gameMatchId ?? req.body?.matchId ?? req.body?.idMatch);
 
     if (leagueId === null || matchdayNumber === null) {
       res.status(400).json({ message: 'leagueId and matchdayNumber (or nroFecha) are required numbers' });
@@ -664,7 +664,7 @@ async function sumEndOfMatchdayPoints(req: Request, res: Response) {
     }
 
     const selectedMatch = matchId !== null
-      ? await em.findOne(Match, { id: matchId, matchday })
+      ? await em.findOne(GameMatch, { id: matchId, matchday })
       : null;
 
     if (matchId !== null && !selectedMatch) {

@@ -1,7 +1,7 @@
 import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property, Unique, Rel } from '@mikro-orm/core';
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { League } from '../League/league.entity.js';
-import { Match } from '../Match/match.entity.js';
+import { GameMatch } from '../GameMatch/gameMatch.entity.js';
 import { MatchdayMarket } from '../MatchdayMarket/matchdayMarket.entity.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
 import { ParticipantMatchdayPoints } from '../ParticipantMatchdayPoints/participantMatchdayPoints.entity.js';
@@ -29,8 +29,8 @@ export class Matchday extends BaseEntity {
   @Property({ nullable: false })
   status!: MatchdayStatus;
 
-  @OneToMany(() => Match, (match) => match.matchday, { cascade: [Cascade.ALL] })
-  matches = new Collection<Match>(this);
+  @OneToMany(() => GameMatch, (match) => match.matchday, { cascade: [Cascade.ALL] })
+  matches = new Collection<GameMatch>(this);
 
   @OneToMany(() => MatchdayMarket, (matchdayMarket) => matchdayMarket.matchday, {
     cascade: [Cascade.ALL],

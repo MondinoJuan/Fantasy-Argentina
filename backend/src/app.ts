@@ -10,7 +10,7 @@ import { RealPlayerRouter } from './Entities/RealPlayer/realPlayer.routes.js';
 import { RealTeamRouter } from './Entities/RealTeam/realTeam.routes.js';
 import { ParticipantSquadRouter } from './Entities/ParticipantSquad/participantSquad.routes.js';
 import { MatchdayRouter } from './Entities/Matchday/matchday.routes.js';
-import { MatchRouter } from './Entities/Match/match.routes.js';
+import { GameMatchRouter } from './Entities/GameMatch/gameMatch.routes.js';
 import { MatchdayMarketRouter } from './Entities/MatchdayMarket/matchdayMarket.routes.js';
 import { BidRouter } from './Entities/Bid/bid.routes.js';
 import { PlayerPerformanceRouter } from './Entities/PlayerPerformance/playerPerformance.routes.js';
@@ -126,7 +126,7 @@ app.use('/api/real-teams', RealTeamRouter)
 app.use('/api/dependant-players', DependantPlayerRouter)
 app.use('/api/participant-squads', ParticipantSquadRouter)
 app.use('/api/matchdays', MatchdayRouter)
-app.use('/api/matches', MatchRouter)
+app.use('/api/matches', GameMatchRouter)
 app.use('/api/matchday-markets', MatchdayMarketRouter)
 app.use('/api/bids', BidRouter)
 app.use('/api/player-performances', PlayerPerformanceRouter)

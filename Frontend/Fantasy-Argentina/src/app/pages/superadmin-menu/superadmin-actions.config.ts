@@ -44,7 +44,7 @@ export type ActionField =
   | 'cupoSuplente'
   | 'teamIdEnApi'
   | 'matchdayNumber'
-  | 'matchId'
+  | 'gameMatchId'
   | 'limiteMin'
   | 'limiteMax';
 
@@ -61,7 +61,7 @@ export const SUPERADMIN_FIELD_LABELS: Record<ActionField, string> = {
   cupoSuplente: 'Cupo suplente',
   teamIdEnApi: 'Team ID en API',
   matchdayNumber: 'Nro fecha',
-  matchId: 'IdMatch (opcional)',
+  gameMatchId: 'IdMatch (opcional)',
   limiteMin: 'Límite mínimo traducido',
   limiteMax: 'Límite máximo traducido',
 };
@@ -97,7 +97,7 @@ export const SUPERADMIN_ACTION_CONFIG: Record<SuperadminAction, { title: string;
   rankingsByDate: { title: 'Recuperar rankings por jugador/fecha', fields: ['competitionId'] },
   updateTeamSquad: { title: 'Actualizar plantilla de equipos por League ID', fields: ['leagueId'] },
   syncPlayedMatchResults: { title: 'Actualizar resultados jugados', fields: ['competitionId'] },
-  sumEndOfMatchdayPoints: { title: 'Suma puntos de fin de fecha', fields: ['leagueId', 'matchdayNumber', 'matchId'] },
+  sumEndOfMatchdayPoints: { title: 'Suma puntos de fin de fecha', fields: ['leagueId', 'matchdayNumber', 'gameMatchId'] },
   settleMarketByLeague: { title: 'Cerrar pujas y renovar market por league', fields: ['leagueId'] },
   translateRealPlayerPrices: { title: 'Traducir precios de realPlayer', fields: ['leagueId'] },
 };
