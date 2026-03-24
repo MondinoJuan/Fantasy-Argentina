@@ -25,6 +25,11 @@ interface MatchdayGroup {
   matches: MatchView[];
 }
 
+function buildMatchKey(matchdayNumber: number, homeTeam: string, awayTeam: string): string {
+  const normalizeTeam = (value: string) => value.trim().toLowerCase();
+  return `${matchdayNumber}|${normalizeTeam(homeTeam)}|${normalizeTeam(awayTeam)}`;
+}
+
 @Component({
   selector: 'app-fixture',
   standalone: true,
@@ -61,6 +66,20 @@ export class FixtureComponent implements OnInit {
     this.apiService.searchExternalLocalPersistedFixture({ leagueId }).subscribe({
       next: (response: any) => {
         const groups = Array.isArray(response?.data?.matchdays) ? response.data.matchdays : [];
+        const scheduledMatchKeys = new Set<string>();
+
+        for (const group of groups) {
+          const matchdayNumber = Number(group?.matchdayNumber ?? 0);
+          const matches = Array.isArray(group?.matches) ? group.matches : [];
+          for (const match of matches) {
+            const status = String(match?.status ?? '').trim().toLowerCase();
+            if (status !== 'scheduled') continue;
+
+            const homeTeam = String(match?.homeTeam ?? 'TBD');
+            const awayTeam = String(match?.awayTeam ?? 'TBD');
+            scheduledMatchKeys.add(buildMatchKey(matchdayNumber, homeTeam, awayTeam));
+          }
+        }
 
         this.matchdayGroups = groups
           .map((group: any) => ({
@@ -81,6 +100,14 @@ export class FixtureComponent implements OnInit {
                 result: this.resolveResult(match.homeScore, match.awayScore, String(match.status ?? '')),
                 status: String(match.status ?? 'scheduled'),
               }))
+              .filter((match: MatchView) => {
+                if (match.status.trim().toLowerCase() !== 'postponed') return true;
+
+                const hasEquivalentScheduled = scheduledMatchKeys.has(
+                  buildMatchKey(Number(group.matchdayNumber ?? 0), match.homeTeam, match.awayTeam),
+                );
+                return !hasEquivalentScheduled;
+              })
               .sort((a: MatchView, b: MatchView) => a.startDateTime.getTime() - b.startDateTime.getTime()),
           }))
           .sort((a: MatchdayGroup, b: MatchdayGroup) => {
@@ -151,4 +178,3 @@ export class FixtureComponent implements OnInit {
     return 'Pendiente';
   }
 }
-
