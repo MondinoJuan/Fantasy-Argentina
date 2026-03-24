@@ -1,17 +1,16 @@
-### obtener todos los registros de Match
+### obtener todos los registros de GameMatch
 GET http://127.0.0.1:3000/api/matches
 
-### obtener un registro de Match por id
+### obtener un registro de GameMatch por id
 GET http://127.0.0.1:3000/api/matches/1
 
-### crear un nuevo registro de Match
+### crear un nuevo registro de GameMatch
 POST http://127.0.0.1:3000/api/matches
 Content-Type: application/json
 
 {
   "matchdayId": "1",
-  "externalApiId": "1",
-  "matchdayId": "1",
+  "leagueId": "1",
   "externalApiId": "2",
   "homeTeam": "River Plate",
   "awayTeam": "Boca Juniors",
@@ -19,15 +18,13 @@ Content-Type: application/json
   "status": "scheduled"
 }
 
-### actualizar un registro de Match por id
+### actualizar un registro de GameMatch por id
 PUT http://127.0.0.1:3000/api/matches/1
-PUT http://127.0.0.1:3000/api/matches/3
 Content-Type: application/json
 
 {
-  "matchdayId": "1",
-  "externalApiId": "1",
   "matchdayId": "3",
+  "leagueId": "1",
   "externalApiId": "2",
   "homeTeam": "River Plate actualizado",
   "awayTeam": "Boca Juniors actualizado",
@@ -35,16 +32,15 @@ Content-Type: application/json
   "status": "finalizado"
 }
 
-### actualizar parcialmente un registro de Match por id
+### actualizar parcialmente un registro de GameMatch por id
 PATCH http://127.0.0.1:3000/api/matches/1
 Content-Type: application/json
 
 {
-  "matchdayId": "1",
-  "externalApiId": "1",
+  "leagueId": "1",
   "homeTeam": "River Plate actualizado",
   "status": "finalizado"
 }
 
-### eliminar un registro de Match por id
+### eliminar un registro de GameMatch por id
 DELETE http://127.0.0.1:3000/api/matches/1

@@ -2,7 +2,8 @@ import { ParticipantFormation, SquadAcquisitionType } from './domain-enums.types
 export interface participantSquadPatchI {
   id: number;
   participant?: number;
-  realPlayer?: number;
+  startingRealPlayersIds?: number[];
+  substitutesRealPlayersIds?: number[];
   formation?: ParticipantFormation;
   acquisitionDate?: Date;
   releaseDate?: Date;

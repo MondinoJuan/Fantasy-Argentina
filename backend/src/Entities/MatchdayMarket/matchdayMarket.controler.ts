@@ -10,15 +10,30 @@ function parseId(idParam: string | string[] | undefined) {
   return Number.parseInt(rawId ?? '', 10);
 }
 
+function normalizeDependantPlayerIds(value: unknown, fallbackValue: unknown): number[] | undefined {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => Number.parseInt(String(item), 10))
+      .filter((item) => Number.isFinite(item) && item > 0);
+  }
+
+  const single = Number.parseInt(String(fallbackValue ?? ''), 10);
+  if (Number.isFinite(single) && single > 0) {
+    return [single];
+  }
+
+  return undefined;
+}
+
 function sanitizeMatchdayMarketInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeMatchdayMarketInput = {
-        tournament: req.body.tournament ?? req.body.tournamentId,
+    tournament: req.body.tournament ?? req.body.tournamentId,
     matchday: req.body.matchday ?? req.body.matchdayId,
-    dependantPlayer: req.body.dependantPlayer ?? req.body.dependantPlayerId,
+    dependantPlayerIds: normalizeDependantPlayerIds(req.body.dependantPlayerIds, req.body.dependantPlayer ?? req.body.dependantPlayerId),
     minimumPrice: req.body.minimumPrice,
     origin: req.body.origin,
     sellerParticipant: req.body.sellerParticipant ?? req.body.sellerParticipantId,
-    };
+  };
 
   Object.keys(req.body.sanitizeMatchdayMarketInput).forEach((key) => {
     if (req.body.sanitizeMatchdayMarketInput[key] === undefined) {
@@ -30,7 +45,7 @@ function sanitizeMatchdayMarketInput(req: Request, res: Response, next: NextFunc
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(MatchdayMarket, {}, { populate: ['tournament', 'matchday', 'dependantPlayer', 'sellerParticipant'] });
+    const items = await em.find(MatchdayMarket, {}, { populate: ['tournament', 'matchday', 'sellerParticipant'] });
     res.status(200).json({ message: 'found all matchday markets', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -40,7 +55,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(MatchdayMarket, { id }, { populate: ['tournament', 'matchday', 'dependantPlayer', 'sellerParticipant'] });
+    const item = await em.findOneOrFail(MatchdayMarket, { id }, { populate: ['tournament', 'matchday', 'sellerParticipant'] });
     res.status(200).json({ message: 'found matchday market', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

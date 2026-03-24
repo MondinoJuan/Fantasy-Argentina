@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 
 import { addBidI } from '../modelos/addBid.interface';
 import { addLeagueI } from '../modelos/addLeague.interface';
-import { addMatchI } from '../modelos/addMatch.interface';
+import { addGameMatchI } from '../modelos/addGameMatch.interface';
 import { addMatchdayI } from '../modelos/addMatchday.interface';
 import { addMatchdayMarketI } from '../modelos/addMatchdayMarket.interface';
 import { addNegotiationI } from '../modelos/addNegotiation.interface';
@@ -18,6 +18,7 @@ import { addRealTeamI } from '../modelos/addRealTeam.interface';
 import { addShieldingI } from '../modelos/addShielding.interface';
 import { addSportI } from '../modelos/addSport.interface';
 import { addTournamentI } from '../modelos/addTournament.interface';
+import { addUltSeasonI } from '../modelos/addUltSeason.interface';
 import { addTransactionI } from '../modelos/addTransaction.interface';
 import { addUserI } from '../modelos/addUser.interface';
 
@@ -25,16 +26,17 @@ import { bidI } from '../modelos/bid.interface';
 import { bidPatchI } from '../modelos/bid.patch.interface';
 import { bidCollectionI } from '../modelos/bid.collection.interface';
 import { responseBidI } from '../modelos/responseBid.interface';
+import { responseBidByTournamentRealPlayerI } from '../modelos/responseBidByTournamentRealPlayer.interface';
 
 import { leagueI } from '../modelos/league.interface';
 import { leaguePatchI } from '../modelos/league.patch.interface';
 import { leagueCollectionI } from '../modelos/league.collection.interface';
 import { responseLeagueI } from '../modelos/responseLeague.interface';
 
-import { matchI } from '../modelos/match.interface';
-import { matchPatchI } from '../modelos/match.patch.interface';
-import { matchCollectionI } from '../modelos/match.collection.interface';
-import { responseMatchI } from '../modelos/responseMatch.interface';
+import { gameMatchI } from '../modelos/gameMatch.interface';
+import { gameMatchPatchI } from '../modelos/gameMatch.patch.interface';
+import { gameMatchCollectionI } from '../modelos/gameMatch.collection.interface';
+import { responseGameMatchI } from '../modelos/responseGameMatch.interface';
 
 import { matchdayI } from '../modelos/matchday.interface';
 import { matchdayPatchI } from '../modelos/matchday.patch.interface';
@@ -110,19 +112,29 @@ import { transactionI } from '../modelos/transaction.interface';
 import { transactionPatchI } from '../modelos/transaction.patch.interface';
 import { transactionCollectionI } from '../modelos/transaction.collection.interface';
 import { responseTransactionI } from '../modelos/responseTransaction.interface';
+import { responseUltSeasonI } from '../modelos/responseUltSeason.interface';
 
 import { userI } from '../modelos/user.interface';
 import { userPatchI } from '../modelos/user.patch.interface';
 import { userCollectionI } from '../modelos/user.collection.interface';
 import { responseUserI } from '../modelos/responseUser.interface';
+import { ultSeasonCollectionI } from '../modelos/ultSeason.collection.interface';
+import { ultSeasonI } from '../modelos/ultSeason.interface';
+import { ultSeasonPatchI } from '../modelos/ultSeason.patch.interface';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ApiService {
-  private readonly url = '/api';
+  private readonly url = 'https://fantasy-argentina-production.up.railway.app/api';
 
   constructor(private readonly http: HttpClient) {}
+
+  // Auth
+  login(payload: { mail: string; password: string }) {
+    return this.http.post<{ message: string; data: { token: string; user: any } }>(`${this.url}/auth/login`, payload);
+  }
+  me() { return this.http.get<{ message: string; data: any }>(`${this.url}/auth/me`); }
 
   // Users
   searchUsers() { return this.http.get<userCollectionI>(`${this.url}/users`); }
@@ -135,6 +147,7 @@ export class ApiService {
   // Tournaments
   searchTournaments() { return this.http.get<tournamentCollectionI>(`${this.url}/tournaments`); }
   searchTournamentById(id: number | string) { return this.http.get<responseTournamentI>(`${this.url}/tournaments/${id}`); }
+  searchTournamentByPublicCode(publicCode: string) { return this.http.get<responseTournamentI>(`${this.url}/tournaments/by-public-code/${encodeURIComponent(publicCode)}`); }
   postTournament(tournament: addTournamentI) { return this.http.post<responseTournamentI>(`${this.url}/tournaments`, tournament); }
   updateTournament(tournament: tournamentI) { return this.http.put<responseTournamentI>(`${this.url}/tournaments/${tournament.id}`, tournament); }
   patchTournament(tournament: tournamentPatchI) { return this.http.patch<responseTournamentI>(`${this.url}/tournaments/${tournament.id}`, tournament); }
@@ -155,8 +168,8 @@ export class ApiService {
   // Leagues
   searchLeagues() { return this.http.get<leagueCollectionI>(`${this.url}/leagues`); }
   searchLeagueById(id: number | string) { return this.http.get<responseLeagueI>(`${this.url}/leagues/${id}`); }
-  searchLeagueByIdEnApi(idEnApi: number | string, sportId?: number | string) {
-    const query = sportId !== undefined ? `?sportId=${sportId}` : '';
+  searchLeagueByIdEnApi(idEnApi: number | string, country?: string) {
+    const query = country ? `?country=${encodeURIComponent(country)}` : '';
     return this.http.get<responseLeagueI>(`${this.url}/leagues/by-id-en-api/${idEnApi}${query}`);
   }
   ensureLeagueByName(name: string) { return this.http.post<responseLeagueI>(`${this.url}/leagues/ensure/by-name`, { name }); }
@@ -164,6 +177,17 @@ export class ApiService {
   updateLeague(league: leagueI) { return this.http.put<responseLeagueI>(`${this.url}/leagues/${league.id}`, league); }
   patchLeague(league: leaguePatchI) { return this.http.patch<responseLeagueI>(`${this.url}/leagues/${league.id}`, league); }
   removeLeague(id: number | string) { return this.http.delete<responseLeagueI>(`${this.url}/leagues/${id}`); }
+
+  // Ult Seasons
+  searchUltSeasons() { return this.http.get<ultSeasonCollectionI>(`${this.url}/ult-seasons`); }
+  searchUltSeasonById(id: number | string) { return this.http.get<responseUltSeasonI>(`${this.url}/ult-seasons/${id}`); }
+  postUltSeason(ultSeason: addUltSeasonI) { return this.http.post<responseUltSeasonI>(`${this.url}/ult-seasons`, ultSeason); }
+  updateUltSeason(ultSeason: ultSeasonI) { return this.http.put<responseUltSeasonI>(`${this.url}/ult-seasons/${ultSeason.id}`, ultSeason); }
+  patchUltSeason(ultSeason: ultSeasonPatchI) { return this.http.patch<responseUltSeasonI>(`${this.url}/ult-seasons/${ultSeason.id}`, ultSeason); }
+  removeUltSeason(id: number | string) { return this.http.delete<responseUltSeasonI>(`${this.url}/ult-seasons/${id}`); }
+  syncUltSeasonByLeagueIdEnApi(payload: { leagueIdEnApi: number }) {
+    return this.http.post<any>(`${this.url}/ult-seasons/sync/by-league-id-en-api`, payload);
+  }
 
   // Participants
   searchParticipants() { return this.http.get<participantCollectionI>(`${this.url}/participants`); }
@@ -209,12 +233,17 @@ export class ApiService {
   removeMatchday(id: number | string) { return this.http.delete<responseMatchdayI>(`${this.url}/matchdays/${id}`); }
 
   // Matches
-  searchMatches() { return this.http.get<matchCollectionI>(`${this.url}/matches`); }
-  searchMatchById(id: number | string) { return this.http.get<responseMatchI>(`${this.url}/matches/${id}`); }
-  postMatch(match: addMatchI) { return this.http.post<responseMatchI>(`${this.url}/matches`, match); }
-  updateMatch(match: matchI) { return this.http.put<responseMatchI>(`${this.url}/matches/${match.id}`, match); }
-  patchMatch(match: matchPatchI) { return this.http.patch<responseMatchI>(`${this.url}/matches/${match.id}`, match); }
-  removeMatch(id: number | string) { return this.http.delete<responseMatchI>(`${this.url}/matches/${id}`); }
+  searchGameMatches() { return this.http.get<gameMatchCollectionI>(`${this.url}/matches`); }
+  searchGameMatchById(id: number | string) { return this.http.get<responseGameMatchI>(`${this.url}/matches/${id}`); }
+  postGameMatch(match: addGameMatchI) { return this.http.post<responseGameMatchI>(`${this.url}/matches`, match); }
+  updateGameMatch(match: gameMatchI) { return this.http.put<responseGameMatchI>(`${this.url}/matches/${match.id}`, match); }
+  patchGameMatch(match: gameMatchPatchI) { return this.http.patch<responseGameMatchI>(`${this.url}/matches/${match.id}`, match); }
+  removeGameMatch(id: number | string) { return this.http.delete<responseGameMatchI>(`${this.url}/matches/${id}`); }
+
+
+  // Dependant Players
+  searchDependantPlayers() { return this.http.get<any>(`${this.url}/dependant-players`); }
+  searchDependantPlayerById(id: number | string) { return this.http.get<any>(`${this.url}/dependant-players/${id}`); }
 
   // Matchday Markets
   searchMatchdayMarkets() { return this.http.get<matchdayMarketCollectionI>(`${this.url}/matchday-markets`); }
@@ -227,6 +256,7 @@ export class ApiService {
   // Bids
   searchBids() { return this.http.get<bidCollectionI>(`${this.url}/bids`); }
   searchBidById(id: number | string) { return this.http.get<responseBidI>(`${this.url}/bids/${id}`); }
+  searchBidsByTournamentAndRealPlayer(tournamentId: number | string, realPlayerId: number | string) { return this.http.get<responseBidByTournamentRealPlayerI>(`${this.url}/bids/tournament/${tournamentId}/real-player/${realPlayerId}`); }
   postBid(bid: addBidI) { return this.http.post<responseBidI>(`${this.url}/bids`, bid); }
   updateBid(bid: bidI) { return this.http.put<responseBidI>(`${this.url}/bids/${bid.id}`, bid); }
   patchBid(bid: bidPatchI) { return this.http.patch<responseBidI>(`${this.url}/bids/${bid.id}`, bid); }
@@ -303,7 +333,7 @@ export class ApiService {
     return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/build`, payload);
   }
 
-  syncLeagueByIdEnApi(payload: { sportId: number; idEnApi: number }) {
+  syncLeagueByIdEnApi(payload: { idEnApi: number; country: string }) {
     return this.http.post<any>(`${this.url}/leagues/sync/by-id-en-api`, payload);
   }
 
@@ -319,23 +349,48 @@ export class ApiService {
     return this.http.post<any>(`${this.url}/real-players/sync/team-squad`, payload);
   }
 
-  postExternalFixtureBuildCompetition(payload: { sportId: number; competitionId: number }) {
+  postRealPlayerTranslatePricesByLeague(payload: { leagueId: number }) {
+    return this.http.post<any>(`${this.url}/real-players/translate-prices-by-league`, payload);
+  }
+
+  postExternalFixtureBuildCompetition(payload: { competitionId: number; seasonId: number }) {
     return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/build-competition`, payload);
   }
+
 
 
   postExternalSyncPlayedResults(payload: { competitionId?: number }) {
     return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/sync-played-results`, payload);
   }
 
-  searchExternalRankingsWithLocalPerformances(sportId: number | string, competitionId: number | string) {
-    return this.http.get<any>(`${this.url}/external/sportsapipro/rankings/player-performances?sportId=${sportId}&competitionId=${competitionId}`);
+  searchExternalRankingsWithLocalPerformances(competitionId: number | string) {
+    return this.http.post<any>(
+      `${this.url}/external/sportsapipro/rankings/player-performances`,
+      { competitionId }
+    );
   }
 
-  searchExternalLocalPersistedFixture(competitionId?: number | string) {
-    const query = competitionId !== undefined && competitionId !== null
-      ? `?competitionId=${competitionId}`
-      : '';
+  postTournamentSumEndOfMatchdayPoints(payload: { leagueId: number; matchdayNumber: number; gameMatchId?: number }) {
+    return this.http.post<any>(`${this.url}/tournaments/sum-end-of-matchday-points`, payload);
+  }
+
+
+  postTournamentSettleMarketAndRefreshByLeague(payload: { leagueId: number }) {
+    return this.http.post<any>(`${this.url}/tournaments/settle-market-and-refresh-by-league`, payload);
+  }
+
+  searchExternalLocalPersistedFixture(filters?: { competitionId?: number | string; leagueId?: number | string }) {
+    const params: string[] = [];
+
+    if (filters?.competitionId !== undefined && filters?.competitionId !== null) {
+      params.push(`competitionId=${filters.competitionId}`);
+    }
+
+    if (filters?.leagueId !== undefined && filters?.leagueId !== null) {
+      params.push(`leagueId=${filters.leagueId}`);
+    }
+
+    const query = params.length > 0 ? `?${params.join('&')}` : '';
 
     return this.http.get<any>(`${this.url}/external/sportsapipro/fixture/local${query}`);
   }

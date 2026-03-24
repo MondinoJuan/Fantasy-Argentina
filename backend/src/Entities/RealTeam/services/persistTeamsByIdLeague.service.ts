@@ -1,8 +1,8 @@
 import { orm } from '../../../shared/db/orm.js';
 import { RealTeam } from '../realTeam.entity.js';
 import { League } from '../../League/league.entity.js';
-import { getCompetitionTeamsBySportAndCompetitionService } from '../../ExternalApi/services/getCompetitionTeamsBySportAndCompetition.service.js';
-
+//import { getCompetitionTeamsBySportAndCompetitionService } from '../../ExternalApi/services/getCompetitionTeamsBySportAndCompetition.service.js';
+/*
 const em = orm.em;
 
 export async function persistTeamsByIdLeagueService(sportId: number, competitionId: number, leagueId: number) {
@@ -42,3 +42,4 @@ export async function persistTeamsByIdLeagueService(sportId: number, competition
     updated,
   };
 }
+*/

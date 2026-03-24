@@ -13,6 +13,9 @@ Content-Type: application/json
   "name": "Liga Profesional",
   "position": "forward",
   "realTeamId": "1",
+  "valueCurrency": "ARS",
+  "value": 5500000,
+  "translatedValue": null,
   "active": true
 }
 
@@ -25,6 +28,9 @@ Content-Type: application/json
   "name": "Liga Profesional actualizado",
   "position": "midfielder",
   "realTeamId": "1",
+  "valueCurrency": "USD",
+  "value": 1200000,
+  "translatedValue": null,
   "active": true
 }
 
@@ -36,6 +42,9 @@ Content-Type: application/json
   "idEnApi": "1",
   "name": "Liga Profesional actualizado",
   "position": "midfielder",
+  "valueCurrency": "EUR",
+  "value": 1350000,
+  "translatedValue": null
 }
 
 ### eliminar un registro de RealPlayer por id
@@ -59,4 +68,13 @@ Content-Type: application/json
 
 {
   "teamIdEnApi": 9050
+}
+
+
+### traducir precios de realPlayers por League ID local
+POST http://127.0.0.1:3000/api/real-players/translate-prices-by-league
+Content-Type: application/json
+
+{
+  "leagueId": 1
 }

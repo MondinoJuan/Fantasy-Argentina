@@ -1,122 +1,151 @@
 <section class="inside-shell">
-  @if (isLoading) {
-    <p class="state">Cargando torneo...</p>
-  }
+  <p class="state" *ngIf="isLoading">Cargando torneo...</p>
 
-  @if (errorMessage) {
-    <p class="state error">{{ errorMessage }}</p>
-  }
+  <p class="state error" *ngIf="errorMessage">{{ errorMessage }}</p>
 
-  @if (!isLoading && !errorMessage) {
+  <ng-container *ngIf="!isLoading && !errorMessage">
     <header class="top-header">
       <button class="back" (click)="goBack()">← Volver</button>
+      <button class="fixture-button" (click)="goToFixture()">Ver fixture</button>
       <div class="stats">
-        <div><span>Puntos totales</span><strong>{{ participant?.totalScore ?? 0 }}</strong></div>
-        <div><span>Presupuesto total</span><strong>{{ participant?.bankBudget ?? 0 }}</strong></div>
-        <div><span>ID torneo</span><strong>{{ tournament?.id }}</strong></div>
-        <div><span>Código torneo</span><strong>{{ tournamentCode }}</strong></div>
+        <div class="budget-card">
+          <span class="budget-label">Presupuesto total</span>
+          <strong class="budget-total">${{ (participant?.bankBudget ?? 0) | number:'1.0-0' }}</strong>
+
+          <div class="budget-split">
+            <div class="budget-split__item budget-split__item--available">
+              <span class="split-label">Disponible</span>
+              <span class="split-value">{{ (participant?.availableMoney ?? 0) | number:'1.0-0' }}</span>
+            </div>
+
+            <div class="budget-split__item budget-split__item--reserved">
+              <span class="split-label">Reservado</span>
+              <span class="split-value">{{ (participant?.reservedMoney ?? 0) | number:'1.0-0' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-item">
+            <span class="summary-label">Puntos totales</span>
+            <strong class="summary-value">{{ participant?.totalScore ?? 0 }}</strong>
+          </div>
+
+          <div class="summary-item">
+            <span class="summary-label">ID torneo</span>
+            <strong class="summary-value">{{ tournament?.id }}</strong>
+          </div>
+
+          <div class="summary-item">
+            <span class="summary-label">Código torneo</span>
+            <strong class="summary-code">{{ tournamentCode }}</strong>
+          </div>
+        </div>
       </div>
     </header>
 
     <section class="panel">
       <h2>Squad titular (11 jugadores)</h2>
-      <div class="formation-picker">
-        <label>Formación: <strong>{{ selectedFormation }}</strong></label>
-        <input type="range" min="0" max="3" step="1" [(ngModel)]="formationIndex" (input)="updateFormationFromSlider()" />
-        <div class="formation-labels">
-          @for (formation of formations; track formation) {
-            <span [class.active]="formation === selectedFormation">{{ formation }}</span>
-          }
-        </div>
-      </div>
-
-      <div class="grid">
-        @for (player of squadPlayers; track player.id ?? $index) {
-          <article class="card">
-            <h3>{{ player.name }}</h3>
-            <p>{{ player.position }}</p>
-            <small>{{ player.teamName }}</small>
-          </article>
-        }
-      </div>
+      <app-football-pitch
+        [startingPlayers]="startingPlayersForPitch"
+        [substitutePlayers]="substitutePlayersForPitch"
+        [participantSquadId]="participantSquadId"
+        [playerPerformances]="allPlayerPerformances"
+        [formation]="selectedFormation"
+        (formationChange)="selectedFormation = $event"
+        (squadSaved)="onSquadSaved()"
+      />
     </section>
 
     <section class="panel">
       <h2>Market de la fecha</h2>
-      <div class="toolbar">
-        <label>
-          Cantidad aleatoria
-          <input type="number" min="1" max="30" [(ngModel)]="marketQuantity" />
-        </label>
-        <button (click)="regenerateMarket()">Generar market aleatorio</button>
-      </div>
-
+      <p>Para anular una oferta deben modificar el monto a $0</p>
+      <p>Total de ofertas: {{ bids.length }}</p>
+      <p>Total jugadores en market: {{ marketDependantIds.length }}</p>
       <div class="grid">
-        @for (player of marketPlayers; track player.id ?? $index) {
-          <article class="card">
-            <h3>{{ player.name }}</h3>
-            <p>{{ player.position }}</p>
-            <small>{{ player.teamName }}</small>
-          </article>
-        }
-      </div>
-
-      <h3>Entradas actuales de mercado (BDD)</h3>
-      <p>Total: {{ existingMarketEntries.length }}</p>
-    </section>
-
-    <section class="panel split">
-      <div>
-        <h2>Negociaciones</h2>
-        <p>Total: {{ negotiations.length }}</p>
-      </div>
-      <div>
-        <h2>Ofertas (bids)</h2>
-        <p>Total: {{ bids.length }}</p>
+        <app-real-player-market-card
+          *ngFor="let item of marketDependantIds"
+          [dependantPlayerId]="item.dependantPlayerId"
+          [marketId]="item.marketId"
+          [tournamentId]="tournament?.id"
+          [participantId]="participant?.id"
+          [availableMoney]="availableMoney"
+          (bidSaved)="onBidSaved()"
+        />
       </div>
     </section>
 
     <section class="panel">
+      <h2>Negociaciones</h2>
+      <p>Total visibles para vos: {{ visibleNegotiations.length }}</p>
+      <p *ngIf="visibleNegotiations.length === 0">Todavía no tenés negociaciones activas.</p>
+      <div class="negotiation-list" *ngIf="visibleNegotiations.length > 0">
+        <article class="negotiation-item" *ngFor="let negotiation of visibleNegotiations">
+          <strong>{{ getNegotiationPlayerName(negotiation) }}</strong>
+          <p>
+            Comprador: {{ negotiation?.buyerParticipant?.user?.username ?? ('Participant #' + (negotiation?.buyerParticipant?.id ?? '?')) }}
+            —
+            Vendedor: {{ negotiation?.sellerParticipant?.user?.username ?? ('Participant #' + (negotiation?.sellerParticipant?.id ?? '?')) }}
+          </p>
+          <p>Oferta: ${{ (negotiation?.agreedAmount ?? 0) | number:'1.0-0' }} — Estado: {{ negotiation?.status ?? 'active' }}</p>
+
+          <div class="actions">
+            <button type="button" *ngIf="isNegotiationBuyer(negotiation)" (click)="cancelNegotiation(negotiation)">Cancelar</button>
+            <button type="button" *ngIf="canRespondToNegotiation(negotiation)" (click)="acceptNegotiation(negotiation)">Aceptar</button>
+            <button type="button" *ngIf="canRespondToNegotiation(negotiation)" (click)="rejectNegotiation(negotiation)">Rechazar</button>
+            <button type="button" *ngIf="canRespondToNegotiation(negotiation)" (click)="openCounterNegotiationModal(negotiation)">Modificar monto</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <div class="negotiation-modal-backdrop" *ngIf="showNegotiationAmountModal">
+      <div class="negotiation-modal">
+        <h3>Modificar monto de negociación</h3>
+        <label>
+          Nuevo monto
+          <input type="number" min="1" step="1" [(ngModel)]="negotiationAmountInput">
+        </label>
+        <p class="state error" *ngIf="negotiationAmountError">{{ negotiationAmountError }}</p>
+        <div class="actions">
+          <button type="button" (click)="closeCounterNegotiationModal()" [disabled]="isSavingNegotiationAmount">Cancelar</button>
+          <button type="button" (click)="saveNegotiationAmountChange()" [disabled]="isSavingNegotiationAmount">Guardar</button>
+        </div>
+      </div>
+    </div>
+
+    <section class="panel">
       <h2>Equipos rivales (otros participants)</h2>
-      @if (rivals.length === 0) {
-        <p>Por ahora no hay rivales en este torneo.</p>
-      } @else {
-        <ul>
-          @for (rival of rivals; track rival.id ?? $index) {
-            <li>{{ rival?.user?.username || ('Participant #' + (rival?.id ?? '?')) }} — {{ rival?.totalScore ?? 0 }} pts</li>
-          }
-        </ul>
-      }
+      <p *ngIf="participantsOrdered.length === 0">Por ahora no hay participants cargados en este torneo.</p>
+      <app-rivals-real-player-list
+        *ngFor="let listedParticipant of participantsOrdered"
+        [participant]="listedParticipant"
+        [participantSquad]="getParticipantSquad(listedParticipant)"
+        [tournamentId]="tournament?.id"
+        [loggedParticipantId]="loggedParticipantId"
+        [participantById]="participantById"
+        [realPlayerById]="realPlayerById"
+        [dependantByRealPlayerId]="dependantByRealPlayerId"
+        [playerClauseByDependantId]="playerClauseByDependantId"
+        [clauseEnabled]="isClauseEnabled"
+        [highlighted]="loggedParticipantId === listedParticipant?.id"
+        (updated)="onRivalListUpdated()"
+      />
     </section>
 
     <section class="panel">
       <h2>Ranking del torneo</h2>
       <div class="toolbar">
         <label>
-          Tipo ranking
-          <select [(ngModel)]="rankingMode" (change)="onRankingModeChange()">
-            <option value="total">Total</option>
-            <option value="byMatchday">Por fecha</option>
+          Ranking
+          <select [(ngModel)]="selectedRankingScope" (change)="onRankingScopeChange()">
+            <option *ngFor="let option of rankingScopeOptions" [ngValue]="option.value">{{ option.label }}</option>
           </select>
         </label>
-
-        @if (rankingMode === 'byMatchday') {
-          <label>
-            Fecha
-            <select [(ngModel)]="selectedMatchdayId" (change)="onMatchdayChange()">
-              @for (matchday of matchdaysForTournament; track matchday.id ?? $index) {
-                <option [ngValue]="matchday.id">Fecha {{ matchday.matchdayNumber }}</option>
-              }
-            </select>
-          </label>
-        }
       </div>
-
       <ol>
-        @for (row of rankingRows; track row.participantName + $index) {
-          <li>{{ row.participantName }} — {{ row.points }} pts</li>
-        }
+        <li *ngFor="let row of rankingRows">{{ row.participantName }} — {{ row.points }} pts</li>
       </ol>
     </section>
-  }
+  </ng-container>
 </section>

@@ -9,6 +9,7 @@ import { LoadingSpinnerComponent } from '../../components/loading-spinner/loadin
 import { tournamentI } from '../../modelos/tournament.interface';
 import { leagueI } from '../../modelos/league.interface';
 import { TournamentStatus } from '../../modelos/domain-enums.types';
+import { AuthService } from '../../servicios/auth.service';
 
 @Component({
   selector: 'app-landing-page',
@@ -27,14 +28,17 @@ export class LandingPageComponent implements OnInit {
   searchTerm = '';
   isLoading = true;
   isCreating = false;
+  isJoining = false;
   showCreateForm = false;
   menuOpen = false;
   errorMessage = '';
+  joinErrorMessage = '';
 
   readonly createTournamentForm;
+  readonly joinTournamentForm;
 
   get username(): string {
-    return localStorage.getItem('currentUsername') ?? 'DT';
+    return this.authService.getCurrentUser()?.username ?? 'DT';
   }
 
   get filteredTournaments(): tournamentI[] {
@@ -49,6 +53,7 @@ export class LandingPageComponent implements OnInit {
   constructor(
     private readonly fb: FormBuilder,
     private readonly apiService: ApiService,
+    private readonly authService: AuthService,
     private readonly router: Router
   ) {
     this.createTournamentForm = this.fb.nonNullable.group({
@@ -56,7 +61,14 @@ export class LandingPageComponent implements OnInit {
       leagueId: [0, [Validators.required, Validators.min(1)]],
       sportIdEnApi: [1, Validators.required],
       initialBudget: [1000000, [Validators.required, Validators.min(100000)]],
+      limiteMin: [500000, [Validators.required, Validators.min(1)]],
+      limiteMax: [15000000, [Validators.required, Validators.min(2)]],
       status: ['active', Validators.required]
+    });
+
+
+    this.joinTournamentForm = this.fb.nonNullable.group({
+      publicCode: ['', [Validators.required, Validators.minLength(3)]],
     });
   }
 
@@ -76,6 +88,8 @@ export class LandingPageComponent implements OnInit {
 
     if (!this.showCreateForm) {
       this.errorMessage = '';
+      this.joinErrorMessage = '';
+      this.joinTournamentForm.reset({ publicCode: '' });
     }
   }
 
@@ -94,9 +108,7 @@ export class LandingPageComponent implements OnInit {
 
   logout(): void {
     this.closeMenu();
-    localStorage.removeItem('currentUserId');
-    localStorage.removeItem('currentUsername');
-    localStorage.removeItem('currentUserType');
+    this.authService.clearSession();
     this.router.navigate(['/logIn']);
   }
 
@@ -129,6 +141,12 @@ export class LandingPageComponent implements OnInit {
       return;
     }
 
+    if (Number(formValue.limiteMax) <= Number(formValue.limiteMin)) {
+      this.errorMessage = 'El límite máximo debe ser mayor al límite mínimo.';
+      this.isCreating = false;
+      return;
+    }
+
     const selectedSport = this.sportOptions.find((sport) => sport.idEnApi === Number(formValue.sportIdEnApi));
 
     this.apiService.postTournament({
@@ -139,6 +157,8 @@ export class LandingPageComponent implements OnInit {
       creationDate,
       initialBudget: Number(formValue.initialBudget),
       squadSize: 16,
+      limiteMin: Number(formValue.limiteMin),
+      limiteMax: Number(formValue.limiteMax),
       status: formValue.status as TournamentStatus,
       clauseEnableDate,
       creatorUserId: userId,
@@ -152,6 +172,8 @@ export class LandingPageComponent implements OnInit {
           leagueId: this.leagues[0]?.id ?? 0,
           sportIdEnApi: 1,
           initialBudget: 1000000,
+          limiteMin: 500000,
+          limiteMax: 15000000,
           status: 'active',
         });
 
@@ -171,6 +193,57 @@ export class LandingPageComponent implements OnInit {
     });
   }
 
+
+  joinTournamentByCode(): void {
+    this.joinErrorMessage = '';
+
+    if (this.joinTournamentForm.invalid) {
+      this.joinTournamentForm.markAllAsTouched();
+      return;
+    }
+
+    const userId = Number(localStorage.getItem('currentUserId'));
+    if (!userId) {
+      this.router.navigate(['/logIn']);
+      return;
+    }
+
+    const publicCode = this.joinTournamentForm.getRawValue().publicCode.trim().toUpperCase();
+
+    if (!publicCode) {
+      this.joinErrorMessage = 'Ingresá un código válido.';
+      return;
+    }
+
+    this.isJoining = true;
+
+    this.apiService.searchTournamentByPublicCode(publicCode).subscribe({
+      next: (tournamentResponse: any) => {
+        const tournamentId = Number(tournamentResponse?.data?.id);
+
+        this.apiService.joinParticipantByTournamentCode({ userId, tournamentCode: publicCode }).pipe(
+          finalize(() => this.isJoining = false),
+        ).subscribe({
+          next: () => {
+            this.showCreateForm = false;
+            this.joinTournamentForm.reset({ publicCode: '' });
+            if (Number.isFinite(tournamentId) && tournamentId > 0) {
+              this.router.navigate(['/inside-tournament'], { queryParams: { tournamentId } });
+              return;
+            }
+            this.loadTournaments(userId);
+          },
+          error: (error) => {
+            this.joinErrorMessage = error?.error?.message ?? 'No pudimos unirte al torneo con ese código.';
+          }
+        });
+      },
+      error: (error) => {
+        this.isJoining = false;
+        this.joinErrorMessage = error?.error?.message ?? 'No encontramos un torneo con ese código público.';
+      }
+    });
+  }
 
 
   openTournament(tournamentId?: number): void {

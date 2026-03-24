@@ -1,0 +1,292 @@
+import { CommonModule } from '@angular/common';
+import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { forkJoin, of } from 'rxjs';
+import { switchMap } from 'rxjs/operators';
+import { ApiService } from '../../servicios/api.service';
+
+export interface ResolvedMarketPlayer {
+  dependantPlayerId: number;
+  realPlayerId: number;
+  marketId: number;
+  name: string;
+  position: string;
+  teamName: string;
+  totalScore: number;
+  totalBids: number;
+  translatedValue: number | null;
+}
+
+@Component({
+  selector: 'app-real-player-market-card',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
+  templateUrl: './real-player-market-card.component.html',
+  styleUrl: './real-player-market-card.component.scss',
+})
+export class RealPlayerMarketCardComponent implements OnInit {
+  @Input() dependantPlayerId!: number;
+  @Input() marketId!: number;
+  @Input() tournamentId!: number;
+  @Input() participantId!: number;
+  @Input() availableMoney = 0;
+  @Output() bidSaved = new EventEmitter<void>();
+
+  player: ResolvedMarketPlayer | null = null;
+  isLoading = true;
+  hasError = false;
+
+  showBidModal = false;
+  bidAmount = 0;
+  bidError = '';
+  existingBidForSelectedPlayer: any = null;
+
+  private _pendingRealPlayerId = 0;
+  private _pendingRealPlayer: any = null;
+
+  constructor(private readonly apiService: ApiService) {}
+
+  ngOnInit(): void {
+    this.resolvePlayer();
+  }
+
+  onBidClick(): void {
+    this.bidAmount = Number(this.player?.translatedValue ?? 0);
+    this.bidError = '';
+    this.existingBidForSelectedPlayer = null;
+    this.showBidModal = true;
+
+    if (!this.tournamentId || !this.participantId || !this.player?.realPlayerId) return;
+
+    this.apiService.searchBidsByTournamentAndRealPlayer(this.tournamentId, this.player.realPlayerId).subscribe({
+      next: (response) => {
+        const participantBid = (response?.data ?? []).find((bid: any) => this.extractId(bid.participant) === this.participantId);
+        if (participantBid) {
+          this.existingBidForSelectedPlayer = participantBid;
+          this.bidAmount = Number(participantBid?.offeredAmount ?? 100);
+        }
+      },
+      error: () => {
+        this.existingBidForSelectedPlayer = null;
+      },
+    });
+  }
+
+  closeBidModal(): void {
+    this.showBidModal = false;
+    this.bidAmount = 0;
+    this.bidError = '';
+    this.existingBidForSelectedPlayer = null;
+  }
+
+  submitBid(): void {
+    if (!this.player?.realPlayerId || !this.participantId) {
+      this.bidError = 'No se pudo identificar el jugador para ofertar.';
+      return;
+    }
+
+    const amount = Number(this.bidAmount);
+    const previousAmount = Number(this.existingBidForSelectedPlayer?.offeredAmount ?? 0);
+    const requiredIncrement = amount - previousAmount;
+    const translatedValue = Number(this.player?.translatedValue ?? 0);
+
+    if (!Number.isFinite(amount) || amount < 0) {
+      this.bidError = 'Ingresá un monto válido.';
+      return;
+    }
+
+    if (amount !== 0 && amount < translatedValue) {
+      this.bidError = `La oferta debe ser 0 o al menos $${translatedValue}.`;
+      return;
+    }
+
+    if (requiredIncrement > Number(this.availableMoney)) {
+      this.bidError = 'El monto supera tu dinero disponible.';
+      return;
+    }
+
+    const existingBidId = this.extractId(this.existingBidForSelectedPlayer);
+
+    const request$ = existingBidId
+      ? this.apiService.patchBid({
+          id: existingBidId,
+          offeredAmount: amount,
+          bidDate: new Date(),
+          status: 'active',
+        })
+      : this.apiService.postBid({
+          matchdayMarket: this.marketId,
+          participant: this.participantId,
+          tournament: Number(this.tournamentId),
+          realPlayer: this.player.realPlayerId,
+          offeredAmount: amount,
+          status: 'active',
+          bidDate: new Date(),
+        });
+
+    request$.pipe(
+      switchMap(() => this.syncParticipantBudget(amount, previousAmount)),
+    ).subscribe({
+      next: () => {
+        this.availableMoney = Math.max(0, Number(this.availableMoney) - requiredIncrement);
+        this.closeBidModal();
+        this.bidSaved.emit();
+        this.resolvePlayer();
+      },
+      error: (error) => {
+        this.bidError = error?.error?.message ?? 'No se pudo registrar la oferta.';
+      },
+    });
+  }
+
+  private syncParticipantBudget(currentAmount: number, previousAmount: number) {
+    const delta = currentAmount - previousAmount;
+
+    if (!delta) {
+      return of(null);
+    }
+
+    return this.apiService.searchParticipantById(this.participantId).pipe(
+      switchMap((participantRes: any) => {
+        const participant = participantRes?.data ?? participantRes;
+        const availableMoney = Number(participant?.availableMoney ?? 0);
+        const reservedMoney = Number(participant?.reservedMoney ?? 0);
+
+        return this.apiService.patchParticipant({
+          id: this.participantId,
+          availableMoney: Math.max(0, availableMoney - delta),
+          reservedMoney: Math.max(0, reservedMoney + delta),
+        });
+      }),
+    );
+  }
+
+  private resolvePlayer(): void {
+    this.isLoading = true;
+    this.hasError = false;
+
+    this.apiService.searchDependantPlayerById(this.dependantPlayerId).pipe(
+      switchMap((dependantRes: any) => {
+        const dependant = dependantRes?.data ?? dependantRes;
+        const realPlayerId = Number(dependant?.realPlayer?.id ?? dependant?.real_player?.id);
+        if (!realPlayerId) throw new Error('real_player_id no encontrado en dependantPlayer');
+
+        this._pendingRealPlayerId = realPlayerId;
+        return this.apiService.searchRealPlayerById(realPlayerId);
+      }),
+      switchMap((realPlayerRes: any) => {
+        const realPlayer = realPlayerRes?.data ?? realPlayerRes;
+        this._pendingRealPlayer = realPlayer;
+
+        const realTeamId = Number(
+          realPlayer?.realTeamId ??
+          realPlayer?.real_team_id ??
+          this.extractId(realPlayer?.realTeam)
+        );
+
+        if (!realTeamId) throw new Error('real_team_id no encontrado en realPlayer');
+
+        return this.apiService.searchRealTeamById(realTeamId);
+      }),
+    ).subscribe({
+      next: (realTeamRes: any) => {
+        const realTeam = realTeamRes?.data ?? realTeamRes;
+        const teamName = realTeam?.name ?? 'Sin equipo';
+        const realPlayer = this._pendingRealPlayer;
+        const realPlayerId = this._pendingRealPlayerId;
+
+        forkJoin({
+          performances: this.apiService.searchPlayerPerformances(),
+          bidsInfo: this.apiService.searchBidsByTournamentAndRealPlayer(this.tournamentId, realPlayerId),
+        }).subscribe({
+          next: ({ performances, bidsInfo }) => {
+            const totalScore = this.getTotalPoints(realPlayerId, performances?.data ?? []);
+
+            this.player = {
+              dependantPlayerId: this.dependantPlayerId,
+              realPlayerId,
+              marketId: this.marketId,
+              name: realPlayer?.name ?? `Jugador ${realPlayerId}`,
+              position: this.normalizePosition(realPlayer?.position),
+              teamName,
+              totalScore,
+              totalBids: Number(bidsInfo?.totalParticipants ?? bidsInfo?.totalBids ?? bidsInfo?.data?.length ?? 0),
+              translatedValue: realPlayer?.translatedValue ?? null,
+            };
+            this.isLoading = false;
+          },
+          error: () => {
+            this.player = {
+              dependantPlayerId: this.dependantPlayerId,
+              realPlayerId,
+              marketId: this.marketId,
+              name: realPlayer?.name ?? `Jugador ${realPlayerId}`,
+              position: this.normalizePosition(realPlayer?.position),
+              teamName,
+              totalScore: 0,
+              totalBids: 0,
+              translatedValue: realPlayer?.translatedValue ?? null,
+            };
+            this.isLoading = false;
+          },
+        });
+      },
+      error: () => {
+        this.hasError = true;
+        this.isLoading = false;
+      },
+    });
+  }
+
+  isBidInvalid(): boolean {
+    if (!this.player) return true;
+
+    const amount = Number(this.bidAmount);
+    const translatedValue = Number(this.player.translatedValue ?? 0);
+    const previousAmount = Number(this.existingBidForSelectedPlayer?.offeredAmount ?? 0);
+    const requiredIncrement = amount - previousAmount;
+
+    if (!Number.isFinite(amount) || amount < 0) return true;
+    if (amount !== 0 && amount < translatedValue) return true;
+    if (requiredIncrement > Number(this.availableMoney)) return true;
+
+    return false;
+  }
+
+  private getTotalPoints(realPlayerId: number, performances: any[]): number {
+    const playerPerformances = performances.filter((perf: any) => {
+      const perfRealPlayerId = Number(
+        perf?.realPlayerId ??
+        perf?.real_player_id ??
+        this.extractId(perf?.realPlayer),
+      );
+      return perfRealPlayerId === realPlayerId;
+    });
+
+    return playerPerformances.reduce((sum: number, perf: any) => {
+      return sum + Number(perf?.pointsObtained ?? perf?.points_obtained ?? 0);
+    }, 0);
+  }
+
+  private normalizePosition(positionRaw: unknown): string {
+    const position = String(positionRaw ?? '').toLowerCase();
+    if (position.includes('goal')) return 'goalkeeper';
+    if (position.includes('def')) return 'defender';
+    if (position.includes('mid')) return 'midfielder';
+    if (position.includes('for') || position.includes('att') || position.includes('strik')) return 'forward';
+    return 'midfielder';
+  }
+
+  private extractId(value: unknown): number | null {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    if (typeof value === 'string' && value.trim()) {
+      const parsed = Number.parseInt(value.trim(), 10);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    if (value && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      if (record['id'] !== undefined) return this.extractId(record['id']);
+    }
+    return null;
+  }
+}

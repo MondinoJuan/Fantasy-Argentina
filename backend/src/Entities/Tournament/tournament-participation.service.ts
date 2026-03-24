@@ -84,6 +84,27 @@ async function getTournamentReservedRealPlayerIds(tournament: Tournament, entity
   return reservedIds;
 }
 
+async function createDependantPlayersForSelection(tournament: Tournament, players: RealPlayer[], entityManager: EntityManager): Promise<number[]> {
+  const dependantIds: number[] = [];
+
+  for (const player of players) {
+    const dependantPlayer = entityManager.create(DependantPlayer, {
+      tournament,
+      realPlayer: player,
+      marketValue: 0,
+    } as any);
+
+    entityManager.persist(dependantPlayer);
+    await entityManager.flush();
+
+    if (dependantPlayer.id) {
+      dependantIds.push(dependantPlayer.id);
+    }
+  }
+
+  return dependantIds;
+}
+
 async function assignInitialSquadToParticipant(tournament: Tournament, participant: Participant, entityManager: EntityManager, formation: ParticipantFormation = DEFAULT_FORMATION): Promise<number[]> {
   const required = getRequiredPlayersByPosition(formation);
   const reservedIds = await getTournamentReservedRealPlayerIds(tournament, entityManager);
@@ -121,28 +142,23 @@ async function assignInitialSquadToParticipant(tournament: Tournament, participa
     ...pickRandom(groupedPlayers.forward, required.forward),
   ];
 
-  for (const player of selectedPlayers) {
-    const dependantPlayer = entityManager.create(DependantPlayer, {
-      tournament,
-      realPlayer: player,
-      marketValue: 0,
-    } as any);
-
-    entityManager.create(ParticipantSquad, {
-      participant,
-      realPlayer: player,
-      formation,
-      acquisitionDate: new Date(),
-      purchasePrice: 0,
-      acquisitionType: SQUAD_ACQUISITION_TYPES[0],
-    } as any);
-
-    entityManager.persist(dependantPlayer);
-  }
-
-  return selectedPlayers
+  const selectedPlayerIds = selectedPlayers
     .map((player) => player.id)
     .filter((id): id is number => typeof id === 'number');
+
+  await createDependantPlayersForSelection(tournament, selectedPlayers, entityManager);
+
+  entityManager.create(ParticipantSquad, {
+    participant,
+    startingRealPlayersIds: selectedPlayerIds,
+    substitutesRealPlayersIds: [],
+    formation,
+    acquisitionDate: new Date(),
+    purchasePrice: 0,
+    acquisitionType: SQUAD_ACQUISITION_TYPES[0],
+  } as any);
+
+  return selectedPlayerIds;
 }
 
 async function addMarketPlayersForNewParticipant(tournament: Tournament, quantity: number, entityManager: EntityManager, excludedRealPlayerIds: number[] = []): Promise<void> {
@@ -172,23 +188,16 @@ async function addMarketPlayersForNewParticipant(tournament: Tournament, quantit
   }
 
   const chosenPlayers = pickRandom(candidates, quantity);
+  const dependantIds = await createDependantPlayersForSelection(tournament, chosenPlayers, entityManager);
 
-  for (const player of chosenPlayers) {
-    const dependantPlayer = entityManager.create(DependantPlayer, {
-      tournament,
-      realPlayer: player,
-      marketValue: 0,
-    } as any);
-
-    entityManager.create(MatchdayMarket, {
-      tournament,
-      matchday,
-      dependantPlayer,
-      minimumPrice: 100,
-      origin: MARKET_ORIGINS[0],
-      creationDate: new Date(),
-    } as any);
-  }
+  entityManager.create(MatchdayMarket, {
+    tournament,
+    matchday,
+    dependantPlayerIds: dependantIds,
+    minimumPrice: 100,
+    origin: MARKET_ORIGINS[0],
+    creationDate: new Date(),
+  } as any);
 }
 
 async function setupParticipantAfterJoin(tournament: Tournament, participant: Participant, entityManager: EntityManager = orm.em): Promise<void> {

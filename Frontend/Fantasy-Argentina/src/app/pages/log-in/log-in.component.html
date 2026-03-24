@@ -8,34 +8,26 @@
         Email
         <input type="email" formControlName="mail" placeholder="tu@email.com" />
       </label>
-      @if (loginForm.controls.mail.invalid && loginForm.controls.mail.touched) {
-        <small class="error">Ingresá un email válido.</small>
-      }
+      <small class="error" *ngIf="loginForm.controls.mail.invalid && loginForm.controls.mail.touched">
+        Ingresá un email válido.
+      </small>
 
       <label>
         Contraseña
         <input type="password" formControlName="password" placeholder="********" />
       </label>
-      @if (loginForm.controls.password.invalid && loginForm.controls.password.touched) {
-        <small class="error">La contraseña debe tener al menos 4 caracteres.</small>
-      }
+      <small class="error" *ngIf="loginForm.controls.password.invalid && loginForm.controls.password.touched">
+        La contraseña debe tener al menos 4 caracteres.
+      </small>
 
-      @if (errorMessage) {
-        <p class="error-message">{{ errorMessage }}</p>
-      }
+      <p class="error-message" *ngIf="errorMessage">{{ errorMessage }}</p>
 
       <button type="submit" [disabled]="isLoading">
-        @if (isLoading) {
-          Entrando...
-        } @else {
-          Entrar
-        }
+        {{ isLoading ? 'Entrando...' : 'Entrar' }}
       </button>
     </form>
 
-    @if (isLoading) {
-      <app-loading-spinner label="Validando credenciales" size="2.1rem" />
-    }
+    <app-loading-spinner *ngIf="isLoading" label="Validando credenciales" size="2.1rem" />
 
     <p class="switch-link">
       ¿No tenés cuenta?

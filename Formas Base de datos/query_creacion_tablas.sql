@@ -198,6 +198,7 @@ CREATE TABLE matchday (
 CREATE TABLE `match` (
   id               INT NOT NULL AUTO_INCREMENT,
   matchday_id      INT NOT NULL,
+  league_id        INT NOT NULL,
   external_api_id  VARCHAR(80) NOT NULL,
   home_team        VARCHAR(255) NOT NULL,
   away_team        VARCHAR(255) NOT NULL,
@@ -208,8 +209,12 @@ CREATE TABLE `match` (
   PRIMARY KEY (id),
   UNIQUE KEY uq_match_external_api_id (external_api_id),
   KEY idx_match_matchday (matchday_id),
+  KEY idx_match_league (league_id),
   CONSTRAINT fk_match_matchday
     FOREIGN KEY (matchday_id) REFERENCES matchday(id)
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_match_league
+    FOREIGN KEY (league_id) REFERENCES league(id)
     ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
@@ -268,18 +273,25 @@ CREATE TABLE player_performance (
   id              INT NOT NULL AUTO_INCREMENT,
   real_player_id  INT NOT NULL,
   matchday_id     INT NOT NULL,
+  league_id       INT NOT NULL,
+  match_id        INT NULL,
   points_obtained INT NOT NULL,
-  played          TINYINT(1) NOT NULL,
   update_date     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_player_performance (real_player_id, matchday_id),
+  UNIQUE KEY uq_player_performance (real_player_id, matchday_id, league_id, match_id),
   CONSTRAINT fk_player_performance_player
     FOREIGN KEY (real_player_id) REFERENCES real_player(id)
     ON UPDATE CASCADE ON DELETE CASCADE,
   CONSTRAINT fk_player_performance_matchday
     FOREIGN KEY (matchday_id) REFERENCES matchday(id)
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_player_performance_league
+    FOREIGN KEY (league_id) REFERENCES league(id)
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_player_performance_match
+    FOREIGN KEY (match_id) REFERENCES `match`(id)
     ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB;
 

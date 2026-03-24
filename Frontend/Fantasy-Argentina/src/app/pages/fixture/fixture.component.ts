@@ -1,5 +1,6 @@
 import { CommonModule, DatePipe } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../servicios/api.service';
 import { Location } from '@angular/common';
 
@@ -24,7 +25,10 @@ interface MatchdayGroup {
   matches: MatchView[];
 }
 
-const DEFAULT_COMPETITION_ID = 72;
+function buildMatchKey(matchdayNumber: number, homeTeam: string, awayTeam: string): string {
+  const normalizeTeam = (value: string) => value.trim().toLowerCase();
+  return `${matchdayNumber}|${normalizeTeam(homeTeam)}|${normalizeTeam(awayTeam)}`;
+}
 
 @Component({
   selector: 'app-fixture',
@@ -41,19 +45,41 @@ export class FixtureComponent implements OnInit {
   constructor(
     private readonly apiService: ApiService,
     private readonly location: Location,
+    private readonly route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
-    this.loadFixtureFromLocalDb();
+    const leagueId = Number(this.route.snapshot.queryParamMap.get('leagueId'));
+    this.loadFixtureFromLocalDb(Number.isFinite(leagueId) && leagueId > 0 ? leagueId : null);
   }
 
-  private loadFixtureFromLocalDb(): void {
+  private loadFixtureFromLocalDb(leagueId: number | null): void {
     this.isLoading = true;
     this.errorMessage = '';
 
-    this.apiService.searchExternalLocalPersistedFixture(DEFAULT_COMPETITION_ID).subscribe({
+    if (!leagueId) {
+      this.errorMessage = 'Debés indicar un League ID para ver el fixture persistido.';
+      this.isLoading = false;
+      return;
+    }
+
+    this.apiService.searchExternalLocalPersistedFixture({ leagueId }).subscribe({
       next: (response: any) => {
         const groups = Array.isArray(response?.data?.matchdays) ? response.data.matchdays : [];
+        const scheduledMatchKeys = new Set<string>();
+
+        for (const group of groups) {
+          const matchdayNumber = Number(group?.matchdayNumber ?? 0);
+          const matches = Array.isArray(group?.matches) ? group.matches : [];
+          for (const match of matches) {
+            const status = String(match?.status ?? '').trim().toLowerCase();
+            if (status !== 'scheduled') continue;
+
+            const homeTeam = String(match?.homeTeam ?? 'TBD');
+            const awayTeam = String(match?.awayTeam ?? 'TBD');
+            scheduledMatchKeys.add(buildMatchKey(matchdayNumber, homeTeam, awayTeam));
+          }
+        }
 
         this.matchdayGroups = groups
           .map((group: any) => ({
@@ -74,6 +100,14 @@ export class FixtureComponent implements OnInit {
                 result: this.resolveResult(match.homeScore, match.awayScore, String(match.status ?? '')),
                 status: String(match.status ?? 'scheduled'),
               }))
+              .filter((match: MatchView) => {
+                if (match.status.trim().toLowerCase() !== 'postponed') return true;
+
+                const hasEquivalentScheduled = scheduledMatchKeys.has(
+                  buildMatchKey(Number(group.matchdayNumber ?? 0), match.homeTeam, match.awayTeam),
+                );
+                return !hasEquivalentScheduled;
+              })
               .sort((a: MatchView, b: MatchView) => a.startDateTime.getTime() - b.startDateTime.getTime()),
           }))
           .sort((a: MatchdayGroup, b: MatchdayGroup) => {
@@ -115,12 +149,17 @@ export class FixtureComponent implements OnInit {
   }
 
   private parseNullableInt(value: unknown): number | null {
-    if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
-    if (typeof value === 'string') {
-      const parsed = Number.parseInt(value, 10);
-      return Number.isFinite(parsed) ? parsed : null;
+    const parsed = typeof value === 'number' && Number.isFinite(value)
+      ? Math.trunc(value)
+      : typeof value === 'string'
+        ? Number.parseInt(value, 10)
+        : Number.NaN;
+
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return null;
     }
-    return null;
+
+    return parsed;
   }
 
   private resolveResult(homeScoreRaw: unknown, awayScoreRaw: unknown, status: string): string {
@@ -139,4 +178,3 @@ export class FixtureComponent implements OnInit {
     return 'Pendiente';
   }
 }
-

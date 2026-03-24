@@ -4,54 +4,54 @@
     <button (click)="logout()">Cerrar sesión</button>
   </header>
 
-  <div class="actions-grid">
-    <button (click)="openAction('persistPlayers')">Persistir jugadores</button>
-    <button (click)="openAction('persistTeams')">Persistir equipos</button>
-    <button (click)="openAction('persistSport')">Persistir deporte</button>
-    <button (click)="openAction('persistLeague')">Persistir liga</button>
-    <button (click)="openAction('persistFixture')">Persistir fixture</button>
-    <button (click)="goToFixture()">Ver fixture persistido</button>
-    <button (click)="openAction('rankingsByDate')">Recuperar rankings por jugador/fecha</button>
-    <button (click)="openAction('updateTeamSquad')">Actualizar plantilla de equipo</button>
-    <button (click)="openAction('syncPlayedMatchResults')">Actualizar resultados de jugados</button>
+  <section class="actions-section">
+    <h2>Persistencia</h2>
+    <div class="actions-grid">
+      <button *ngFor="let action of persistenceActions" (click)="openAction(action)">{{ actionConfig[action].title }}</button>
+      <button (click)="openAction('getPersistedFixture')">{{ actionConfig['getPersistedFixture'].title }}</button>
+    </div>
+  </section>
+
+  <section class="actions-section">
+    <h2>GetAll (.json)</h2>
+    <div class="actions-grid">
+      <button *ngFor="let action of getAllActions" (click)="openAction(action)">{{ actionConfig[action].title }}</button>
+    </div>
+  </section>
+
+  <section class="actions-section">
+    <h2>Actualización</h2>
+    <div class="actions-grid">
+      <button *ngFor="let action of updateActions" (click)="openAction(action)">{{ actionConfig[action].title }}</button>
+    </div>
+  </section>
+
+  <div class="modal-backdrop" *ngIf="currentAction">
+    <div class="modal-card">
+      <h2>{{ currentActionTitle }}</h2>
+
+      <form [formGroup]="actionForm" (ngSubmit)="submitAction()">
+        <label *ngFor="let field of currentFields">
+          {{ fieldLabels[field] }}
+          <input
+            [type]="field === 'descripcion' || field === 'country' ? 'text' : 'number'"
+            [formControlName]="field"
+          >
+        </label>
+
+        <div class="modal-actions">
+          <button type="button" class="secondary" (click)="closeModal()">Cancelar</button>
+          <button type="submit" [disabled]="isLoading">{{ isLoading ? 'Ejecutando...' : 'Ejecutar' }}</button>
+        </div>
+      </form>
+    </div>
   </div>
 
-  @if (currentAction) {
-    <div class="modal-backdrop">
-      <div class="modal-card">
-        <h2>{{ currentActionTitle }}</h2>
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <p class="success" *ngIf="successMessage">{{ successMessage }}</p>
 
-        <form [formGroup]="actionForm" (ngSubmit)="submitAction()">
-          @for (field of currentFields; track field) {
-            <label>
-              {{ fieldLabels[field] }}
-              <input
-                [type]="field === 'descripcion' ? 'text' : 'number'"
-                [formControlName]="field"
-              >
-            </label>
-          }
-
-          @if (currentAction === 'updateTeamSquad') {
-            <p class="hint">Ingresá el ID del equipo en SportsApiPro (por ejemplo, 465 para Boca Juniors).</p>
-          }
-
-          <div class="modal-actions">
-            <button type="button" class="secondary" (click)="closeModal()">Cancelar</button>
-            <button type="submit" [disabled]="isLoading">{{ isLoading ? 'Ejecutando...' : 'Ejecutar' }}</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  }
-
-  @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
-  @if (successMessage) { <p class="success">{{ successMessage }}</p> }
-
-  @if (result) {
-    <section class="result-box">
-      <h3>Respuesta</h3>
-      <pre>{{ result | json }}</pre>
-    </section>
-  }
+  <section class="result-box" *ngIf="result">
+    <h3>Respuesta</h3>
+    <pre>{{ result | json }}</pre>
+  </section>
 </section>

@@ -12,7 +12,7 @@ import {
   postSportsApiProFixtureBuild,
   postSportsApiProBuildCompetitionFixture,
   getSportsApiProLocalPersistedFixture,
-  getSportsApiProRankingsWithLocalPerformances,
+  getSportsApiProRankingsWithLocalPerformances as postSportsApiProRankingsWithLocalPerformances,
   postSportsApiProSyncPlayedMatchesResults,
 } from './externalApi.controler.js';
 
@@ -30,7 +30,7 @@ ExternalApiRouter.post('/sportsapipro/fixture/event-refs', postSportsApiProFixtu
 ExternalApiRouter.post('/sportsapipro/fixture/build', postSportsApiProFixtureBuild);
 ExternalApiRouter.post('/sportsapipro/fixture/build-competition', postSportsApiProBuildCompetitionFixture);
 ExternalApiRouter.get('/sportsapipro/fixture/local', getSportsApiProLocalPersistedFixture);
-ExternalApiRouter.get('/sportsapipro/rankings/player-performances', getSportsApiProRankingsWithLocalPerformances);
+ExternalApiRouter.post('/sportsapipro/rankings/player-performances', postSportsApiProRankingsWithLocalPerformances);
 ExternalApiRouter.post('/sportsapipro/fixture/sync-played-results', postSportsApiProSyncPlayedMatchesResults);
 
 // Compatibilidad temporal mientras se migran consumidores existentes.

@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { RealTeam } from './realTeam.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { League } from '../League/league.entity.js';
-import { getSportsApiProTeamsByLeagueService } from '../ExternalApi/services/index.js';
+import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
 
 const em = orm.em;
 
@@ -98,21 +98,80 @@ async function remove(req: Request, res: Response) {
 
 
 
-function extractTeamRows(payload: any): any[] {
-  if (Array.isArray(payload)) return payload;
-  if (!payload || typeof payload !== 'object') return [];
+type UnknownRecord = Record<string, unknown>;
 
-  const candidates = ['result', 'data', 'teams', 'response'];
-  for (const key of candidates) {
-    if (Array.isArray((payload as any)[key])) return (payload as any)[key];
+function asRecord(value: unknown): UnknownRecord {
+  return value && typeof value === 'object' ? (value as UnknownRecord) : {};
+}
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function parseSeasonId(payload: UnknownRecord): number {
+  const seasonsNode = payload.seasons ?? payload.data ?? payload;
+  const seasons = asArray(seasonsNode).map((item) => asRecord(item));
+
+  if (!Array.isArray(seasonsNode) || seasons.length === 0) {
+    throw new Error('No pude interpretar la respuesta de seasons.');
   }
 
-  for (const value of Object.values(payload)) {
-    const nested = extractTeamRows(value);
-    if (nested.length) return nested;
+  for (const season of seasons) {
+    if (season.current === true || season.active === true) {
+      const id = Number.parseInt(String(season.id ?? ''), 10);
+      if (Number.isFinite(id)) return id;
+    }
   }
 
-  return [];
+  const fallbackId = Number.parseInt(String(seasons[0]?.id ?? ''), 10);
+  if (Number.isFinite(fallbackId)) return fallbackId;
+
+  throw new Error('No encontré un seasonId válido.');
+}
+
+function extractUniqueTeams(rawData: UnknownRecord): Array<{ teamId: number; name: string }> {
+  const tournamentTeamEvents = asRecord(asRecord(rawData.data).tournamentTeamEvents);
+  if (Object.keys(tournamentTeamEvents).length === 0) {
+    throw new Error("No encontré data['tournamentTeamEvents'].");
+  }
+
+  const teams = new Map<number, string>();
+
+  for (const teamsBlockRaw of Object.values(tournamentTeamEvents)) {
+    const teamsBlock = asRecord(teamsBlockRaw);
+
+    for (const [teamIdStr, eventsRaw] of Object.entries(teamsBlock)) {
+      const expectedTeamId = Number.parseInt(String(teamIdStr), 10);
+      if (!Number.isFinite(expectedTeamId)) continue;
+
+      const events = asArray(eventsRaw).map((event) => asRecord(event));
+
+      for (const event of events) {
+        const home = asRecord(event.homeTeam);
+        const away = asRecord(event.awayTeam);
+
+        const homeId = Number.parseInt(String(home.id ?? ''), 10);
+        const awayId = Number.parseInt(String(away.id ?? ''), 10);
+
+        if (homeId === expectedTeamId) {
+          const name = String(home.name ?? home.shortName ?? '').trim();
+          if (name) teams.set(expectedTeamId, name);
+          break;
+        }
+
+        if (awayId === expectedTeamId) {
+          const name = String(away.name ?? away.shortName ?? '').trim();
+          if (name) teams.set(expectedTeamId, name);
+          break;
+        }
+      }
+    }
+  }
+
+  return [...teams.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([teamId, name]) => ({ teamId, name }))
+    .filter((team) => Boolean(team.name));
 }
 
 async function syncByLeagueIdEnApi(req: Request, res: Response) {
@@ -129,17 +188,21 @@ async function syncByLeagueIdEnApi(req: Request, res: Response) {
       return;
     }
 
-    const payload = await getSportsApiProTeamsByLeagueService(leagueIdEnApi);
-    const rows = extractTeamRows(payload);
+    const seasonsPayload = asRecord(await requestSportsApiPro(`/api/tournaments/${leagueIdEnApi}/seasons`));
+    const seasonId = parseSeasonId(seasonsPayload);
+
+    const rawTeamEvents = asRecord(await requestSportsApiPro(
+      `/api/tournament/${leagueIdEnApi}/season/${seasonId}/team-events`,
+      { type: 'total' },
+    ));
+    const teams = extractUniqueTeams(rawTeamEvents);
 
     let created = 0;
     let updated = 0;
 
-    for (const row of rows) {
-      const idEnApi = Number.parseInt(String(row?.team_id ?? row?.id ?? row?.teamId ?? ''), 10);
-      if (!Number.isFinite(idEnApi)) continue;
-
-      const name = String(row?.team_name ?? row?.name ?? row?.teamName ?? `Team ${idEnApi}`);
+    for (const team of teams) {
+      const idEnApi = team.teamId;
+      const name = team.name;
       const existing = await em.findOne(RealTeam, { idEnApi });
       if (existing) {
         existing.name = name;
@@ -153,7 +216,18 @@ async function syncByLeagueIdEnApi(req: Request, res: Response) {
     }
 
     await em.flush();
-    res.status(200).json({ message: 'real teams synced by league', data: { rows: rows.length, created, updated } });
+    res.status(200).json({
+      message: 'real teams synced by league',
+      data: {
+        success: true,
+        tournamentId: leagueIdEnApi,
+        seasonId,
+        totalTeams: teams.length,
+        teams,
+        created,
+        updated,
+      },
+    });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }

@@ -2,7 +2,6 @@ import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property, Rel, Uniqu
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { Tournament } from '../Tournament/tournament.entity.js';
 import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
-import { MatchdayMarket } from '../MatchdayMarket/matchdayMarket.entity.js';
 import { PlayerClause } from '../PlayerClause/playerClause.entity.js';
 import { Negotiation } from '../Negotiation/negotiation.entity.js';
 
@@ -17,11 +16,6 @@ export class DependantPlayer extends BaseEntity {
 
   @Property({ nullable: true })
   marketValue?: number | null;
-
-  @OneToMany(() => MatchdayMarket, (matchdayMarket) => matchdayMarket.dependantPlayer, {
-    cascade: [Cascade.ALL],
-  })
-  markets = new Collection<MatchdayMarket>(this);
 
   @OneToMany(() => PlayerClause, (playerClause) => playerClause.dependantPlayer, {
     cascade: [Cascade.ALL],

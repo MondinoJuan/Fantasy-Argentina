@@ -1,6 +1,10 @@
 ### obtener todos los registros de Bid
 GET http://127.0.0.1:3000/api/bids
 
+
+### obtener bids por torneo y realPlayer
+GET http://127.0.0.1:3000/api/bids/tournament/1/real-player/1
+
 ### obtener un registro de Bid por id
 GET http://127.0.0.1:3000/api/bids/1
 
@@ -11,6 +15,8 @@ Content-Type: application/json
 {
   "matchdayMarketId": "1",
   "participantId": "1",
+  "tournamentId": "1",
+  "realPlayerId": "1",
   "offeredAmount": 2500000,
   "status": "active",
   "cancellationDate": "2026-02-10T12:00:00.000Z"
@@ -23,6 +29,8 @@ Content-Type: application/json
 {
   "matchdayMarketId": "1",
   "participantId": "1",
+  "tournamentId": "1",
+  "realPlayerId": "1",
   "offeredAmount": 2500100,
   "status": "won",
   "cancellationDate": "2026-02-10T12:00:00.000Z"
@@ -35,6 +43,8 @@ Content-Type: application/json
 {
   "matchdayMarketId": "1",
   "participantId": "1",
+  "tournamentId": "1",
+  "realPlayerId": "1",
   "offeredAmount": 2500100,
   "status": "won"
 }

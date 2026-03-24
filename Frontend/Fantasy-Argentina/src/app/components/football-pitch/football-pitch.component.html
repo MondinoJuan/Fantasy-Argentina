@@ -1,0 +1,67 @@
+<div class="pitch-outer" cdkDropListGroup>
+  <div class="formation-bar">
+    <label class="formation-label">
+      Formación
+      <select [(ngModel)]="formation" (ngModelChange)="onFormationSelect()">
+        <option *ngFor="let f of formations" [value]="f">{{ f }}</option>
+      </select>
+    </label>
+
+    <button class="save-btn" [disabled]="!hasUnsavedChanges || isSaving || !participantSquadId" (click)="saveSquad()">
+      {{ isSaving ? 'Guardando...' : 'Guardar cambios' }}
+    </button>
+  </div>
+
+  <p class="save-error" *ngIf="saveError">{{ saveError }}</p>
+
+  <div class="pitch-wrapper">
+    <img class="pitch-img" src="assets/cancha-futbol.png" alt="" />
+
+    <div class="pitch-grid">
+      <div
+        *ngFor="let slot of slots"
+        class="pitch-slot"
+        [class.invalid-slot]="isSlotMismatch(slot)"
+        [style.grid-row]="slot.gridRow"
+        [style.grid-column]="slot.gridCol"
+        cdkDropList
+        [id]="slot.slotId"
+        [cdkDropListConnectedTo]="connectedDropListsFor(slot.slotId)"
+        [cdkDropListData]="slot.players"
+        (cdkDropListDropped)="dropSlot($any($event))"
+      >
+        <span class="slot-pos">{{ slot.position | uppercase }}</span>
+
+        <article *ngFor="let player of slot.players" class="pitch-card" cdkDrag [cdkDragData]="player">
+          <small class="pc-team">{{ player.position | uppercase }}</small>
+          <p class="pc-name">{{ player.name }}</p>
+          <small class="pc-team">{{ player.teamName }}</small>
+          <span class="pc-score">{{ player.lastScore ?? 0 }} pts</span>
+        </article>
+
+        <div class="pitch-empty" *ngIf="slot.players.length === 0">Vacío</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="subs-wrapper">
+    <h3>Suplentes</h3>
+    <div
+      class="subs-drop-list"
+      cdkDropList
+      id="substitutes-drop-list"
+      [cdkDropListConnectedTo]="substitutesConnectedTo"
+      [cdkDropListData]="substitutes"
+      (cdkDropListDropped)="dropSlot($any($event))"
+    >
+      <article *ngFor="let player of substitutes" class="pitch-card subs-card" cdkDrag [cdkDragData]="player">
+        <small class="pc-team">{{ player.position | uppercase }}</small>
+        <p class="pc-name">{{ player.name }}</p>
+        <small class="pc-team">{{ player.teamName }}</small>
+        <span class="pc-score">{{ player.lastScore ?? 0 }} pts</span>
+      </article>
+
+      <div class="subs-empty" *ngIf="substitutes.length === 0">Sin suplentes</div>
+    </div>
+  </div>
+</div>

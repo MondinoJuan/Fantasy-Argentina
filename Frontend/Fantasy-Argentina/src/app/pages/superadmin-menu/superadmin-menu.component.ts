@@ -2,8 +2,10 @@ import { CommonModule, JsonPipe } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { finalize } from 'rxjs/operators';
+import { forkJoin } from 'rxjs';
+import { finalize, map } from 'rxjs/operators';
 import { ApiService } from '../../servicios/api.service';
+import { AuthService } from '../../servicios/auth.service';
 
 import { ActionField, SuperadminAction, SUPERADMIN_ACTION_CONFIG, SUPERADMIN_FIELD_LABELS } from './superadmin-actions.config';
 
@@ -24,21 +26,43 @@ export class SuperadminMenuComponent {
   readonly actionConfig = SUPERADMIN_ACTION_CONFIG;
   readonly fieldLabels = SUPERADMIN_FIELD_LABELS;
 
+  readonly persistenceActions: SuperadminAction[] = [
+    'persistPlayers', 'persistTeams', 'persistSport', 'persistLeague', 'persistUltSeason', 'persistFixture',
+  ];
+
+  readonly getAllActions: SuperadminAction[] = [
+    'getAllUsers', 'getAllSports', 'getAllLeagues', 'getAllRealTeams', 'getAllRealPlayers',
+    'getAllTournaments', 'getAllParticipants', 'getAllParticipantSquads', 'getAllMatchdays', 'getAllMatches',
+    'getAllMatchdayMarkets', 'getAllBids', 'getAllNegotiations', 'getAllTransactions',
+    'getAllPlayerPerformances', 'getAllPlayerPointsBreakdowns', 'getAllParticipantMatchdayPoints', 'getLeaguesTournamentCounts',
+  ];
+
+  readonly updateActions: SuperadminAction[] = [
+    'rankingsByDate', 'updateTeamSquad', 'syncPlayedMatchResults', 'sumEndOfMatchdayPoints', 'settleMarketByLeague', 'translateRealPlayerPrices',
+  ];
+
   constructor(
     private readonly fb: FormBuilder,
     private readonly apiService: ApiService,
+    private readonly authService: AuthService,
     private readonly router: Router,
   ) {
     this.actionForm = this.fb.group({
       sportId: [1, [Validators.required, Validators.min(1)]],
       competitionId: [72, [Validators.required, Validators.min(1)]],
+      seasonId: [0, [Validators.required, Validators.min(1)]],
       leagueId: [1, [Validators.required, Validators.min(1)]],
       leagueIdEnApi: [72, [Validators.required, Validators.min(1)]],
       idEnApi: [72, [Validators.required, Validators.min(1)]],
+      country: ['argentina', Validators.required],
       descripcion: ['Football', Validators.required],
       cupoTitular: [11, [Validators.required, Validators.min(1)]],
       cupoSuplente: [5, [Validators.required, Validators.min(0)]],
       teamIdEnApi: [0, [Validators.min(1)]],
+      matchdayNumber: [1, [Validators.required, Validators.min(1)]],
+      gameMatchId: [null],
+      limiteMin: [500000, [Validators.required]],
+      limiteMax: [15000000, [Validators.required]],
     });
   }
 
@@ -64,14 +88,8 @@ export class SuperadminMenuComponent {
   }
 
   logout(): void {
-    localStorage.removeItem('currentUserId');
-    localStorage.removeItem('currentUsername');
-    localStorage.removeItem('currentUserType');
+    this.authService.clearSession();
     this.router.navigate(['/logIn']);
-  }
-
-  goToFixture(): void {
-    this.router.navigate(['/fixture']);
   }
 
   submitAction(): void {
@@ -81,10 +99,24 @@ export class SuperadminMenuComponent {
     this.result = null;
 
     const form = this.actionForm.getRawValue();
+
+    if (this.currentAction === 'getPersistedFixture') {
+      const leagueId = Number(form.leagueId);
+
+      if (!Number.isFinite(leagueId) || leagueId <= 0) {
+        this.errorMessage = 'Ingresá un League ID válido.';
+        return;
+      }
+
+      this.closeModal();
+      this.router.navigate(['/fixture'], { queryParams: { leagueId } });
+      return;
+    }
+
     this.isLoading = true;
 
     const requests: Record<SuperadminAction, () => any> = {
-      persistPlayers: () => this.apiService.syncPlayersByLeagueIdEnApi({ leagueId: Number(form.leagueId) }),
+      persistPlayers: () => this.apiService.syncPlayersByLeagueIdEnApi({ leagueIdEnApi: Number(form.leagueIdEnApi) }),
       persistTeams: () => this.apiService.syncTeamsByLeagueIdEnApi({ leagueIdEnApi: Number(form.leagueIdEnApi) }),
       persistSport: () => this.apiService.postSport({
         idEnApi: Number(form.sportId),
@@ -92,21 +124,82 @@ export class SuperadminMenuComponent {
         cupoTitular: Number(form.cupoTitular),
         cupoSuplente: Number(form.cupoSuplente),
       }),
-      persistLeague: () => this.apiService.syncLeagueByIdEnApi({ sportId: Number(form.sportId), idEnApi: Number(form.idEnApi) }),
-      persistFixture: () => this.apiService.postExternalFixtureBuildCompetition({ sportId: Number(form.sportId), competitionId: Number(form.competitionId) }),
-      rankingsByDate: () => this.apiService.searchExternalRankingsWithLocalPerformances(Number(form.sportId), Number(form.competitionId)),
-      updateTeamSquad: () => this.apiService.syncTeamSquadByTeamIdEnApi({ teamIdEnApi: Number(form.teamIdEnApi) }),
+      persistLeague: () => this.apiService.syncLeagueByIdEnApi({
+        idEnApi: Number(form.idEnApi),
+        country: String(form.country ?? '').trim(),
+      }),
+      persistUltSeason: () => this.apiService.syncUltSeasonByLeagueIdEnApi({ leagueIdEnApi: Number(form.leagueIdEnApi) }),
+      persistFixture: () => this.apiService.postExternalFixtureBuildCompetition({
+        competitionId: Number(form.competitionId),
+        seasonId: Number(form.seasonId),
+      }),
+      getPersistedFixture: () => this.apiService.searchExternalLocalPersistedFixture({ leagueId: Number(form.leagueId) }),
+      getAllUsers: () => this.apiService.searchUsers(),
+      getAllSports: () => this.apiService.searchSports(),
+      getAllLeagues: () => this.apiService.searchLeagues(),
+      getAllRealTeams: () => this.apiService.searchRealTeams(),
+      getAllRealPlayers: () => this.apiService.searchRealPlayers(),
+      getAllTournaments: () => this.apiService.searchTournaments(),
+      getAllParticipants: () => this.apiService.searchParticipants(),
+      getAllParticipantSquads: () => this.apiService.searchParticipantSquads(),
+      getAllMatchdays: () => this.apiService.searchMatchdays(),
+      getAllMatches: () => this.apiService.searchGameMatches(),
+      getAllMatchdayMarkets: () => this.apiService.searchMatchdayMarkets(),
+      getAllBids: () => this.apiService.searchBids(),
+      getAllNegotiations: () => this.apiService.searchNegotiations(),
+      getAllTransactions: () => this.apiService.searchTransactions(),
+      getAllPlayerPerformances: () => this.apiService.searchPlayerPerformances(),
+      getAllPlayerPointsBreakdowns: () => this.apiService.searchPlayerPointsBreakdowns(),
+      getAllParticipantMatchdayPoints: () => this.apiService.searchParticipantMatchdayPoints(),
+      getLeaguesTournamentCounts: () => forkJoin({
+        leaguesResponse: this.apiService.searchLeagues(),
+        tournamentsResponse: this.apiService.searchTournaments(),
+      }).pipe(
+        map(({ leaguesResponse, tournamentsResponse }) => {
+          const leagues = Array.isArray((leaguesResponse as any)?.data) ? (leaguesResponse as any).data : [];
+          const tournaments = Array.isArray((tournamentsResponse as any)?.data) ? (tournamentsResponse as any).data : [];
+
+          const tournamentCountByLeagueId = tournaments.reduce((acc: Map<number, number>, tournament: any) => {
+            const leagueId = Number(tournament?.league?.id ?? tournament?.league);
+            if (!Number.isFinite(leagueId) || leagueId <= 0) {
+              return acc;
+            }
+            acc.set(leagueId, Number(acc.get(leagueId) ?? 0) + 1);
+            return acc;
+          }, new Map<number, number>());
+
+          return {
+            message: 'leagues persistidas con cantidad de tournaments',
+            data: leagues.map((league: any) => {
+              const leagueId = Number(league?.id);
+              return {
+                leagueId,
+                leagueName: String(league?.name ?? '-'),
+                idEnApi: Number(league?.idEnApi ?? 0),
+                tournamentsCount: Number(tournamentCountByLeagueId.get(leagueId) ?? 0),
+              };
+            }),
+          };
+        }),
+      ),
+      rankingsByDate: () => this.apiService.searchExternalRankingsWithLocalPerformances(Number(form.competitionId)),
+      updateTeamSquad: () => this.apiService.syncPlayersByLeagueIdEnApi({ leagueId: Number(form.leagueId) }),
       syncPlayedMatchResults: () => this.apiService.postExternalSyncPlayedResults({ competitionId: Number(form.competitionId) }),
+      sumEndOfMatchdayPoints: () => this.apiService.postTournamentSumEndOfMatchdayPoints({
+        leagueId: Number(form.leagueId),
+        matchdayNumber: Number(form.matchdayNumber),
+        gameMatchId: Number(form.gameMatchId) > 0 ? Number(form.gameMatchId) : undefined,
+      }),
+      settleMarketByLeague: () => this.apiService.postTournamentSettleMarketAndRefreshByLeague({ leagueId: Number(form.leagueId) }),
+      translateRealPlayerPrices: () => this.apiService.postRealPlayerTranslatePricesByLeague({
+        leagueId: Number(form.leagueId),
+      }),
     };
 
     requests[this.currentAction]().pipe(finalize(() => this.isLoading = false)).subscribe({
       next: (response: any) => {
         this.successMessage = 'Operación ejecutada correctamente.';
         this.result = response;
-        if (this.currentAction === 'persistFixture') {
-          localStorage.setItem('latestFixtureBuild', JSON.stringify(response?.data ?? response));
-          this.router.navigate(['/fixture']);
-        }
       },
       error: (error: any) => {
         this.errorMessage = error?.error?.message ?? 'No se pudo ejecutar la operación.';

@@ -4,17 +4,17 @@ import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ApiService } from '../../servicios/api.service';
 import { LoadingSpinnerComponent } from '../../components/loading-spinner/loading-spinner.component';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-sign-up',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, LoadingSpinnerComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, LoadingSpinnerComponent],
   templateUrl: './sign-up.component.html',
   styleUrl: './sign-up.component.scss'
 })
 export class SignUpComponent {
   readonly signUpForm;
-  private readonly SUPERADMIN_CODE = 'SUPERADMIN-2026';
 
   isLoading = false;
   errorMessage = '';
@@ -49,7 +49,8 @@ export class SignUpComponent {
       mail: formValue.mail,
       password: formValue.password,
       registrationDate: new Date(),
-      type: formValue.superadminCode === this.SUPERADMIN_CODE ? 'SUPERADMIN' as const : 'USER' as const,
+      type: 'USER' as const,
+      superadminCode: formValue.superadminCode,
     };
 
     this.apiService.postUser(payload)
