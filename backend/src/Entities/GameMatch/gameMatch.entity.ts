@@ -5,9 +5,9 @@ import { League } from '../League/league.entity.js';
 import { MatchStatus } from '../../shared/domain-enums.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
 
-@Entity()
+@Entity({ tableName: 'game_match' })
 @Unique({ properties: ['externalApiId'] })
-export class Match extends BaseEntity {
+export class GameMatch extends BaseEntity {
   @ManyToOne(() => Matchday, { nullable: false, deleteRule: 'cascade' })
   matchday!: Rel<Matchday>;
 

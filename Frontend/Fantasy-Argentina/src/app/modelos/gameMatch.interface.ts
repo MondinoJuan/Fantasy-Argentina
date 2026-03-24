@@ -1,5 +1,5 @@
 import { MatchStatus } from './domain-enums.types';
-export interface matchI {
+export interface gameMatchI {
   id?: number;
   matchday: number;
   league: number;

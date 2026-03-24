@@ -1,4 +1,4 @@
-export interface addMatchI {
+export interface addGameMatchI {
   matchday: number;
   league: number;
   externalApiId: string;

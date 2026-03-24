@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 
 import { addBidI } from '../modelos/addBid.interface';
 import { addLeagueI } from '../modelos/addLeague.interface';
-import { addMatchI } from '../modelos/addMatch.interface';
+import { addGameMatchI } from '../modelos/addGameMatch.interface';
 import { addMatchdayI } from '../modelos/addMatchday.interface';
 import { addMatchdayMarketI } from '../modelos/addMatchdayMarket.interface';
 import { addNegotiationI } from '../modelos/addNegotiation.interface';
@@ -33,10 +33,10 @@ import { leaguePatchI } from '../modelos/league.patch.interface';
 import { leagueCollectionI } from '../modelos/league.collection.interface';
 import { responseLeagueI } from '../modelos/responseLeague.interface';
 
-import { matchI } from '../modelos/match.interface';
-import { matchPatchI } from '../modelos/match.patch.interface';
-import { matchCollectionI } from '../modelos/match.collection.interface';
-import { responseMatchI } from '../modelos/responseMatch.interface';
+import { gameMatchI } from '../modelos/gameMatch.interface';
+import { gameMatchPatchI } from '../modelos/gameMatch.patch.interface';
+import { gameMatchCollectionI } from '../modelos/gameMatch.collection.interface';
+import { responseGameMatchI } from '../modelos/responseGameMatch.interface';
 
 import { matchdayI } from '../modelos/matchday.interface';
 import { matchdayPatchI } from '../modelos/matchday.patch.interface';
@@ -233,12 +233,12 @@ export class ApiService {
   removeMatchday(id: number | string) { return this.http.delete<responseMatchdayI>(`${this.url}/matchdays/${id}`); }
 
   // Matches
-  searchMatches() { return this.http.get<matchCollectionI>(`${this.url}/matches`); }
-  searchMatchById(id: number | string) { return this.http.get<responseMatchI>(`${this.url}/matches/${id}`); }
-  postMatch(match: addMatchI) { return this.http.post<responseMatchI>(`${this.url}/matches`, match); }
-  updateMatch(match: matchI) { return this.http.put<responseMatchI>(`${this.url}/matches/${match.id}`, match); }
-  patchMatch(match: matchPatchI) { return this.http.patch<responseMatchI>(`${this.url}/matches/${match.id}`, match); }
-  removeMatch(id: number | string) { return this.http.delete<responseMatchI>(`${this.url}/matches/${id}`); }
+  searchGameMatches() { return this.http.get<gameMatchCollectionI>(`${this.url}/matches`); }
+  searchGameMatchById(id: number | string) { return this.http.get<responseGameMatchI>(`${this.url}/matches/${id}`); }
+  postGameMatch(match: addGameMatchI) { return this.http.post<responseGameMatchI>(`${this.url}/matches`, match); }
+  updateGameMatch(match: gameMatchI) { return this.http.put<responseGameMatchI>(`${this.url}/matches/${match.id}`, match); }
+  patchGameMatch(match: gameMatchPatchI) { return this.http.patch<responseGameMatchI>(`${this.url}/matches/${match.id}`, match); }
+  removeGameMatch(id: number | string) { return this.http.delete<responseGameMatchI>(`${this.url}/matches/${id}`); }
 
 
   // Dependant Players
@@ -370,7 +370,7 @@ export class ApiService {
     );
   }
 
-  postTournamentSumEndOfMatchdayPoints(payload: { leagueId: number; matchdayNumber: number; matchId?: number }) {
+  postTournamentSumEndOfMatchdayPoints(payload: { leagueId: number; matchdayNumber: number; gameMatchId?: number }) {
     return this.http.post<any>(`${this.url}/tournaments/sum-end-of-matchday-points`, payload);
   }
 

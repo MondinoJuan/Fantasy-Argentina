@@ -60,7 +60,7 @@ export class SuperadminMenuComponent {
       cupoSuplente: [5, [Validators.required, Validators.min(0)]],
       teamIdEnApi: [0, [Validators.min(1)]],
       matchdayNumber: [1, [Validators.required, Validators.min(1)]],
-      matchId: [null],
+      gameMatchId: [null],
       limiteMin: [500000, [Validators.required]],
       limiteMax: [15000000, [Validators.required]],
     });
@@ -143,7 +143,7 @@ export class SuperadminMenuComponent {
       getAllParticipants: () => this.apiService.searchParticipants(),
       getAllParticipantSquads: () => this.apiService.searchParticipantSquads(),
       getAllMatchdays: () => this.apiService.searchMatchdays(),
-      getAllMatches: () => this.apiService.searchMatches(),
+      getAllMatches: () => this.apiService.searchGameMatches(),
       getAllMatchdayMarkets: () => this.apiService.searchMatchdayMarkets(),
       getAllBids: () => this.apiService.searchBids(),
       getAllNegotiations: () => this.apiService.searchNegotiations(),
@@ -188,7 +188,7 @@ export class SuperadminMenuComponent {
       sumEndOfMatchdayPoints: () => this.apiService.postTournamentSumEndOfMatchdayPoints({
         leagueId: Number(form.leagueId),
         matchdayNumber: Number(form.matchdayNumber),
-        matchId: Number(form.matchId) > 0 ? Number(form.matchId) : undefined,
+        gameMatchId: Number(form.gameMatchId) > 0 ? Number(form.gameMatchId) : undefined,
       }),
       settleMarketByLeague: () => this.apiService.postTournamentSettleMarketAndRefreshByLeague({ leagueId: Number(form.leagueId) }),
       translateRealPlayerPrices: () => this.apiService.postRealPlayerTranslatePricesByLeague({

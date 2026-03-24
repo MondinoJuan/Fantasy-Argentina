@@ -3,7 +3,7 @@ import { BaseEntity } from '../../shared/db/base.entity.js';
 import { Tournament } from '../Tournament/tournament.entity.js';
 import { RealTeam } from '../RealTeam/realTeam.entity.js';
 import { Matchday } from '../Matchday/matchday.entity.js';
-import { Match } from '../Match/match.entity.js';
+import { GameMatch } from '../GameMatch/gameMatch.entity.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
 import { UltSeason } from '../UltSeason/ultSeason.entity.js';
 
@@ -36,10 +36,10 @@ export class League extends BaseEntity {
   })
   matchdays = new Collection<Matchday>(this);
 
-  @OneToMany(() => Match, (match) => match.league, {
+  @OneToMany(() => GameMatch, (match) => match.league, {
     cascade: [Cascade.ALL],
   })
-  matches = new Collection<Match>(this);
+  matches = new Collection<GameMatch>(this);
 
   @OneToMany(() => PlayerPerformance, (playerPerformance) => playerPerformance.league, {
     cascade: [Cascade.ALL],

@@ -1,10 +1,10 @@
-### obtener todos los registros de Match
+### obtener todos los registros de GameMatch
 GET http://127.0.0.1:3000/api/matches
 
-### obtener un registro de Match por id
+### obtener un registro de GameMatch por id
 GET http://127.0.0.1:3000/api/matches/1
 
-### crear un nuevo registro de Match
+### crear un nuevo registro de GameMatch
 POST http://127.0.0.1:3000/api/matches
 Content-Type: application/json
 
@@ -18,7 +18,7 @@ Content-Type: application/json
   "status": "scheduled"
 }
 
-### actualizar un registro de Match por id
+### actualizar un registro de GameMatch por id
 PUT http://127.0.0.1:3000/api/matches/1
 Content-Type: application/json
 
@@ -32,7 +32,7 @@ Content-Type: application/json
   "status": "finalizado"
 }
 
-### actualizar parcialmente un registro de Match por id
+### actualizar parcialmente un registro de GameMatch por id
 PATCH http://127.0.0.1:3000/api/matches/1
 Content-Type: application/json
 
@@ -42,5 +42,5 @@ Content-Type: application/json
   "status": "finalizado"
 }
 
-### eliminar un registro de Match por id
+### eliminar un registro de GameMatch por id
 DELETE http://127.0.0.1:3000/api/matches/1

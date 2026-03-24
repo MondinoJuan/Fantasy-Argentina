@@ -3,7 +3,7 @@ import { orm } from '../../shared/db/orm.js';
 import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
 import { Matchday } from '../Matchday/matchday.entity.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
-import { Match } from '../Match/match.entity.js';
+import { GameMatch } from '../GameMatch/gameMatch.entity.js';
 import { League } from '../League/league.entity.js';
 import { Tournament } from '../Tournament/tournament.entity.js';
 import { RealTeam } from '../RealTeam/realTeam.entity.js';
@@ -194,7 +194,7 @@ async function persistFixtureCompetitionInDb(
       const homeScore = toNullableScore(asRecord(fixtureMatch.home).score);
       const awayScore = toNullableScore(asRecord(fixtureMatch.away).score);
 
-      const existing = await em.findOne(Match, { externalApiId: String(gameId) });
+      const existing = await em.findOne(GameMatch, { externalApiId: String(gameId) });
       if (existing) {
         existing.matchday = matchday;
         existing.league = league;
@@ -211,7 +211,7 @@ async function persistFixtureCompetitionInDb(
         continue;
       }
 
-      em.create(Match, {
+      em.create(GameMatch, {
         matchday,
         league,
         externalApiId: String(gameId),
@@ -628,7 +628,7 @@ async function getSportsApiProLocalPersistedFixture(req: Request, res: Response)
         : {};
 
     const matchdays = await em.find(Matchday, matchdaysWhere as any, { populate: ['league'] });
-    const matches = await em.find(Match, matchesWhere as any, { populate: ['matchday', 'matchday.league'] });
+    const matches = await em.find(GameMatch, matchesWhere as any, { populate: ['matchday', 'matchday.league'] });
 
     const groups = matchdays
       .map((matchday: any) => ({
@@ -691,7 +691,7 @@ async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Respo
         status: { $ne: 'finalizado' },
       };
 
-    const matches = await em.find(Match, where as any, { populate: ['matchday', 'matchday.league'] });
+    const matches = await em.find(GameMatch, where as any, { populate: ['matchday', 'matchday.league'] });
 
     let updated = 0;
     let missingPayloadData = 0;
@@ -931,7 +931,7 @@ async function processRankingsInBackground(competitionId: number, localEm: typeo
   // ─── 1. Buscar partidos finalizados ───────────────────────────────────────
   console.log(`${tag} 🔍 Buscando partidos finalizados en la DB...`);
   const matches = await localEm.find(
-    Match,
+    GameMatch,
     { status: 'finalizado', matchday: { league: { idEnApi: competitionId } } } as any,
     { populate: ['matchday', 'matchday.league'] },
   );
