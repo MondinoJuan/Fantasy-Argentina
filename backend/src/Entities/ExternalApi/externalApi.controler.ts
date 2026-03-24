@@ -610,7 +610,7 @@ async function postSportsApiProBuildCompetitionFixture(req: Request, res: Respon
     return res.status(500).json({ message: error.message });
   }
 }
-
+/*
 async function getSportsApiProLocalPersistedFixture(req: Request, res: Response) {
   const competitionId = parseRequiredNumber(req.body.competitionId as string | undefined);
   const leagueId = parseRequiredNumber(req.query.leagueId as string | undefined);
@@ -672,7 +672,76 @@ async function getSportsApiProLocalPersistedFixture(req: Request, res: Response)
     return res.status(500).json({ message: error.message });
   }
 }
+*/
 
+async function getSportsApiProLocalPersistedFixture(req: Request, res: Response) {
+  try {
+    const competitionId = parseRequiredNumber(
+      (Array.isArray(req.query.competitionId) ? req.query.competitionId[0] : req.query.competitionId) as string | undefined
+    );
+
+    const leagueId = parseRequiredNumber(
+      (Array.isArray(req.query.leagueId) ? req.query.leagueId[0] : req.query.leagueId) as string | undefined
+    );
+
+    const matchdaysWhere = leagueId
+      ? { league: { id: leagueId } }
+      : competitionId
+        ? { league: { idEnApi: competitionId } }
+        : {};
+
+    const matchesWhere = leagueId
+      ? { league: { id: leagueId } }
+      : competitionId
+        ? { league: { idEnApi: competitionId } }
+        : {};
+
+    const matchdays = await em.find(Matchday, matchdaysWhere as any, { populate: ['league'] });
+    const matches = await em.find(GameMatch, matchesWhere as any, { populate: ['matchday', 'league'] });
+
+    const groups = matchdays
+      .map((matchday: any) => ({
+        matchdayId: matchday.id,
+        matchdayNumber: matchday.matchdayNumber,
+        season: matchday.season,
+        startDate: matchday.startDate,
+        endDate: matchday.endDate,
+        status: matchday.status,
+        league: {
+          id: matchday.league?.id,
+          idEnApi: matchday.league?.idEnApi,
+          name: matchday.league?.name,
+        },
+        matches: matches
+          .filter((match: any) => match.matchday?.id === matchday.id)
+          .sort((a: any, b: any) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
+          .map((match: any) => ({
+            id: match.id,
+            externalApiId: match.externalApiId,
+            homeTeam: match.homeTeam,
+            awayTeam: match.awayTeam,
+            startDateTime: match.startDateTime,
+            status: match.status,
+            homeScore: match.homeScore ?? null,
+            awayScore: match.awayScore ?? null,
+          })),
+      }))
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+    return res.status(200).json({
+      message: 'local persisted fixture recovered',
+      data: {
+        competitionId: competitionId ?? null,
+        totalMatchdays: groups.length,
+        totalMatches: matches.length,
+        matchdays: groups,
+      },
+    });
+  } catch (error: any) {
+    console.error('getSportsApiProLocalPersistedFixture error:', error);
+    return res.status(500).json({ message: error.message });
+  }
+}
 
 async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Response) {
   const competitionId = parseRequiredNumber(req.body?.competitionId as string | undefined)
