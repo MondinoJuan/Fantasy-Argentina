@@ -891,6 +891,21 @@ async function updateRealPlayerTranslatedValuesByLatestFormForCompetition(compet
   };
 }
 
+async function runWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<void>,
+): Promise<void> {
+  const queue = items.map((item, index) => ({ item, index }));
+  const workers = Array.from({ length: Math.min(limit, queue.length) }, async () => {
+    while (queue.length > 0) {
+      const next = queue.shift()!;
+      await fn(next.item, next.index);
+    }
+  });
+  await Promise.all(workers);
+}
+
 async function getSportsApiProRankingsWithLocalPerformances(req: Request, res: Response) {
   const competitionId = parseRequiredNumber(req.body?.competitionId as string | undefined);
 
@@ -909,12 +924,52 @@ async function getSportsApiProRankingsWithLocalPerformances(req: Request, res: R
 }
 
 async function processRankingsInBackground(competitionId: number, localEm: typeof orm.em) {
+  const tag = `[rankings][competition=${competitionId}]`;
+  const startedAt = Date.now();
+  console.log(`${tag} ▶ Inicio del proceso`);
+
+  // ─── 1. Buscar partidos finalizados ───────────────────────────────────────
+  console.log(`${tag} 🔍 Buscando partidos finalizados en la DB...`);
   const matches = await localEm.find(
     Match,
     { status: 'finalizado', matchday: { league: { idEnApi: competitionId } } } as any,
     { populate: ['matchday', 'matchday.league'] },
   );
+  console.log(`${tag} ✅ ${matches.length} partidos encontrados`);
 
+  if (matches.length === 0) {
+    console.log(`${tag} ⚠️  Sin partidos para procesar. Finalizando.`);
+    return;
+  }
+
+  // ─── 2. Precarga: RealPlayers en memoria ─────────────────────────────────
+  console.log(`${tag} 🔍 Precargando jugadores reales desde la DB...`);
+  const league = await localEm.findOne(League, { idEnApi: competitionId });
+  if (!league) throw new Error('League not found');
+
+  const allRealPlayers = await localEm.find(RealPlayer, {} as any);
+  const realPlayerByApiId = new Map<number, typeof allRealPlayers[0]>();
+  for (const p of allRealPlayers) {
+    if ((p as any).idEnApi) realPlayerByApiId.set(Number((p as any).idEnApi), p);
+  }
+  console.log(`${tag} ✅ ${realPlayerByApiId.size} jugadores cargados en memoria`);
+
+  // ─── 3. Precarga: PlayerPerformances existentes en memoria ───────────────
+  console.log(`${tag} 🔍 Precargando performances existentes desde la DB...`);
+  const matchIds = matches.map((m) => m.id);
+  const allPerformances = await localEm.find(
+    PlayerPerformance,
+    { match: { $in: matchIds }, league: { id: league.id } } as any,
+  );
+  const performanceMap = new Map<string, typeof allPerformances[0]>();
+  for (const perf of allPerformances) {
+    const pid = Number((perf as any).realPlayer?.id ?? (perf as any).realPlayer);
+    const mid = Number((perf as any).match?.id ?? (perf as any).match);
+    performanceMap.set(`${pid}_${mid}`, perf);
+  }
+  console.log(`${tag} ✅ ${allPerformances.length} performances existentes cargadas en memoria`);
+
+  // ─── 4. Requests a la API en paralelo (máx 5 simultáneos) ────────────────
   let processedMatches = 0;
   let processedPlayers = 0;
   let createdPerformances = 0;
@@ -922,15 +977,21 @@ async function processRankingsInBackground(competitionId: number, localEm: typeo
   let missingLocalPlayers = 0;
   const errors: Array<{ matchId: number; message: string }> = [];
 
-  for (const match of matches) {
+  console.log(`${tag} 🌐 Iniciando requests a la API externa (máx 5 en paralelo)...`);
+
+  await runWithConcurrency(matches, 5, async (match, index) => {
     const apiMatchId = Number.parseInt(String(match.externalApiId ?? ''), 10);
-    if (!Number.isFinite(apiMatchId)) continue;
+    if (!Number.isFinite(apiMatchId)) return;
+
+    const matchLabel = `partido ${index + 1}/${matches.length} [apiId=${apiMatchId}]`;
+    console.log(`${tag}   → Procesando ${matchLabel} | ${match.homeTeam} vs ${match.awayTeam}`);
 
     try {
       const payload = asRecord(await requestSportsApiPro(`/api/match/${apiMatchId}/lineups`));
       if (payload.success !== true) {
+        console.warn(`${tag}   ⚠️  ${matchLabel}: lineups success=false, se omite`);
         errors.push({ matchId: apiMatchId, message: 'lineups success=false' });
-        continue;
+        return;
       }
 
       const data = asRecord(payload.data);
@@ -938,6 +999,8 @@ async function processRankingsInBackground(competitionId: number, localEm: typeo
         ...asArray(asRecord(data.home).players),
         ...asArray(asRecord(data.away).players),
       ];
+
+      let playersInMatch = 0;
 
       for (const playerNode of allPlayers) {
         const row = asRecord(playerNode);
@@ -949,7 +1012,8 @@ async function processRankingsInBackground(competitionId: number, localEm: typeo
         const playerIdEnApi = Number.parseInt(String(player.id ?? ''), 10);
         if (!Number.isFinite(playerIdEnApi)) continue;
 
-        const realPlayer = await localEm.findOne(RealPlayer, { idEnApi: playerIdEnApi });
+        // Lookup en memoria — sin query a la DB
+        const realPlayer = realPlayerByApiId.get(playerIdEnApi);
         if (!realPlayer) {
           missingLocalPlayers += 1;
           continue;
@@ -961,12 +1025,8 @@ async function processRankingsInBackground(competitionId: number, localEm: typeo
           : Number.parseFloat(String(ratingRaw ?? '0'));
         const normalizedRating = Number.isFinite(rating) ? rating : 0;
 
-        let performance = await localEm.findOne(PlayerPerformance, {
-          realPlayer,
-          matchday: match.matchday,
-          league: match.matchday.league,
-          match,
-        });
+        const perfKey = `${(realPlayer as any).id}_${match.id}`;
+        const performance = performanceMap.get(perfKey);
 
         if (!performance) {
           localEm.create(PlayerPerformance, {
@@ -985,26 +1045,35 @@ async function processRankingsInBackground(competitionId: number, localEm: typeo
         }
 
         processedPlayers += 1;
+        playersInMatch += 1;
       }
 
       processedMatches += 1;
+      console.log(`${tag}   ✅ ${matchLabel}: ${playersInMatch} jugadores procesados`);
     } catch (error: any) {
+      console.error(`${tag}   ❌ ${matchLabel}: ${error?.message ?? 'unknown error'}`);
       errors.push({ matchId: apiMatchId, message: error?.message ?? 'unknown error' });
     }
-  }
+  });
 
+  // ─── 5. Guardar en DB ─────────────────────────────────────────────────────
+  console.log(`${tag} 💾 Guardando performances en la DB...`);
   await localEm.flush();
+  console.log(`${tag} ✅ Flush completado (created=${createdPerformances}, updated=${updatedPerformances})`);
 
+  // ─── 6. Actualizar valores de jugadores ───────────────────────────────────
+  console.log(`${tag} 📊 Actualizando translatedValues de jugadores...`);
   await updateRealPlayerTranslatedValuesByLatestFormForCompetition(competitionId, localEm);
+  console.log(`${tag} ✅ TranslatedValues actualizados`);
 
-  console.log('[rankings-background] done', {
-    competitionId,
+  const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
+  console.log(`${tag} 🏁 Proceso finalizado en ${elapsed}s`, {
     processedMatches,
     processedPlayers,
     createdPerformances,
     updatedPerformances,
     missingLocalPlayers,
-    errors,
+    errors: errors.length > 0 ? errors : 'ninguno',
   });
 }
 
