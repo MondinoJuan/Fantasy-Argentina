@@ -372,6 +372,10 @@ export class InsideTournamentComponent implements OnInit {
     return this.extractId(negotiation?.buyerParticipant) === this.loggedParticipantId;
   }
 
+  canCancelNegotiation(negotiation: any): boolean {
+    return this.isNegotiationBuyer(negotiation) && String(negotiation?.status ?? '').toLowerCase() !== 'accepted';
+  }
+
   isNegotiationSeller(negotiation: any): boolean {
     return this.extractId(negotiation?.sellerParticipant) === this.loggedParticipantId;
   }
@@ -398,7 +402,7 @@ export class InsideTournamentComponent implements OnInit {
   }
 
   cancelNegotiation(negotiation: any): void {
-    if (!this.isNegotiationBuyer(negotiation)) return;
+    if (!this.canCancelNegotiation(negotiation)) return;
     this.rollbackNegotiationAndDelete(negotiation);
   }
 
