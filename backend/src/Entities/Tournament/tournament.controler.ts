@@ -22,6 +22,9 @@ import { setupParticipantAfterJoin } from './tournament-participation.service.js
 
 const em = orm.em;
 const POSTPONED_MATCHES_PATH = 'src/Entities/Tournament/data/postponedMatches.json';
+const FIXED_TRANSLATED_MIN = 1_000_000;
+const FIXED_TRANSLATED_MAX = 7_000_000;
+const DEFAULT_INITIAL_BUDGET = 20_000_000;
 
 
 function generateTournamentPublicCodeCandidate(): string {
@@ -441,6 +444,48 @@ async function syncPostponedMatchesAndPersistPlayerRatings(tournamentId: number)
   return stillPending;
 }
 
+async function translateLeagueRealPlayersValues(leagueId: number): Promise<void> {
+  const realTeams = await em.find(RealTeam, { league: { id: leagueId } } as any, { fields: ['id'] as any });
+  const realTeamsIds = realTeams.map((team: any) => Number(team.id)).filter((id) => Number.isFinite(id));
+
+  if (realTeamsIds.length === 0) {
+    return;
+  }
+
+  const realPlayers = await em.find(RealPlayer, { realTeam: { $in: realTeamsIds } } as any);
+  if (realPlayers.length === 0) {
+    return;
+  }
+
+  const valuedPlayers = realPlayers.filter((player) => typeof player.value === 'number' && Number.isFinite(player.value));
+  if (valuedPlayers.length === 0) {
+    return;
+  }
+
+  const values = valuedPlayers.map((player) => Number(player.value));
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+
+  for (const player of realPlayers) {
+    const playerValue = typeof player.value === 'number' && Number.isFinite(player.value) ? Number(player.value) : null;
+
+    if (playerValue === null) {
+      player.translatedValue = null;
+      continue;
+    }
+
+    if (maxValue === minValue || playerValue === minValue) {
+      player.translatedValue = FIXED_TRANSLATED_MIN;
+      continue;
+    }
+
+    const normalized = (playerValue - minValue) / (maxValue - minValue);
+    const translated = FIXED_TRANSLATED_MIN + (normalized * (FIXED_TRANSLATED_MAX - FIXED_TRANSLATED_MIN));
+    const clamped = Math.max(FIXED_TRANSLATED_MIN, Math.min(FIXED_TRANSLATED_MAX, translated));
+    player.translatedValue = Number.isFinite(clamped) ? clamped : FIXED_TRANSLATED_MIN;
+  }
+}
+
 async function findAll(req: Request, res: Response) {
   try {
     const userId = Number.parseInt(String(req.query.userId ?? ''), 10);
@@ -509,15 +554,13 @@ async function add(req: Request, res: Response) {
       return;
     }
 
-    if (typeof tournamentInput.limiteMin !== 'number' || typeof tournamentInput.limiteMax !== 'number') {
-      res.status(400).json({ message: 'limiteMin and limiteMax are required numbers' });
-      return;
-    }
+    const requestedBudget = Number(tournamentInput.initialBudget);
+    tournamentInput.initialBudget = Number.isFinite(requestedBudget) && requestedBudget > 0
+      ? requestedBudget
+      : DEFAULT_INITIAL_BUDGET;
 
-    if (tournamentInput.limiteMax <= tournamentInput.limiteMin) {
-      res.status(400).json({ message: 'limiteMax must be greater than limiteMin' });
-      return;
-    }
+    tournamentInput.limiteMin = FIXED_TRANSLATED_MIN;
+    tournamentInput.limiteMax = FIXED_TRANSLATED_MAX;
 
     const localLeagueId = toInt(rawLeagueId);
 
@@ -552,6 +595,11 @@ async function add(req: Request, res: Response) {
     } as any);
 
     await setupParticipantAfterJoin(item, creatorParticipant, em);
+
+    const leagueId = Number(league.id);
+    if (Number.isFinite(leagueId) && leagueId > 0) {
+      await translateLeagueRealPlayersValues(leagueId);
+    }
 
     await em.flush();
 

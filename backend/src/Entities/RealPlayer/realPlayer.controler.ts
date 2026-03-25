@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import { RealPlayer } from './realPlayer.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { RealTeam } from '../RealTeam/realTeam.entity.js';
-import { Tournament } from '../Tournament/tournament.entity.js';
 import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
 import { PLAYER_POSITIONS, isEnumValue } from '../../shared/domain-enums.js';
 
@@ -402,15 +401,8 @@ async function translatePricesByLeague(req: Request, res: Response) {
       return;
     }
 
-    const tournament = await em.findOne(Tournament, { league: { id: leagueId } } as any, { orderBy: { id: 'desc' } as any });
-
-    if (!tournament || typeof tournament.limiteMin !== 'number' || typeof tournament.limiteMax !== 'number') {
-      res.status(400).json({ message: 'tournament with limiteMin/limiteMax is required for this league', data: { leagueId } });
-      return;
-    }
-
-    const limiteMin = Number(tournament.limiteMin);
-    const limiteMax = Number(tournament.limiteMax);
+    const limiteMin = 1_000_000;
+    const limiteMax = 7_000_000;
 
     const realTeams = await em.find(RealTeam, { league: { id: leagueId } } as any, { fields: ['id'] as any });
     const realTeamsIds = realTeams.map((team: any) => Number(team.id)).filter((id) => Number.isFinite(id));
@@ -467,7 +459,6 @@ async function translatePricesByLeague(req: Request, res: Response) {
       message: 'real player prices translated by league',
       data: {
         leagueId,
-        tournamentId: tournament.id,
         limiteMin,
         limiteMax,
         valueReal_MinDeLeague,
