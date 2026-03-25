@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnChanges, OnInit, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { forkJoin, of } from 'rxjs';
+import { forkJoin } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { ApiService } from '../../servicios/api.service';
 
@@ -24,12 +24,17 @@ export interface ResolvedMarketPlayer {
   templateUrl: './real-player-market-card.component.html',
   styleUrl: './real-player-market-card.component.scss',
 })
-export class RealPlayerMarketCardComponent implements OnInit {
+export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
   @Input() dependantPlayerId!: number;
   @Input() marketId!: number;
   @Input() tournamentId!: number;
   @Input() participantId!: number;
   @Input() availableMoney = 0;
+  @Input() dependantPlayersById: Record<number, any> = {};
+  @Input() realPlayersById: Record<number, any> = {};
+  @Input() realTeamNameById: Record<number, string> = {};
+  @Input() performancesByRealPlayerId: Record<number, number> = {};
+  @Input() bidsByRealPlayerId: Record<number, any[]> = {};
   @Output() bidSaved = new EventEmitter<void>();
 
   player: ResolvedMarketPlayer | null = null;
@@ -50,6 +55,13 @@ export class RealPlayerMarketCardComponent implements OnInit {
     this.resolvePlayer();
   }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['dependantPlayersById'] || changes['realPlayersById'] || changes['performancesByRealPlayerId'] || changes['bidsByRealPlayerId']) {
+      this.resolvePlayer();
+    }
+  }
+
+
   onBidClick(): void {
     this.bidAmount = Number(this.player?.translatedValue ?? 0);
     this.bidError = '';
@@ -57,6 +69,16 @@ export class RealPlayerMarketCardComponent implements OnInit {
     this.showBidModal = true;
 
     if (!this.tournamentId || !this.participantId || !this.player?.realPlayerId) return;
+
+    const prefetchedBids = this.bidsByRealPlayerId[this.player.realPlayerId] ?? [];
+    if (prefetchedBids.length > 0) {
+      const participantBid = prefetchedBids.find((bid: any) => this.extractId(bid.participant) === this.participantId);
+      if (participantBid) {
+        this.existingBidForSelectedPlayer = participantBid;
+        this.bidAmount = Number(participantBid?.offeredAmount ?? 100);
+      }
+      return;
+    }
 
     this.apiService.searchBidsByTournamentAndRealPlayer(this.tournamentId, this.player.realPlayerId).subscribe({
       next: (response) => {
@@ -124,11 +146,8 @@ export class RealPlayerMarketCardComponent implements OnInit {
           bidDate: new Date(),
         });
 
-    request$.pipe(
-      switchMap(() => this.syncParticipantBudget(amount, previousAmount)),
-    ).subscribe({
+    request$.subscribe({
       next: () => {
-        this.availableMoney = Math.max(0, Number(this.availableMoney) - requiredIncrement);
         this.closeBidModal();
         this.bidSaved.emit();
         this.resolvePlayer();
@@ -139,36 +158,41 @@ export class RealPlayerMarketCardComponent implements OnInit {
     });
   }
 
-  private syncParticipantBudget(currentAmount: number, previousAmount: number) {
-    const delta = currentAmount - previousAmount;
-
-    if (!delta) {
-      return of(null);
-    }
-
-    return this.apiService.searchParticipantById(this.participantId).pipe(
-      switchMap((participantRes: any) => {
-        const participant = participantRes?.data ?? participantRes;
-        const availableMoney = Number(participant?.availableMoney ?? 0);
-        const reservedMoney = Number(participant?.reservedMoney ?? 0);
-
-        return this.apiService.patchParticipant({
-          id: this.participantId,
-          availableMoney: Math.max(0, availableMoney - delta),
-          reservedMoney: Math.max(0, reservedMoney + delta),
-        });
-      }),
-    );
-  }
-
   private resolvePlayer(): void {
     this.isLoading = true;
     this.hasError = false;
 
+    const dependant = this.dependantPlayersById[this.dependantPlayerId];
+    const realPlayerIdFromCache = this.extractId(dependant?.realPlayer);
+    const cachedRealPlayer = realPlayerIdFromCache ? this.realPlayersById[realPlayerIdFromCache] : null;
+
+    if (dependant && cachedRealPlayer) {
+      const realPlayerId = this.extractId(cachedRealPlayer) ?? realPlayerIdFromCache ?? 0;
+      const realTeamId = Number(
+        cachedRealPlayer?.realTeamId ??
+        cachedRealPlayer?.real_team_id ??
+        this.extractId(cachedRealPlayer?.realTeam)
+      );
+
+      this.player = {
+        dependantPlayerId: this.dependantPlayerId,
+        realPlayerId,
+        marketId: this.marketId,
+        name: cachedRealPlayer?.name ?? `Jugador ${realPlayerId}`,
+        position: this.normalizePosition(cachedRealPlayer?.position),
+        teamName: this.realTeamNameById[realTeamId] ?? 'Sin equipo',
+        totalScore: Number(this.performancesByRealPlayerId[realPlayerId] ?? 0),
+        totalBids: Number((this.bidsByRealPlayerId[realPlayerId] ?? []).length),
+        translatedValue: cachedRealPlayer?.translatedValue ?? null,
+      };
+      this.isLoading = false;
+      return;
+    }
+
     this.apiService.searchDependantPlayerById(this.dependantPlayerId).pipe(
       switchMap((dependantRes: any) => {
-        const dependant = dependantRes?.data ?? dependantRes;
-        const realPlayerId = Number(dependant?.realPlayer?.id ?? dependant?.real_player?.id);
+        const dependantPlayer = dependantRes?.data ?? dependantRes;
+        const realPlayerId = Number(dependantPlayer?.realPlayer?.id ?? dependantPlayer?.real_player?.id);
         if (!realPlayerId) throw new Error('real_player_id no encontrado en dependantPlayer');
 
         this._pendingRealPlayerId = realPlayerId;
