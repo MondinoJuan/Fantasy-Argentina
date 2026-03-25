@@ -245,13 +245,10 @@ export class RivalsRealPlayerListComponent {
     }
 
     const existingNegotiation = this.findExistingNegotiation(this.selectedPlayer.dependantPlayerId);
-    const previousAmount = Number(existingNegotiation?.agreedAmount ?? 0);
-    const delta = amount - previousAmount;
     const buyerAvailable = Number(buyer?.availableMoney ?? 0);
-    const buyerReserved = Number(buyer?.reservedMoney ?? 0);
 
-    if (delta > buyerAvailable) {
-      this.modalError = 'No tenés dinero disponible para realizar/actualizar esa oferta.';
+    if (amount >= buyerAvailable) {
+      this.modalError = 'El monto debe ser menor a tu dinero disponible.';
       return;
     }
 
@@ -275,13 +272,7 @@ export class RivalsRealPlayerListComponent {
           publicationDate: new Date(),
         });
 
-    request$.pipe(
-      switchMap(() => this.apiService.patchParticipant({
-        id: this.loggedParticipantId,
-        availableMoney: Math.max(0, buyerAvailable - delta),
-        reservedMoney: Math.max(0, buyerReserved + delta),
-      })),
-    ).subscribe({
+    request$.subscribe({
       next: () => {
         this.closeModal();
         this.updated.emit();

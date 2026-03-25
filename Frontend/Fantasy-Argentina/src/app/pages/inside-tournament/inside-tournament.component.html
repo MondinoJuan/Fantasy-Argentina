@@ -96,7 +96,13 @@
 
           <div class="actions">
             <button type="button" *ngIf="canCancelNegotiation(negotiation)" (click)="cancelNegotiation(negotiation)">Cancelar</button>
-            <button type="button" *ngIf="canRespondToNegotiation(negotiation)" (click)="acceptNegotiation(negotiation)">Aceptar</button>
+            <button
+              type="button"
+              *ngIf="canRespondToNegotiation(negotiation)"
+              (click)="acceptNegotiation(negotiation)"
+              [disabled]="!canAcceptNegotiation(negotiation)">
+              Aceptar
+            </button>
             <button type="button" *ngIf="canRespondToNegotiation(negotiation)" (click)="rejectNegotiation(negotiation)">Rechazar</button>
             <button type="button" *ngIf="canRespondToNegotiation(negotiation)" (click)="openCounterNegotiationModal(negotiation)">Modificar monto</button>
           </div>
