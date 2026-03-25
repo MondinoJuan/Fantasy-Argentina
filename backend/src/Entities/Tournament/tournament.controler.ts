@@ -595,7 +595,9 @@ async function add(req: Request, res: Response) {
     } as any);
 
     await setupParticipantAfterJoin(item, creatorParticipant, em);
-    await translateLeagueRealPlayersValues(league.id);
+    await translateLeagueRealPlayersValues(
+      league.id ?? (() => { throw new Error("league.id es undefined"); })()
+    );
 
     const leagueId = Number(league.id);
     if (Number.isFinite(leagueId) && leagueId > 0) {

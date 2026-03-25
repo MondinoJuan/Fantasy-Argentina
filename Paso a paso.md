@@ -91,20 +91,12 @@ Si quiero hacerlo en base a los ultimos partidos, no en base al ultimo, debo usa
 - No se cómo invocar la función de suma de puntajes a los Participant. Tal vez hacerlo cada vez que se actualicen los puntajes de cada RealPlayer (si el Participant lo tiene referenciado, que se le sume dicho "ranking" al puntaje del mismo), pero como hago para que se sumen solamente los puntajes actualizados recientemente y no todos los previos. 
 * Capaz se podria hacer con un trigger? que cada vez que se cree un PlayerPerformance se sume el puntaje almacenado en la propiedad pointsObtained al puntaje del Participant en totalScore.
 
-## A finalizar
-- Me falta probar el tema del 100% de las pujas = $0.
-
-## A arreglar
-* Cuando cambio el monto de una Bid, que me devuelva la plata desde participant.reservedMoney a participant.availableMoney.
-* Que lo valores limite superior e inferior del value de un realPlayer sean fijos y no puedan ser elegidos, o que el translatedValue sea una entidad aparte que dependa del realPlayer y del tournament. Si no, cada vez que calculo para torneos diferentes con diferentes valores de limite min y max se rompe todo.
-
 ## Futuro
 * Si un realPlayer es elegido como capitán por un Participant, que los puntos que le sume al mismo al final de una fecha sea x3.
 * Hay que mejorar el sistema de final de pujas. Si lo hace el superadmin es injusto, si lo hace un tiempo despues de la ultima puja no termina mas (se pueden hacer pujas indefinidas por $0), si lo hago a un tiempo despues del ultimo partido de la fecha se puede romper por partido postpuesto. ¿Qué hacer si dos personas ofertan la misma cantidad de dinero? Si hay una oferta = $0 tampoco deberia dar la puja por ganada.
 * El participant al poner un realPlayer en venta se le tiene que otorgar la posibilidad de venderlo rápido por una cantidad menor.
 * Botones para modificar o eliminar entidades en el superadmin-menu.
 * Posibilidad de eliminar un tournament (solo para el que lo creo).
-* Cuando se crea un torneo se debe disparar 'Traducir precios'.
 
 ## Listado ligas
 SPORTSAPIPRO V2:
