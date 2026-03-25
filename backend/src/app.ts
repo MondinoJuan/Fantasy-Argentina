@@ -97,9 +97,60 @@ function rateLimitMiddleware(req: express.Request, res: express.Response, next: 
   return next();
 }
 
+
+
+const mutationRateByActor = new Map<string, { hits: number; windowStart: number }>();
+
+function getMutationRateLimitConfig() {
+  const windowMs = Number.parseInt(process.env.MUTATION_RATE_LIMIT_WINDOW_MS ?? '', 10);
+  const maxRequests = Number.parseInt(process.env.MUTATION_RATE_LIMIT_MAX_REQUESTS ?? '', 10);
+
+  return {
+    windowMs: Number.isFinite(windowMs) && windowMs > 0 ? windowMs : 60_000,
+    maxRequests: Number.isFinite(maxRequests) && maxRequests > 0 ? maxRequests : 90,
+  };
+}
+
+function mutationRateLimitMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+    return next();
+  }
+
+  const { windowMs, maxRequests } = getMutationRateLimitConfig();
+  const actor = String(req.authUser?.id ?? req.ip ?? req.socket.remoteAddress ?? 'unknown');
+  const now = Date.now();
+  const entry = mutationRateByActor.get(actor);
+
+  if (!entry || now - entry.windowStart >= windowMs) {
+    mutationRateByActor.set(actor, { hits: 1, windowStart: now });
+    return next();
+  }
+
+  entry.hits += 1;
+  if (entry.hits > maxRequests) {
+    return res.status(429).json({ message: 'Too many mutation requests. Slow down and retry.' });
+  }
+
+  return next();
+}
+
+function requestTimeoutMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const timeoutMsRaw = Number.parseInt(process.env.REQUEST_TIMEOUT_MS ?? '', 10);
+  const timeoutMs = Number.isFinite(timeoutMsRaw) && timeoutMsRaw > 0 ? timeoutMsRaw : 15_000;
+
+  res.setTimeout(timeoutMs, () => {
+    if (!res.headersSent) {
+      res.status(503).json({ message: 'Request timeout exceeded. Please retry.' });
+    }
+  });
+
+  next();
+}
+
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT ?? '256kb' }));
 app.use(securityHeadersMiddleware);
+app.use(requestTimeoutMiddleware);
 app.use(rateLimitMiddleware);
 app.set('trust proxy', 1);
 
@@ -117,6 +168,7 @@ app.use('/api', (req, res, next) => {
 
   return requireAuth(req, res, next);
 });
+app.use('/api', mutationRateLimitMiddleware);
 app.use('/api/users', UserRouter)
 app.use('/api/tournaments', TournamentRouter)
 app.use('/api/leagues', LeagueRouter)

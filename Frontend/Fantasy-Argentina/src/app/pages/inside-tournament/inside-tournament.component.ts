@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin, Observable, of } from 'rxjs';
 import { ApiService } from '../../servicios/api.service';
+import { RequestCacheService } from '../../servicios/request-cache.service';
 import { FootballPitchComponent, PitchPlayer } from '../../components/football-pitch/football-pitch.component';
 import { RealPlayerMarketCardComponent } from '../../components/real-player-market-card/real-player-market-card.component';
 import { RivalsRealPlayerListComponent } from '../../components/rivals-real-player-list/rivals-real-player-list.component';
@@ -44,6 +45,12 @@ export class InsideTournamentComponent implements OnInit {
   substitutePlayersForPitch: PitchPlayer[] = [];
   marketDependantIds: Array<{ dependantPlayerId: number; marketId: number }> = [];
 
+  marketDependantById: Record<number, any> = {};
+  marketRealPlayerById: Record<number, any> = {};
+  marketRealTeamNameById: Record<number, string> = {};
+  marketPerformanceByRealPlayerId: Record<number, number> = {};
+  marketBidsByRealPlayerId: Record<number, any[]> = {};
+
   selectedRankingScope: 'total' | number = 'total';
   rankingRows: Array<{ participantName: string; points: number; }> = [];
   matchdaysForTournament: any[] = [];
@@ -53,6 +60,7 @@ export class InsideTournamentComponent implements OnInit {
   private tournamentId: number | null = null;
   private allParticipantSquads: any[] = [];
   private allRealPlayers: any[] = [];
+  private allRealTeams: any[] = [];
   private allParticipantPoints: any[] = [];
   allPlayerPerformances: any[] = [];
   allDependantPlayers: any[] = [];
@@ -71,6 +79,7 @@ export class InsideTournamentComponent implements OnInit {
 
   constructor(
     private readonly apiService: ApiService,
+    private readonly requestCacheService: RequestCacheService,
     private readonly route: ActivatedRoute,
     private readonly router: Router,
   ) {}
@@ -122,30 +131,31 @@ export class InsideTournamentComponent implements OnInit {
   }
 
   onBidSaved(): void {
-    this.loadTournamentPage(true);
+    this.refreshTournamentState('bid');
   }
 
   onSquadSaved(): void {
-    this.loadTournamentPage(true);
+    this.refreshTournamentState('squad');
   }
 
-  private loadTournamentPage(isReload = false): void {
+  private loadTournamentPage(): void {
     this.isLoading = true;
     this.errorMessage = '';
 
     forkJoin({
-      tournaments: this.apiService.searchTournaments(),
-      participants: this.apiService.searchParticipants(),
-      participantSquads: this.apiService.searchParticipantSquads(),
-      realPlayers: this.apiService.searchRealPlayers(),
-      dependantPlayers: this.apiService.searchDependantPlayers(),
-      playerClauses: this.apiService.searchPlayerClauses(),
-      matchdayMarkets: this.apiService.searchMatchdayMarkets(),
-      negotiations: this.apiService.searchNegotiations(),
-      bids: this.apiService.searchBids(),
-      matchdays: this.apiService.searchMatchdays(),
-      participantMatchdayPoints: this.apiService.searchParticipantMatchdayPoints(),
-      playerPerformances: this.apiService.searchPlayerPerformances(),
+      tournaments: this.requestCacheService.getOrSet('tournaments', () => this.apiService.searchTournaments(), 60_000),
+      participants: this.requestCacheService.getOrSet('participants', () => this.apiService.searchParticipants(), 20_000),
+      participantSquads: this.requestCacheService.getOrSet('participant-squads', () => this.apiService.searchParticipantSquads(), 20_000),
+      realPlayers: this.requestCacheService.getOrSet('real-players', () => this.apiService.searchRealPlayers(), 120_000),
+      realTeams: this.requestCacheService.getOrSet('real-teams', () => this.apiService.searchRealTeams(), 120_000),
+      dependantPlayers: this.requestCacheService.getOrSet('dependant-players', () => this.apiService.searchDependantPlayers(), 20_000),
+      playerClauses: this.requestCacheService.getOrSet('player-clauses', () => this.apiService.searchPlayerClauses(), 20_000),
+      matchdayMarkets: this.requestCacheService.getOrSet('matchday-markets', () => this.apiService.searchMatchdayMarkets(), 20_000),
+      negotiations: this.requestCacheService.getOrSet('negotiations', () => this.apiService.searchNegotiations(), 15_000),
+      bids: this.requestCacheService.getOrSet('bids', () => this.apiService.searchBids(), 15_000),
+      matchdays: this.requestCacheService.getOrSet('matchdays', () => this.apiService.searchMatchdays(), 120_000),
+      participantMatchdayPoints: this.requestCacheService.getOrSet('participant-matchday-points', () => this.apiService.searchParticipantMatchdayPoints(), 20_000),
+      playerPerformances: this.requestCacheService.getOrSet('player-performances', () => this.apiService.searchPlayerPerformances(), 20_000),
     }).subscribe({
       next: (response) => {
         const currentUserId = Number(localStorage.getItem('currentUserId'));
@@ -175,6 +185,7 @@ export class InsideTournamentComponent implements OnInit {
 
         this.allParticipantSquads = response.participantSquads.data;
         this.allRealPlayers = response.realPlayers.data;
+        this.allRealTeams = response.realTeams?.data ?? [];
         this.allDependantPlayers = response.dependantPlayers?.data ?? [];
         this.allPlayerClauses = response.playerClauses?.data ?? [];
         this.allParticipantPoints = response.participantMatchdayPoints.data;
@@ -195,6 +206,7 @@ export class InsideTournamentComponent implements OnInit {
 
         this.rebuildSquadFromFormation();
         this.rebuildMarketFromDatabase();
+        this.rebuildMarketReferenceData();
         this.rebuildRanking();
 
         this.isLoading = false;
@@ -293,6 +305,55 @@ export class InsideTournamentComponent implements OnInit {
         marketId,
       }));
     });
+  }
+
+  private rebuildMarketReferenceData(): void {
+    const dependantById: Record<number, any> = {};
+    for (const dependant of this.allDependantPlayers) {
+      const dependantId = this.extractId(dependant);
+      if (dependantId) {
+        dependantById[dependantId] = dependant;
+      }
+    }
+
+    const realPlayerById: Record<number, any> = {};
+    for (const player of this.allRealPlayers) {
+      const playerId = this.extractId(player);
+      if (playerId) {
+        realPlayerById[playerId] = player;
+      }
+    }
+
+    const teamNameById: Record<number, string> = {};
+    for (const team of this.allRealTeams) {
+      const teamId = this.extractId(team);
+      if (teamId) {
+        teamNameById[teamId] = String(team?.name ?? 'Sin equipo');
+      }
+    }
+
+    const performanceByRealPlayerId: Record<number, number> = {};
+    for (const perf of this.allPlayerPerformances) {
+      const realPlayerId = this.extractId((perf as any)?.realPlayer);
+      if (!realPlayerId) continue;
+      performanceByRealPlayerId[realPlayerId] = Number(performanceByRealPlayerId[realPlayerId] ?? 0) + Number((perf as any)?.pointsObtained ?? 0);
+    }
+
+    const bidsByRealPlayerId: Record<number, any[]> = {};
+    for (const bid of this.bids) {
+      const realPlayerId = this.extractId((bid as any)?.realPlayer);
+      if (!realPlayerId) continue;
+      if (!Array.isArray(bidsByRealPlayerId[realPlayerId])) {
+        bidsByRealPlayerId[realPlayerId] = [];
+      }
+      bidsByRealPlayerId[realPlayerId].push(bid);
+    }
+
+    this.marketDependantById = dependantById;
+    this.marketRealPlayerById = realPlayerById;
+    this.marketRealTeamNameById = teamNameById;
+    this.marketPerformanceByRealPlayerId = performanceByRealPlayerId;
+    this.marketBidsByRealPlayerId = bidsByRealPlayerId;
   }
 
   private rebuildRanking(): void {
@@ -457,7 +518,7 @@ export class InsideTournamentComponent implements OnInit {
         }).subscribe({
           next: () => {
             this.closeCounterNegotiationModal();
-            this.loadTournamentPage(true);
+            this.refreshTournamentState('negotiation');
           },
           error: (error: any) => {
             this.negotiationAmountError = error?.error?.message ?? 'No se pudo actualizar el monto.';
@@ -505,14 +566,14 @@ export class InsideTournamentComponent implements OnInit {
             availableMoney: Number(seller?.availableMoney ?? 0) + amount,
           }),
         }).subscribe({
-          next: () => this.loadTournamentPage(true),
+          next: () => this.refreshTournamentState('negotiation'),
         });
       },
     });
   }
 
   onRivalListUpdated(): void {
-    this.loadTournamentPage(true);
+    this.refreshTournamentState('negotiation');
   }
 
   private rollbackNegotiationAndDelete(negotiation: any): void {
@@ -528,8 +589,82 @@ export class InsideTournamentComponent implements OnInit {
     }).subscribe({
       next: () => {
         this.apiService.removeNegotiation(this.extractId(negotiation)!).subscribe({
-          next: () => this.loadTournamentPage(true),
+          next: () => this.refreshTournamentState('negotiation'),
         });
+      },
+    });
+  }
+
+
+
+  private refreshTournamentState(reason: 'bid' | 'squad' | 'negotiation'): void {
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    if (reason === 'bid') {
+      this.requestCacheService.invalidate('bids');
+      this.requestCacheService.invalidate('participants');
+    }
+
+    if (reason === 'squad') {
+      this.requestCacheService.invalidate('participant-squads');
+    }
+
+    if (reason === 'negotiation') {
+      this.requestCacheService.invalidate('negotiations');
+      this.requestCacheService.invalidate('participants');
+      this.requestCacheService.invalidate('participant-squads');
+    }
+
+    this.requestCacheService.invalidate('matchday-markets');
+    this.requestCacheService.invalidate('dependant-players');
+    this.requestCacheService.invalidate('player-clauses');
+
+    forkJoin({
+      participants: this.requestCacheService.getOrSet('participants', () => this.apiService.searchParticipants(), 20_000),
+      participantSquads: this.requestCacheService.getOrSet('participant-squads', () => this.apiService.searchParticipantSquads(), 20_000),
+      dependantPlayers: this.requestCacheService.getOrSet('dependant-players', () => this.apiService.searchDependantPlayers(), 20_000),
+      playerClauses: this.requestCacheService.getOrSet('player-clauses', () => this.apiService.searchPlayerClauses(), 20_000),
+      matchdayMarkets: this.requestCacheService.getOrSet('matchday-markets', () => this.apiService.searchMatchdayMarkets(), 20_000),
+      negotiations: this.requestCacheService.getOrSet('negotiations', () => this.apiService.searchNegotiations(), 15_000),
+      bids: this.requestCacheService.getOrSet('bids', () => this.apiService.searchBids(), 15_000),
+      participantMatchdayPoints: this.requestCacheService.getOrSet('participant-matchday-points', () => this.apiService.searchParticipantMatchdayPoints(), 20_000),
+    }).subscribe({
+      next: (response) => {
+        const currentUserId = Number(localStorage.getItem('currentUserId'));
+        const tournamentParticipants = response.participants.data.filter((item: any) => this.extractId(item.tournament) === this.tournamentId);
+
+        this.participant = tournamentParticipants.find((item: any) => this.extractId(item.user) === currentUserId) ?? this.participant;
+        const currentParticipantId = this.extractId(this.participant);
+
+        this.rivals = tournamentParticipants.filter((item: any) => this.extractId(item) !== currentParticipantId);
+        this.participantsOrdered = [
+          ...tournamentParticipants.filter((item: any) => this.extractId(item) === currentParticipantId),
+          ...tournamentParticipants.filter((item: any) => this.extractId(item) !== currentParticipantId),
+        ];
+
+        this.allParticipantSquads = response.participantSquads.data;
+        this.allDependantPlayers = response.dependantPlayers?.data ?? [];
+        this.allPlayerClauses = response.playerClauses?.data ?? [];
+        this.allParticipantPoints = response.participantMatchdayPoints.data;
+
+        this.existingMarketEntries = response.matchdayMarkets.data.filter((item: any) => this.extractId(item.tournament) === this.tournamentId);
+        this.negotiations = response.negotiations.data.filter((item: any) => this.extractId(item.tournament) === this.tournamentId);
+
+        const participantId = this.extractId(this.participant);
+        this.bids = response.bids.data.filter((bid: any) => this.extractId(bid.participant) === participantId);
+
+        this.rebuildMapsAndNegotiationViews();
+        this.rebuildSquadFromFormation();
+        this.rebuildMarketFromDatabase();
+        this.rebuildMarketReferenceData();
+        this.rebuildRanking();
+
+        this.isLoading = false;
+      },
+      error: (error) => {
+        this.errorMessage = error?.error?.message ?? 'No se pudo refrescar el torneo.';
+        this.isLoading = false;
       },
     });
   }
