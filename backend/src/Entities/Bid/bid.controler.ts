@@ -4,11 +4,25 @@ import { orm } from '../../shared/db/orm.js';
 import { BID_STATUSES, isEnumValue } from '../../shared/domain-enums.js';
 import { Participant } from '../Participant/participant.entity.js';
 
-const em = orm.em;
-
 function parseId(idParam: string | string[] | undefined) {
   const rawId = Array.isArray(idParam) ? idParam[0] : idParam;
   return Number.parseInt(rawId ?? '', 10);
+}
+
+function resolveParticipantId(participantRaw: unknown): number {
+  if (typeof participantRaw === 'number') {
+    return participantRaw;
+  }
+
+  if (typeof participantRaw === 'string') {
+    return Number.parseInt(participantRaw, 10);
+  }
+
+  if (participantRaw && typeof participantRaw === 'object' && 'id' in participantRaw) {
+    return Number.parseInt(String((participantRaw as { id?: unknown }).id ?? ''), 10);
+  }
+
+  return Number.NaN;
 }
 
 function sanitizeBidInput(req: Request, res: Response, next: NextFunction) {
@@ -32,7 +46,7 @@ function sanitizeBidInput(req: Request, res: Response, next: NextFunction) {
 
 
 async function adjustParticipantFundsForBid(participantIdRaw: unknown, previousAmountRaw: unknown, nextAmountRaw: unknown) {
-  const participantId = Number.parseInt(String(participantIdRaw ?? ''), 10);
+  const participantId = resolveParticipantId(participantIdRaw);
 
   if (!Number.isFinite(participantId) || participantId <= 0) {
     return;
@@ -46,7 +60,7 @@ async function adjustParticipantFundsForBid(participantIdRaw: unknown, previousA
     return;
   }
 
-  const participant = await em.findOne(Participant, { id: participantId });
+  const participant = await orm.em.findOne(Participant, { id: participantId });
   if (!participant) {
     throw new Error('participant not found for bid budget adjustment');
   }
@@ -64,7 +78,7 @@ async function adjustParticipantFundsForBid(participantIdRaw: unknown, previousA
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(Bid, {}, { populate: ['matchdayMarket', 'participant', 'tournament', 'realPlayer'] });
+    const items = await orm.em.find(Bid, {}, { populate: ['matchdayMarket', 'participant', 'tournament', 'realPlayer'] });
     res.status(200).json({ message: 'found all bids', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -81,7 +95,7 @@ async function findByTournamentAndRealPlayer(req: Request, res: Response) {
       return;
     }
 
-    const items = await em.find(
+    const items = await orm.em.find(
       Bid,
       { tournament: tournamentId, realPlayer: realPlayerId },
       { populate: ['matchdayMarket', 'participant', 'tournament', 'realPlayer'] },
@@ -101,7 +115,7 @@ async function findByTournamentAndRealPlayer(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(Bid, { id }, { populate: ['matchdayMarket', 'participant', 'tournament', 'realPlayer'] });
+    const item = await orm.em.findOneOrFail(Bid, { id }, { populate: ['matchdayMarket', 'participant', 'tournament', 'realPlayer'] });
     res.status(200).json({ message: 'found bid', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -115,7 +129,7 @@ async function add(req: Request, res: Response) {
       return;
     }
 
-    const existingBid = await em.findOne(Bid, {
+    const existingBid = await orm.em.findOne(Bid, {
       tournament: req.body.sanitizeBidInput.tournament,
       participant: req.body.sanitizeBidInput.participant,
       realPlayer: req.body.sanitizeBidInput.realPlayer,
@@ -127,16 +141,16 @@ async function add(req: Request, res: Response) {
 
       await adjustParticipantFundsForBid(req.body.sanitizeBidInput.participant ?? existingBid.participant, previousAmount, nextAmount);
 
-      em.assign(existingBid, req.body.sanitizeBidInput);
-      await em.flush();
+      orm.em.assign(existingBid, req.body.sanitizeBidInput);
+      await orm.em.flush();
       res.status(200).json({ message: 'bid updated', data: existingBid });
       return;
     }
 
     await adjustParticipantFundsForBid(req.body.sanitizeBidInput.participant, 0, req.body.sanitizeBidInput.offeredAmount);
 
-    const item = em.create(Bid, req.body.sanitizeBidInput);
-    await em.flush();
+    const item = orm.em.create(Bid, req.body.sanitizeBidInput);
+    await orm.em.flush();
     res.status(201).json({ message: 'bid created', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -151,15 +165,15 @@ async function update(req: Request, res: Response) {
     }
 
     const id = parseId(req.params.id);
-    const itemToUpdate = await em.findOneOrFail(Bid, { id });
+    const itemToUpdate = await orm.em.findOneOrFail(Bid, { id });
 
     const previousAmount = Number(itemToUpdate.offeredAmount ?? 0);
     const nextAmount = Number(req.body.sanitizeBidInput.offeredAmount ?? previousAmount);
 
     await adjustParticipantFundsForBid(req.body.sanitizeBidInput.participant ?? itemToUpdate.participant, previousAmount, nextAmount);
 
-    em.assign(itemToUpdate, req.body.sanitizeBidInput);
-    await em.flush();
+    orm.em.assign(itemToUpdate, req.body.sanitizeBidInput);
+    await orm.em.flush();
     res.status(200).json({ message: 'bid updated', data: itemToUpdate });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -169,9 +183,9 @@ async function update(req: Request, res: Response) {
 async function remove(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = em.getReference(Bid, id);
-    em.remove(item);
-    await em.flush();
+    const item = orm.em.getReference(Bid, id);
+    orm.em.remove(item);
+    await orm.em.flush();
     res.status(200).json({ message: 'bid deleted' });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
