@@ -597,6 +597,11 @@ async function add(req: Request, res: Response) {
     await setupParticipantAfterJoin(item, creatorParticipant, em);
     await translateLeagueRealPlayersValues(league.id);
 
+    const leagueId = Number(league.id);
+    if (Number.isFinite(leagueId) && leagueId > 0) {
+      await translateLeagueRealPlayersValues(leagueId);
+    }
+
     await em.flush();
 
     res.status(201).json({
