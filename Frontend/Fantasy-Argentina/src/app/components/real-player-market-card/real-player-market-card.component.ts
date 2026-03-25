@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input, Output, EventEmitter, OnChanges, OnInit, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { forkJoin, of } from 'rxjs';
+import { forkJoin } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { ApiService } from '../../servicios/api.service';
 
@@ -146,11 +146,8 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
           bidDate: new Date(),
         });
 
-    request$.pipe(
-      switchMap(() => this.syncParticipantBudget(amount, previousAmount)),
-    ).subscribe({
+    request$.subscribe({
       next: () => {
-        this.availableMoney = Math.max(0, Number(this.availableMoney) - requiredIncrement);
         this.closeBidModal();
         this.bidSaved.emit();
         this.resolvePlayer();
@@ -159,28 +156,6 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
         this.bidError = error?.error?.message ?? 'No se pudo registrar la oferta.';
       },
     });
-  }
-
-  private syncParticipantBudget(currentAmount: number, previousAmount: number) {
-    const delta = currentAmount - previousAmount;
-
-    if (!delta) {
-      return of(null);
-    }
-
-    return this.apiService.searchParticipantById(this.participantId).pipe(
-      switchMap((participantRes: any) => {
-        const participant = participantRes?.data ?? participantRes;
-        const availableMoney = Number(participant?.availableMoney ?? 0);
-        const reservedMoney = Number(participant?.reservedMoney ?? 0);
-
-        return this.apiService.patchParticipant({
-          id: this.participantId,
-          availableMoney: Math.max(0, availableMoney - delta),
-          reservedMoney: Math.max(0, reservedMoney + delta),
-        });
-      }),
-    );
   }
 
   private resolvePlayer(): void {

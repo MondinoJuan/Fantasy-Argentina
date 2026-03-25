@@ -33,7 +33,7 @@ function sanitizeNegotiationInput(req: Request, res: Response, next: NextFunctio
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(Negotiation, {}, { populate: ['tournament', 'sellerParticipant', 'buyerParticipant', 'dependantPlayer'] });
+    const items = await em.find(Negotiation, {}, { populate: ['tournament', 'sellerParticipant.user', 'buyerParticipant.user', 'dependantPlayer'] });
     res.status(200).json({ message: 'found all negotiations', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -43,7 +43,7 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(Negotiation, { id }, { populate: ['tournament', 'sellerParticipant', 'buyerParticipant', 'dependantPlayer'] });
+    const item = await em.findOneOrFail(Negotiation, { id }, { populate: ['tournament', 'sellerParticipant.user', 'buyerParticipant.user', 'dependantPlayer'] });
     res.status(200).json({ message: 'found negotiation', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

@@ -194,8 +194,7 @@ export class InsideTournamentComponent implements OnInit {
         this.existingMarketEntries = response.matchdayMarkets.data.filter((item: any) => this.extractId(item.tournament) === this.tournamentId);
         this.negotiations = response.negotiations.data.filter((item: any) => this.extractId(item.tournament) === this.tournamentId);
 
-        const participantId = this.extractId(this.participant);
-        this.bids = response.bids.data.filter((bid: any) => this.extractId(bid.participant) === participantId);
+        this.bids = response.bids.data.filter((bid: any) => this.extractId(bid.tournament) === this.tournamentId);
 
         this.matchdaysForTournament = response.matchdays.data
           .filter((matchday: any) => this.extractId(matchday.league) === this.extractId(this.tournament.league))
@@ -651,8 +650,7 @@ export class InsideTournamentComponent implements OnInit {
         this.existingMarketEntries = response.matchdayMarkets.data.filter((item: any) => this.extractId(item.tournament) === this.tournamentId);
         this.negotiations = response.negotiations.data.filter((item: any) => this.extractId(item.tournament) === this.tournamentId);
 
-        const participantId = this.extractId(this.participant);
-        this.bids = response.bids.data.filter((bid: any) => this.extractId(bid.participant) === participantId);
+        this.bids = response.bids.data.filter((bid: any) => this.extractId(bid.tournament) === this.tournamentId);
 
         this.rebuildMapsAndNegotiationViews();
         this.rebuildSquadFromFormation();

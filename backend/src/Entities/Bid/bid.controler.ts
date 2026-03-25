@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { Bid } from './bid.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { BID_STATUSES, isEnumValue } from '../../shared/domain-enums.js';
+import { Participant } from '../Participant/participant.entity.js';
 
 const em = orm.em;
 
@@ -27,6 +28,38 @@ function sanitizeBidInput(req: Request, res: Response, next: NextFunction) {
     }
   });
   next();
+}
+
+
+async function adjustParticipantFundsForBid(participantIdRaw: unknown, previousAmountRaw: unknown, nextAmountRaw: unknown) {
+  const participantId = Number.parseInt(String(participantIdRaw ?? ''), 10);
+
+  if (!Number.isFinite(participantId) || participantId <= 0) {
+    return;
+  }
+
+  const previousAmount = Number(previousAmountRaw ?? 0);
+  const nextAmount = Number(nextAmountRaw ?? 0);
+  const delta = nextAmount - previousAmount;
+
+  if (!Number.isFinite(delta) || delta === 0) {
+    return;
+  }
+
+  const participant = await em.findOne(Participant, { id: participantId });
+  if (!participant) {
+    throw new Error('participant not found for bid budget adjustment');
+  }
+
+  const availableMoney = Number(participant.availableMoney ?? 0);
+  const reservedMoney = Number(participant.reservedMoney ?? 0);
+
+  if (delta > 0 && availableMoney < delta) {
+    throw new Error('insufficient available money to increase bid amount');
+  }
+
+  participant.availableMoney = Math.max(0, availableMoney - delta);
+  participant.reservedMoney = Math.max(0, reservedMoney + delta);
 }
 
 async function findAll(req: Request, res: Response) {
@@ -89,11 +122,18 @@ async function add(req: Request, res: Response) {
     });
 
     if (existingBid) {
+      const previousAmount = Number(existingBid.offeredAmount ?? 0);
+      const nextAmount = Number(req.body.sanitizeBidInput.offeredAmount ?? previousAmount);
+
+      await adjustParticipantFundsForBid(req.body.sanitizeBidInput.participant ?? existingBid.participant, previousAmount, nextAmount);
+
       em.assign(existingBid, req.body.sanitizeBidInput);
       await em.flush();
       res.status(200).json({ message: 'bid updated', data: existingBid });
       return;
     }
+
+    await adjustParticipantFundsForBid(req.body.sanitizeBidInput.participant, 0, req.body.sanitizeBidInput.offeredAmount);
 
     const item = em.create(Bid, req.body.sanitizeBidInput);
     await em.flush();
@@ -111,7 +151,13 @@ async function update(req: Request, res: Response) {
     }
 
     const id = parseId(req.params.id);
-    const itemToUpdate = await em.getReference(Bid, id);
+    const itemToUpdate = await em.findOneOrFail(Bid, { id });
+
+    const previousAmount = Number(itemToUpdate.offeredAmount ?? 0);
+    const nextAmount = Number(req.body.sanitizeBidInput.offeredAmount ?? previousAmount);
+
+    await adjustParticipantFundsForBid(req.body.sanitizeBidInput.participant ?? itemToUpdate.participant, previousAmount, nextAmount);
+
     em.assign(itemToUpdate, req.body.sanitizeBidInput);
     await em.flush();
     res.status(200).json({ message: 'bid updated', data: itemToUpdate });
