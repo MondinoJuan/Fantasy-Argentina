@@ -97,6 +97,11 @@ Si quiero hacerlo en base a los ultimos partidos, no en base al ultimo, debo usa
 * El participant al poner un realPlayer en venta se le tiene que otorgar la posibilidad de venderlo rápido por una cantidad menor.
 * Botones para modificar o eliminar entidades en el superadmin-menu.
 * Posibilidad de eliminar un tournament (solo para el que lo creo).
+* Hacer listado de las pujas activas que realizo cada participant.
+* Agregar filtros de búsqueda en el market: busqueda por nombre, por posicion, ordenar por cantidad de puntos o alfabeticamente.
+* Deshabilitar la opcion de elegir deporte al crear un tournament.
+* Que en negociaciones haya un apartado de las que tengan status 'accepted'.
+* Que el market se pueda desplegar asi no ocupa tanto espacio.
 
 ## Listado ligas
 SPORTSAPIPRO V2:
