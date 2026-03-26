@@ -11,6 +11,37 @@ function parseId(idParam: string | string[] | undefined) {
   return Number.parseInt(rawId ?? '', 10);
 }
 
+function toInt(value: unknown): number | null {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toPositiveNumber(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function hasMoneyFields(input: Record<string, unknown>): boolean {
+  return input.bankBudget !== undefined || input.availableMoney !== undefined || input.reservedMoney !== undefined;
+}
+
+function validateParticipantMoneyInvariant(participant: Participant): void {
+  const bankBudget = Number(participant.bankBudget ?? 0);
+  const availableMoney = Number(participant.availableMoney ?? 0);
+  const reservedMoney = Number(participant.reservedMoney ?? 0);
+
+  if (bankBudget < 0 || availableMoney < 0 || reservedMoney < 0) {
+    throw new Error('participant money values cannot be negative');
+  }
+
+  const left = Math.round((availableMoney + reservedMoney) * 100);
+  const right = Math.round(bankBudget * 100);
+
+  if (left !== right) {
+    throw new Error('participant money invariant failed: availableMoney + reservedMoney must equal bankBudget');
+  }
+}
+
 function sanitizeParticipantInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeParticipantInput = {
     user: req.body.user ?? req.body.userId,
@@ -78,6 +109,9 @@ async function update(req: Request, res: Response) {
     const id = parseId(req.params.id);
     const itemToUpdate = await em.getReference(Participant, id);
     em.assign(itemToUpdate, req.body.sanitizeParticipantInput);
+    if (hasMoneyFields(req.body.sanitizeParticipantInput)) {
+      validateParticipantMoneyInvariant(itemToUpdate);
+    }
     await em.flush();
     res.status(200).json({ message: 'participant updated', data: itemToUpdate });
   } catch (error: any) {
@@ -139,4 +173,89 @@ async function joinByTournamentCode(req: Request, res: Response) {
     res.status(500).json({ message: error.message });
   }
 }
-export { sanitizeParticipantInput, findAll, findOne, add, update, remove, joinByTournamentCode };
+
+async function spendMoney(req: Request, res: Response) {
+  try {
+    const participantId = parseId(req.params.id);
+    const amount = toPositiveNumber(req.body?.amount);
+
+    if (!Number.isFinite(participantId) || participantId <= 0 || amount === null) {
+      res.status(400).json({ message: 'participant id and amount (> 0) are required' });
+      return;
+    }
+
+    const participant = await em.findOne(Participant, { id: participantId });
+    if (!participant) {
+      res.status(404).json({ message: 'participant not found' });
+      return;
+    }
+
+    if (Number(participant.availableMoney ?? 0) < amount || Number(participant.bankBudget ?? 0) < amount) {
+      res.status(400).json({ message: 'insufficient funds' });
+      return;
+    }
+
+    participant.availableMoney = Number(participant.availableMoney ?? 0) - amount;
+    participant.bankBudget = Number(participant.bankBudget ?? 0) - amount;
+
+    validateParticipantMoneyInvariant(participant);
+    await em.flush();
+
+    res.status(200).json({ message: 'participant money spent', data: participant });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+async function transferMoney(req: Request, res: Response) {
+  try {
+    const fromParticipantId = toInt(req.body?.fromParticipantId);
+    const toParticipantId = toInt(req.body?.toParticipantId);
+    const amount = toPositiveNumber(req.body?.amount);
+
+    if (!fromParticipantId || !toParticipantId || amount === null) {
+      res.status(400).json({ message: 'fromParticipantId, toParticipantId and amount (> 0) are required' });
+      return;
+    }
+
+    if (fromParticipantId === toParticipantId) {
+      res.status(400).json({ message: 'participants must be different' });
+      return;
+    }
+
+    const fromParticipant = await em.findOne(Participant, { id: fromParticipantId });
+    const toParticipant = await em.findOne(Participant, { id: toParticipantId });
+
+    if (!fromParticipant || !toParticipant) {
+      res.status(404).json({ message: 'participant not found for transfer' });
+      return;
+    }
+
+    if (Number(fromParticipant.availableMoney ?? 0) < amount || Number(fromParticipant.bankBudget ?? 0) < amount) {
+      res.status(400).json({ message: 'source participant has insufficient funds' });
+      return;
+    }
+
+    fromParticipant.availableMoney = Number(fromParticipant.availableMoney ?? 0) - amount;
+    fromParticipant.bankBudget = Number(fromParticipant.bankBudget ?? 0) - amount;
+    toParticipant.availableMoney = Number(toParticipant.availableMoney ?? 0) + amount;
+    toParticipant.bankBudget = Number(toParticipant.bankBudget ?? 0) + amount;
+
+    validateParticipantMoneyInvariant(fromParticipant);
+    validateParticipantMoneyInvariant(toParticipant);
+
+    await em.flush();
+    res.status(200).json({
+      message: 'participant money transferred',
+      data: {
+        fromParticipant,
+        toParticipant,
+        amount,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+export { sanitizeParticipantInput, findAll, findOne, add, update, remove, joinByTournamentCode, spendMoney, transferMoney };

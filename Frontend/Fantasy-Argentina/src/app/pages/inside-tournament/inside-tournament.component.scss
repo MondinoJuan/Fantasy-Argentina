@@ -18,6 +18,16 @@
 .state { color: #fbe4d8; font-weight: 600; }
 .state.error { color: #ffbfd4; }
 
+button {
+  &:disabled {
+    opacity: 0.45;
+    filter: grayscale(0.3);
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}
+
 .top-header {
   background: rgba(251, 228, 216, 0.95);
   border: 1px solid rgba(82, 43, 91, 0.42);
@@ -365,13 +375,12 @@ h2 { font-size: 1.5rem; margin-bottom: 1rem; }
       &:hover { box-shadow: 0 4px 12px rgba(59, 79, 168, 0.4); }
     }
 
-    &:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-      transform: none !important;
-      box-shadow: none !important;
-    }
   }
+}
+
+.negotiation-accept-hint {
+  margin: 0.45rem 0 0 0.5rem;
+  font-size: 0.78rem;
 }
 
 // ─── Modal de modificar monto ──────────────────────────────────

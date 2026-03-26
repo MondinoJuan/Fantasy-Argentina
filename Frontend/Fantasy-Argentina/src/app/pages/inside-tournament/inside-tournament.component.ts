@@ -541,16 +541,24 @@ export class InsideTournamentComponent implements OnInit {
   }
 
   canAcceptNegotiation(negotiation: any): boolean {
-    if (!this.canRespondToNegotiation(negotiation)) return false;
+    return this.getNegotiationAcceptHint(negotiation) === null;
+  }
+
+  getNegotiationAcceptHint(negotiation: any): string | null {
+    if (!this.canRespondToNegotiation(negotiation)) return null;
 
     const buyerId = this.extractId(negotiation?.buyerParticipant) ?? 0;
     const buyer = this.participantById.get(buyerId);
     const amount = Number(negotiation?.agreedAmount ?? 0);
     const buyerAvailable = Number(buyer?.availableMoney ?? 0);
 
-    if (!Number.isFinite(amount) || amount <= 0) return false;
+    if (!Number.isFinite(amount) || amount <= 0) return 'La negociación no tiene un monto válido.';
 
-    return amount < buyerAvailable;
+    if (amount >= buyerAvailable) {
+      return `No se puede aceptar: la oferta debe ser menor al disponible del comprador ($${buyerAvailable.toLocaleString('es-AR')}).`;
+    }
+
+    return null;
   }
 
   openCounterNegotiationModal(negotiation: any): void {
@@ -589,7 +597,10 @@ export class InsideTournamentComponent implements OnInit {
     }
 
     const nextAmount = Number(this.negotiationAmountInput);
-    if (!Number.isFinite(nextAmount) || nextAmount <= 0) return;
+    if (!Number.isFinite(nextAmount) || nextAmount <= 0) {
+      this.negotiationAmountError = 'Ingresá un monto válido.';
+      return;
+    }
 
     const buyerId = this.extractId(negotiation?.buyerParticipant) ?? 0;
     const sellerId = this.extractId(negotiation?.sellerParticipant) ?? 0;
@@ -602,12 +613,15 @@ export class InsideTournamentComponent implements OnInit {
     const realPlayer = this.realPlayerById.get(realPlayerId);
     const translatedValue = Number(realPlayer?.translatedValue ?? 0);
 
-    if (nextAmount <= translatedValue) return;
+    if (nextAmount <= translatedValue) {
+      this.negotiationAmountError = `El nuevo monto debe ser mayor al translatedValue ($${translatedValue.toLocaleString('es-AR')}).`;
+      return;
+    }
 
     const buyerAvailable = Number(buyer?.availableMoney ?? 0);
 
     if (nextAmount >= buyerAvailable) {
-      this.negotiationAmountError = 'El nuevo monto debe ser menor a tu dinero disponible.';
+      this.negotiationAmountError = `El nuevo monto debe ser menor al availableMoney del comprador ($${buyerAvailable.toLocaleString('es-AR')}).`;
       return;
     }
     this.isSavingNegotiationAmount = true;
@@ -638,14 +652,14 @@ export class InsideTournamentComponent implements OnInit {
     const dependantId = this.extractId(negotiation?.dependantPlayer) ?? 0;
     const dependant = this.allDependantPlayers.find((item) => this.extractId(item) === dependantId);
     const realPlayerId = this.extractId(dependant?.realPlayer) ?? 0;
+    const playerClause = this.playerClauseByDependantId.get(dependantId);
+    const playerClauseId = this.extractId(playerClause);
 
     const buyer = this.participantById.get(buyerId);
-    const seller = this.participantById.get(sellerId);
-    if (!buyer || !seller || !realPlayerId) return;
+    if (!buyer || !realPlayerId || !playerClauseId) return;
 
     const buyerAvailable = Number(buyer?.availableMoney ?? 0);
-    const buyerBankBudget = Number(buyer?.bankBudget ?? 0);
-    if (amount >= buyerAvailable || amount > buyerBankBudget) return;
+    if (amount >= buyerAvailable) return;
 
     this.transferRealPlayer(realPlayerId, sellerId, buyerId).subscribe({
       next: () => {
@@ -655,15 +669,15 @@ export class InsideTournamentComponent implements OnInit {
             status: 'accepted',
             effectiveDate: new Date(),
           }),
-          buyer: this.apiService.patchParticipant({
-            id: buyerId,
-            availableMoney: Math.max(0, buyerAvailable - amount),
-            bankBudget: Math.max(0, buyerBankBudget - amount),
+          transfer: this.apiService.participantTransferMoney({
+            fromParticipantId: buyerId,
+            toParticipantId: sellerId,
+            amount,
           }),
-          seller: this.apiService.patchParticipant({
-            id: sellerId,
-            bankBudget: Number(seller?.bankBudget ?? 0) + amount,
-            availableMoney: Number(seller?.availableMoney ?? 0) + amount,
+          clause: this.apiService.patchPlayerClause({
+            id: playerClauseId,
+            ownerParticipant: buyerId,
+            updateDate: new Date(),
           }),
         }).subscribe({
           next: () => this.refreshTournamentState('negotiation'),
