@@ -131,6 +131,37 @@ function pickRandom<T>(values: T[], limit: number): T[] {
   return selected;
 }
 
+function sortParticipantsByScoreWithRandomTieBreak(participants: Participant[]): Participant[] {
+  const byScore = new Map<number, Participant[]>();
+
+  for (const participant of participants) {
+    const score = Number(participant.totalScore ?? 0);
+    const bucket = byScore.get(score) ?? [];
+    bucket.push(participant);
+    byScore.set(score, bucket);
+  }
+
+  const scoresDesc = [...byScore.keys()].sort((a, b) => b - a);
+  const ranked: Participant[] = [];
+
+  for (const score of scoresDesc) {
+    const tied = [...(byScore.get(score) ?? [])];
+
+    while (tied.length > 0) {
+      const index = Math.floor(Math.random() * tied.length);
+      ranked.push(tied[index]);
+      tied.splice(index, 1);
+    }
+  }
+
+  return ranked;
+}
+
+function rewardAmountByPosition(position: number): number {
+  const tier = Math.floor((Math.max(1, position) - 1) / 3);
+  return 1_000_000 + (tier * 500_000);
+}
+
 function groupFixtureByDate(fixture: UnknownRecord[]): Array<{ key: string; games: UnknownRecord[] }> {
   const byDate = new Map<string, UnknownRecord[]>();
 
@@ -868,6 +899,8 @@ async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
     let processedBids = 0;
     let awardedPlayers = 0;
     let createdMarketEntries = 0;
+    let rewardedParticipants = 0;
+    let distributedReward = 0;
 
     for (const tournament of tournaments) {
       const participants = await em.find(Participant, { tournament });
@@ -1008,6 +1041,16 @@ async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
           createdMarketEntries += 1;
         }
       }
+
+      const rankedParticipants = sortParticipantsByScoreWithRandomTieBreak(participants);
+      rankedParticipants.forEach((participant, index) => {
+        const position = index + 1;
+        const reward = rewardAmountByPosition(position);
+        participant.bankBudget = Number(participant.bankBudget ?? 0) + reward;
+        participant.availableMoney = Number(participant.availableMoney ?? 0) + reward;
+        rewardedParticipants += 1;
+        distributedReward += reward;
+      });
     }
 
     await em.flush();
@@ -1021,6 +1064,8 @@ async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
         processedBids,
         awardedPlayers,
         createdMarketEntries,
+        rewardedParticipants,
+        distributedReward,
       },
     });
   } catch (error: any) {

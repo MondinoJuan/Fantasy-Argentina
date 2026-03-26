@@ -62,9 +62,50 @@
       <p>Para anular una oferta deben modificar el monto a $0</p>
       <p>Total de ofertas: {{ bids.length }}</p>
       <p>Total jugadores en market: {{ marketDependantIds.length }}</p>
+      <p>Jugadores visibles con filtros: {{ filteredMarketDependantIds.length }}</p>
+      <label class="market-bids-toggle">
+        <input type="checkbox" [(ngModel)]="showLoggedParticipantBids">
+        Mostrar resumen de mis pujas
+      </label>
+      <div class="market-bids-summary" *ngIf="showLoggedParticipantBids">
+        <p *ngIf="loggedParticipantBidSummaries.length === 0">Todavía no hiciste pujas en este torneo.</p>
+        <ul *ngIf="loggedParticipantBidSummaries.length > 0">
+          <li *ngFor="let bid of loggedParticipantBidSummaries">
+            Pujaste ${{ bid.amount | number:'1.0-0' }} por {{ bid.realPlayerName }}.
+          </li>
+        </ul>
+      </div>
+      <div class="market-filters">
+        <label class="market-filter-field">
+          Buscar por jugador
+          <input
+            type="text"
+            [(ngModel)]="marketSearchTerm"
+            (ngModelChange)="onMarketFiltersChange()"
+            placeholder="Ej: Messi"
+          >
+        </label>
+
+        <label class="market-filter-field">
+          Posición
+          <select [(ngModel)]="marketPositionFilter" (ngModelChange)="onMarketFiltersChange()">
+            <option *ngFor="let option of marketPositionOptions" [value]="option.value">{{ option.label }}</option>
+          </select>
+        </label>
+
+        <label class="market-filter-field">
+          Orden
+          <select [(ngModel)]="marketSortOption" (ngModelChange)="onMarketFiltersChange()">
+            <option value="nameAsc">Nombre (A-Z)</option>
+            <option value="nameDesc">Nombre (Z-A)</option>
+            <option value="scoreDesc">Puntaje (mayor a menor)</option>
+            <option value="scoreAsc">Puntaje (menor a mayor)</option>
+          </select>
+        </label>
+      </div>
       <div class="grid">
         <app-real-player-market-card
-          *ngFor="let item of marketDependantIds"
+          *ngFor="let item of filteredMarketDependantIds"
           [dependantPlayerId]="item.dependantPlayerId"
           [marketId]="item.marketId"
           [tournamentId]="tournament?.id"
@@ -82,6 +123,14 @@
 
     <section class="panel">
       <h2>Negociaciones</h2>
+      <label class="negotiation-accepted-toggle">
+        <input
+          type="checkbox"
+          [(ngModel)]="showAcceptedNegotiations"
+          (ngModelChange)="onNegotiationVisibilityToggle()"
+        >
+        Mostrar solo negociaciones aceptadas
+      </label>
       <p>Total visibles para vos: {{ visibleNegotiations.length }}</p>
       <p *ngIf="visibleNegotiations.length === 0">Todavía no tenés negociaciones activas.</p>
       <div class="negotiation-list" *ngIf="visibleNegotiations.length > 0">
