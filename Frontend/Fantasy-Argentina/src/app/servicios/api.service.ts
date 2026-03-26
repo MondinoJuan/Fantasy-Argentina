@@ -214,6 +214,12 @@ export class ApiService {
   patchParticipant(participant: participantPatchI) { return this.http.patch<responseParticipantI>(`${this.url}/participants/${participant.id}`, participant); }
   removeParticipant(id: number | string) { return this.http.delete<responseParticipantI>(`${this.url}/participants/${id}`); }
   joinParticipantByTournamentCode(payload: { userId: number; tournamentCode: string }) { return this.http.post<any>(`${this.url}/participants/join-by-code`, payload); }
+  participantSpendMoney(payload: { participantId: number; amount: number }) {
+    return this.http.post<any>(`${this.url}/participants/${payload.participantId}/spend-money`, { amount: payload.amount });
+  }
+  participantTransferMoney(payload: { fromParticipantId: number; toParticipantId: number; amount: number }) {
+    return this.http.post<any>(`${this.url}/participants/transfer-money`, payload);
+  }
 
   // Real Players
   searchRealPlayers() { return this.http.get<realPlayerCollectionI>(`${this.url}/real-players`); }
