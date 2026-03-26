@@ -44,6 +44,11 @@ export class InsideTournamentComponent implements OnInit {
   startingPlayersForPitch: PitchPlayer[] = [];
   substitutePlayersForPitch: PitchPlayer[] = [];
   marketDependantIds: Array<{ dependantPlayerId: number; marketId: number }> = [];
+  filteredMarketDependantIds: Array<{ dependantPlayerId: number; marketId: number }> = [];
+  marketSearchTerm = '';
+  marketPositionFilter = 'all';
+  marketSortOption: 'nameAsc' | 'nameDesc' | 'scoreDesc' | 'scoreAsc' = 'nameAsc';
+  showLoggedParticipantBids = false;
 
   marketDependantById: Record<number, any> = {};
   marketRealPlayerById: Record<number, any> = {};
@@ -71,6 +76,7 @@ export class InsideTournamentComponent implements OnInit {
   dependantByRealPlayerId = new Map<number, any>();
   playerClauseByDependantId = new Map<number, any>();
   visibleNegotiations: any[] = [];
+  showAcceptedNegotiations = false;
   showNegotiationAmountModal = false;
   negotiationForAmountEdit: any = null;
   negotiationAmountInput = 0;
@@ -122,6 +128,26 @@ export class InsideTournamentComponent implements OnInit {
     return Number(this.participant?.availableMoney ?? this.participant?.bankBudget ?? 0);
   }
 
+  get loggedParticipantBidSummaries(): Array<{ bidId: number; realPlayerName: string; amount: number }> {
+    const participantId = this.loggedParticipantId;
+    if (!participantId) return [];
+
+    return this.bids
+      .filter((bid: any) => this.extractId(bid?.participant) === participantId)
+      .map((bid: any) => {
+        const realPlayerId = this.extractId(bid?.realPlayer);
+        const realPlayer = realPlayerId ? this.marketRealPlayerById[realPlayerId] : null;
+        const fallbackPlayer = realPlayerId ? this.allRealPlayers.find((player: any) => this.extractId(player) === realPlayerId) : null;
+        const amount = Number(bid?.offeredAmount ?? bid?.monto ?? 0);
+
+        return {
+          bidId: this.extractId(bid) ?? 0,
+          realPlayerName: String(realPlayer?.name ?? fallbackPlayer?.name ?? `Player #${realPlayerId ?? '?'}`),
+          amount: Number.isFinite(amount) ? amount : 0,
+        };
+      });
+  }
+
   onRankingScopeChange(): void {
     this.rebuildRanking();
   }
@@ -136,6 +162,14 @@ export class InsideTournamentComponent implements OnInit {
 
   onSquadSaved(): void {
     this.refreshTournamentState('squad');
+  }
+
+  onMarketFiltersChange(): void {
+    this.applyMarketFilters();
+  }
+
+  onNegotiationVisibilityToggle(): void {
+    this.rebuildMapsAndNegotiationViews();
   }
 
   private loadTournamentPage(): void {
@@ -304,6 +338,7 @@ export class InsideTournamentComponent implements OnInit {
         marketId,
       }));
     });
+    this.applyMarketFilters();
   }
 
   private rebuildMarketReferenceData(): void {
@@ -353,6 +388,64 @@ export class InsideTournamentComponent implements OnInit {
     this.marketRealTeamNameById = teamNameById;
     this.marketPerformanceByRealPlayerId = performanceByRealPlayerId;
     this.marketBidsByRealPlayerId = bidsByRealPlayerId;
+    this.applyMarketFilters();
+  }
+
+  get marketPositionOptions(): Array<{ value: string; label: string }> {
+    return [
+      { value: 'all', label: 'Todas las posiciones' },
+      { value: 'goalkeeper', label: 'Arquero' },
+      { value: 'defender', label: 'Defensor' },
+      { value: 'midfielder', label: 'Mediocampista' },
+      { value: 'forward', label: 'Delantero' },
+    ];
+  }
+
+  private applyMarketFilters(): void {
+    const term = this.marketSearchTerm.trim().toLocaleLowerCase();
+    const selectedPosition = this.marketPositionFilter;
+
+    let visible = [...this.marketDependantIds].filter((item) => {
+      const dependant = this.marketDependantById[item.dependantPlayerId];
+      const realPlayerId = this.extractId(dependant?.realPlayer ?? dependant?.real_player);
+      const realPlayer = realPlayerId ? this.marketRealPlayerById[realPlayerId] : null;
+      const name = String(realPlayer?.name ?? '').toLocaleLowerCase();
+      const position = String(realPlayer?.position ?? '').toLocaleLowerCase();
+
+      const matchesName = !term || name.includes(term);
+      const matchesPosition = selectedPosition === 'all' || position === selectedPosition;
+      return matchesName && matchesPosition;
+    });
+
+    visible.sort((left, right) => {
+      const leftDependant = this.marketDependantById[left.dependantPlayerId];
+      const rightDependant = this.marketDependantById[right.dependantPlayerId];
+      const leftRealPlayerId = this.extractId(leftDependant?.realPlayer ?? leftDependant?.real_player);
+      const rightRealPlayerId = this.extractId(rightDependant?.realPlayer ?? rightDependant?.real_player);
+      const leftPlayer = leftRealPlayerId ? this.marketRealPlayerById[leftRealPlayerId] : null;
+      const rightPlayer = rightRealPlayerId ? this.marketRealPlayerById[rightRealPlayerId] : null;
+
+      const leftName = String(leftPlayer?.name ?? '');
+      const rightName = String(rightPlayer?.name ?? '');
+      const leftScore = Number(this.marketPerformanceByRealPlayerId[leftRealPlayerId ?? 0] ?? 0);
+      const rightScore = Number(this.marketPerformanceByRealPlayerId[rightRealPlayerId ?? 0] ?? 0);
+
+      if (this.marketSortOption === 'nameDesc') {
+        return rightName.localeCompare(leftName, 'es');
+      }
+
+      if (this.marketSortOption === 'scoreDesc') {
+        return rightScore - leftScore;
+      }
+
+      if (this.marketSortOption === 'scoreAsc') {
+        return leftScore - rightScore;
+      }
+
+      return leftName.localeCompare(rightName, 'es');
+    });
+
+    this.filteredMarketDependantIds = visible;
   }
 
   private rebuildRanking(): void {
@@ -726,10 +819,17 @@ export class InsideTournamentComponent implements OnInit {
       }
     }
 
-    this.visibleNegotiations = this.negotiations.filter((item: any) =>
-      this.extractId(item?.buyerParticipant) === this.loggedParticipantId
-      || this.extractId(item?.sellerParticipant) === this.loggedParticipantId
-    );
+    this.visibleNegotiations = this.negotiations.filter((item: any) => {
+      const isRelatedToLoggedParticipant = this.extractId(item?.buyerParticipant) === this.loggedParticipantId
+        || this.extractId(item?.sellerParticipant) === this.loggedParticipantId;
+
+      if (!isRelatedToLoggedParticipant) {
+        return false;
+      }
+
+      const isAccepted = this.isAcceptedNegotiationStatus(item?.status);
+      return this.showAcceptedNegotiations ? isAccepted : !isAccepted;
+    });
 
     for (const negotiation of this.visibleNegotiations) {
       const sellerId = this.extractId(negotiation?.sellerParticipant);
@@ -757,6 +857,11 @@ export class InsideTournamentComponent implements OnInit {
     }
 
     return null;
+  }
+
+  private isAcceptedNegotiationStatus(statusRaw: unknown): boolean {
+    const status = String(statusRaw ?? '').trim().toLocaleLowerCase();
+    return status === 'accepted' || status === 'acepted';
   }
 
   private resolveParticipantName(participant: any): string {
