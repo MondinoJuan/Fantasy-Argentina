@@ -14,6 +14,7 @@ import {
   getSportsApiProLocalPersistedFixture,
   getSportsApiProRankingsWithLocalPerformances as postSportsApiProRankingsWithLocalPerformances,
   postSportsApiProSyncPlayedMatchesResults,
+  getSportsApiProSyncPlayedMatchesResultsJob,
 } from './externalApi.controler.js';
 
 export const ExternalApiRouter = Router();
@@ -32,6 +33,7 @@ ExternalApiRouter.post('/sportsapipro/fixture/build-competition', postSportsApiP
 ExternalApiRouter.get('/sportsapipro/fixture/local', getSportsApiProLocalPersistedFixture);
 ExternalApiRouter.post('/sportsapipro/rankings/player-performances', postSportsApiProRankingsWithLocalPerformances);
 ExternalApiRouter.post('/sportsapipro/fixture/sync-played-results', postSportsApiProSyncPlayedMatchesResults);
+ExternalApiRouter.get('/sportsapipro/fixture/sync-played-results/:jobId', getSportsApiProSyncPlayedMatchesResultsJob);
 
 // Compatibilidad temporal mientras se migran consumidores existentes.
 ExternalApiRouter.get('/rapidapi/player', getSportsApiProPlayerById);
