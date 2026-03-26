@@ -122,6 +122,23 @@ import { ultSeasonCollectionI } from '../modelos/ultSeason.collection.interface'
 import { ultSeasonI } from '../modelos/ultSeason.interface';
 import { ultSeasonPatchI } from '../modelos/ultSeason.patch.interface';
 
+export type SyncPlayedResultsJobStatus = 'queued' | 'running' | 'completed' | 'failed';
+
+export interface SyncPlayedResultsJob {
+  jobId: string;
+  status: SyncPlayedResultsJobStatus;
+  competitionId: number;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  scannedMatches: number;
+  processedMatches: number;
+  updatedMatches: number;
+  missingPayloadData: number;
+  errors: Array<{ gameId: string; message: string }>;
+  lastError: string | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -359,8 +376,17 @@ export class ApiService {
 
 
 
-  postExternalSyncPlayedResults(payload: { competitionId?: number }) {
-    return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/sync-played-results`, payload);
+  postExternalSyncPlayedResults(payload: { competitionId: number }) {
+    return this.http.post<{ message: string; data: SyncPlayedResultsJob }>(
+      `${this.url}/external/sportsapipro/fixture/sync-played-results`,
+      payload,
+    );
+  }
+
+  getExternalSyncPlayedResultsJob(jobId: string) {
+    return this.http.get<{ message: string; data: SyncPlayedResultsJob }>(
+      `${this.url}/external/sportsapipro/fixture/sync-played-results/${encodeURIComponent(jobId)}`,
+    );
   }
 
   searchExternalRankingsWithLocalPerformances(competitionId: number | string) {

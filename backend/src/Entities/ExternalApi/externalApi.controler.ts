@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { randomUUID } from 'node:crypto';
 import { orm } from '../../shared/db/orm.js';
 import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
 import { Matchday } from '../Matchday/matchday.entity.js';
@@ -25,6 +26,32 @@ import {
 const em = orm.em;
 
 type UnknownRecord = Record<string, unknown>;
+type SyncPlayedResultsJobStatus = 'queued' | 'running' | 'completed' | 'failed';
+
+interface SyncPlayedResultsJobSnapshot {
+  jobId: string;
+  status: SyncPlayedResultsJobStatus;
+  competitionId: number;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  scannedMatches: number;
+  processedMatches: number;
+  updatedMatches: number;
+  missingPayloadData: number;
+  errors: Array<{ gameId: string; message: string }>;
+  lastError: string | null;
+}
+
+interface SyncPlayedResultsJobState extends SyncPlayedResultsJobSnapshot {
+  createdAtDate: Date;
+  startedAtDate: Date | null;
+  finishedAtDate: Date | null;
+}
+
+const syncPlayedResultsJobs = new Map<string, SyncPlayedResultsJobState>();
+const MAX_SYNC_RESULTS_JOBS_TRACKED = 100;
+const SYNC_RESULTS_CONCURRENCY = 4;
 
 function asRecord(value: unknown): UnknownRecord {
   return value && typeof value === 'object' ? (value as UnknownRecord) : {};
@@ -372,6 +399,63 @@ function parseRequiredNumber(value: string | string[] | undefined): number | nul
   const raw = Array.isArray(value) ? value[0] : value;
   const parsed = Number.parseInt(raw ?? '', 10);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseOptionalNumber(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? Math.trunc(value) : null;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseInt(value.trim(), 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function buildSyncPlayedResultsJobSnapshot(job: SyncPlayedResultsJobState): SyncPlayedResultsJobSnapshot {
+  return {
+    jobId: job.jobId,
+    status: job.status,
+    competitionId: job.competitionId,
+    createdAt: job.createdAtDate.toISOString(),
+    startedAt: job.startedAtDate ? job.startedAtDate.toISOString() : null,
+    finishedAt: job.finishedAtDate ? job.finishedAtDate.toISOString() : null,
+    scannedMatches: job.scannedMatches,
+    processedMatches: job.processedMatches,
+    updatedMatches: job.updatedMatches,
+    missingPayloadData: job.missingPayloadData,
+    errors: [...job.errors],
+    lastError: job.lastError,
+  };
+}
+
+function pruneSyncPlayedResultsJobs(): void {
+  if (syncPlayedResultsJobs.size <= MAX_SYNC_RESULTS_JOBS_TRACKED) {
+    return;
+  }
+
+  const ordered = [...syncPlayedResultsJobs.values()]
+    .sort((a, b) => a.createdAtDate.getTime() - b.createdAtDate.getTime());
+
+  while (ordered.length > MAX_SYNC_RESULTS_JOBS_TRACKED) {
+    const oldest = ordered.shift();
+    if (!oldest) {
+      break;
+    }
+    syncPlayedResultsJobs.delete(oldest.jobId);
+  }
+}
+
+function getRunningSyncPlayedResultsJobByCompetition(competitionId: number): SyncPlayedResultsJobState | null {
+  for (const job of syncPlayedResultsJobs.values()) {
+    if (job.competitionId === competitionId && (job.status === 'queued' || job.status === 'running')) {
+      return job;
+    }
+  }
+
+  return null;
 }
 
 async function getSportsApiProPlayerById(req: Request, res: Response) {
@@ -743,43 +827,44 @@ async function getSportsApiProLocalPersistedFixture(req: Request, res: Response)
   }
 }
 
-async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Response) {
-  const competitionId = parseRequiredNumber(req.body?.competitionId as string | undefined)
-    ?? parseRequiredNumber(req.query.competitionId as string | undefined);
+async function runSyncPlayedResultsJob(jobId: string): Promise<void> {
+  const job = syncPlayedResultsJobs.get(jobId);
+  if (!job) {
+    return;
+  }
+
+  job.status = 'running';
+  job.startedAtDate = new Date();
 
   try {
+    const jobEm = orm.em.fork();
     const now = new Date();
-    const where = competitionId
-      ? {
-        startDateTime: { $lt: now },
-        status: { $ne: 'finalizado' },
-        matchday: { league: { idEnApi: competitionId } },
-      }
-      : {
-        startDateTime: { $lt: now },
-        status: { $ne: 'finalizado' },
-      };
+    const where = {
+      startDateTime: { $lt: now },
+      status: { $ne: 'finalizado' },
+      matchday: { league: { idEnApi: job.competitionId } },
+    };
 
-    const matches = await em.find(GameMatch, where as any, { populate: ['matchday', 'matchday.league'] });
+    const matches = await jobEm.find(GameMatch, where as any, { populate: ['matchday', 'matchday.league'] });
+    job.scannedMatches = matches.length;
 
-    let updated = 0;
-    let missingPayloadData = 0;
-    const errors: Array<{ gameId: string; message: string }> = [];
-
-    for (const match of matches) {
+    const processMatch = async (match: GameMatch) => {
       const gameId = Number.parseInt(String(match.externalApiId ?? ''), 10);
 
       if (!Number.isFinite(gameId)) {
-        missingPayloadData += 1;
-        continue;
+        job.missingPayloadData += 1;
+        job.processedMatches += 1;
+        return;
       }
+
       try {
         const apiPayload = asRecord(await requestSportsApiPro(`/api/match/${gameId}`));
         const apiMatch = extractMatchNodeFromMatchPayload(apiPayload);
 
         if (Object.keys(apiMatch).length === 0) {
-          missingPayloadData += 1;
-          continue;
+          job.missingPayloadData += 1;
+          job.processedMatches += 1;
+          return;
         }
 
         const homeTeam = asRecord(apiMatch.homeTeam);
@@ -813,27 +898,91 @@ async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Respo
         match.awayScore = awayScore;
         match.status = normalizeMatchStatusFromApi(statusNode.type ?? statusNode.description ?? statusNode.code, hasValidScore);
 
-        updated += 1;
+        job.updatedMatches += 1;
       } catch (error: any) {
-        errors.push({ gameId: String(match.externalApiId), message: error?.message ?? 'unknown error' });
+        job.errors.push({ gameId: String(match.externalApiId), message: error?.message ?? 'unknown error' });
+      } finally {
+        job.processedMatches += 1;
       }
+    };
+
+    for (let index = 0; index < matches.length; index += SYNC_RESULTS_CONCURRENCY) {
+      const chunk = matches.slice(index, index + SYNC_RESULTS_CONCURRENCY);
+      await Promise.all(chunk.map((match) => processMatch(match)));
+      await jobEm.flush();
     }
 
-    await em.flush();
-
-    return res.status(200).json({
-      message: 'played matches results synced',
-      data: {
-        competitionId: competitionId ?? null,
-        scannedMatches: matches.length,
-        updatedMatches: updated,
-        missingPayloadData,
-        errors,
-      },
-    });
+    job.status = 'completed';
   } catch (error: any) {
-    return res.status(500).json({ message: error.message });
+    job.status = 'failed';
+    job.lastError = error?.message ?? 'Unknown sync failure';
+  } finally {
+    job.finishedAtDate = new Date();
+    pruneSyncPlayedResultsJobs();
   }
+}
+
+async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Response) {
+  const competitionId = parseOptionalNumber(req.body?.competitionId)
+    ?? parseOptionalNumber(Array.isArray(req.query.competitionId) ? req.query.competitionId[0] : req.query.competitionId);
+
+  if (!competitionId || competitionId <= 0) {
+    return res.status(400).json({ message: 'competitionId (number > 0) is required' });
+  }
+
+  const existingRunningJob = getRunningSyncPlayedResultsJobByCompetition(competitionId);
+  if (existingRunningJob) {
+    return res.status(409).json({
+      message: 'sync already running for competition',
+      data: buildSyncPlayedResultsJobSnapshot(existingRunningJob),
+    });
+  }
+
+  const createdAt = new Date();
+  const job: SyncPlayedResultsJobState = {
+    jobId: randomUUID(),
+    status: 'queued',
+    competitionId,
+    createdAt: createdAt.toISOString(),
+    startedAt: null,
+    finishedAt: null,
+    scannedMatches: 0,
+    processedMatches: 0,
+    updatedMatches: 0,
+    missingPayloadData: 0,
+    errors: [],
+    lastError: null,
+    createdAtDate: createdAt,
+    startedAtDate: null,
+    finishedAtDate: null,
+  };
+
+  syncPlayedResultsJobs.set(job.jobId, job);
+  pruneSyncPlayedResultsJobs();
+
+  void runSyncPlayedResultsJob(job.jobId);
+
+  return res.status(202).json({
+    message: 'played matches sync job started',
+    data: buildSyncPlayedResultsJobSnapshot(job),
+  });
+}
+
+async function getSportsApiProSyncPlayedMatchesResultsJob(req: Request, res: Response) {
+  const jobId = typeof req.params.jobId === 'string' ? req.params.jobId.trim() : '';
+  if (!jobId) {
+    return res.status(400).json({ message: 'jobId route param is required' });
+  }
+
+  const job = syncPlayedResultsJobs.get(jobId);
+  if (!job) {
+    return res.status(404).json({ message: 'sync job not found' });
+  }
+
+  return res.status(200).json({
+    message: 'played matches sync job status',
+    data: buildSyncPlayedResultsJobSnapshot(job),
+  });
 }
 
 
@@ -1161,4 +1310,5 @@ export {
   getSportsApiProLocalPersistedFixture,
   getSportsApiProRankingsWithLocalPerformances,
   postSportsApiProSyncPlayedMatchesResults,
+  getSportsApiProSyncPlayedMatchesResultsJob,
 };
