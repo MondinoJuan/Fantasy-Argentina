@@ -122,6 +122,13 @@ export class RivalsRealPlayerListComponent {
       return;
     }
 
+    const clause = this.playerClauseByDependantId.get(this.selectedPlayer.dependantPlayerId);
+    const clauseId = this.extractId(clause);
+    if (!clauseId) {
+      this.modalError = 'No existe cláusula persistida para este jugador.';
+      return;
+    }
+
     const amount = Number(this.selectedPlayer.clauseValue ?? 0);
     if (amount <= 0) {
       this.modalError = 'La cláusula no tiene un valor válido.';
@@ -143,6 +150,11 @@ export class RivalsRealPlayerListComponent {
           fromParticipantId: this.loggedParticipantId,
           toParticipantId: this.participantId,
           amount,
+        }),
+        clause: this.apiService.patchPlayerClause({
+          id: clauseId,
+          ownerParticipant: this.loggedParticipantId,
+          updateDate: new Date(),
         }),
       })),
     ).subscribe({
@@ -175,7 +187,6 @@ export class RivalsRealPlayerListComponent {
     }
 
     const dependantId = this.selectedPlayer.dependantPlayerId;
-    const translatedValue = Number(this.selectedPlayer.translatedValue ?? 0);
     const increase = amount * 2;
     const playerClause = this.playerClauseByDependantId.get(dependantId);
     const playerClauseId = this.extractId(playerClause);
@@ -187,7 +198,12 @@ export class RivalsRealPlayerListComponent {
 
     this.isSubmitting = true;
 
-    const baseClause = Number(playerClause?.baseClause ?? Math.max(0, translatedValue + 3_000_000));
+    const baseClause = Number(playerClause?.baseClause ?? 0);
+    if (!Number.isFinite(baseClause) || baseClause <= 0) {
+      this.modalError = 'La cláusula base es inválida para este jugador.';
+      this.isSubmitting = false;
+      return;
+    }
     const additional = Number(playerClause?.additionalShieldingClause ?? 0);
 
     forkJoin({

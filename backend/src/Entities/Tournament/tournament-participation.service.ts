@@ -8,6 +8,7 @@ import { Participant } from '../Participant/participant.entity.js';
 import { ParticipantSquad } from '../ParticipantSquad/participantSquad.entity.js';
 import { PlayerClause } from '../PlayerClause/playerClause.entity.js';
 import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
+import { Shielding } from '../Shielding/shielding.entity.js';
 import { Tournament } from './tournament.entity.js';
 
 const DEFAULT_FORMATION: ParticipantFormation = PARTICIPANT_FORMATIONS[0];
@@ -132,7 +133,7 @@ function createInitialClausesForParticipant(
 
     const baseClause = normalizeInitialClauseBase(realPlayer);
 
-    entityManager.create(PlayerClause, {
+    const playerClause = entityManager.create(PlayerClause, {
       tournament,
       dependantPlayer: dependantId,
       ownerParticipant: participant,
@@ -140,6 +141,14 @@ function createInitialClausesForParticipant(
       additionalShieldingClause: 0,
       totalClause: baseClause,
       updateDate: new Date(),
+    } as any);
+
+    entityManager.create(Shielding, {
+      playerClause,
+      participant,
+      investedAmount: 0,
+      clauseIncrease: 0,
+      shieldingDate: new Date(),
     } as any);
   }
 }
