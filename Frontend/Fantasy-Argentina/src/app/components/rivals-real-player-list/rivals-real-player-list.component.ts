@@ -66,16 +66,16 @@ export class RivalsRealPlayerListComponent {
   get starters(): RivalPlayerRow[] {
     const ids = this.normalizeIdCollection(this.participantSquad?.startingRealPlayersIds ?? this.participantSquad?.starting_real_players_ids);
     return ids
-      .map((realPlayerId) => this.buildPlayerRow(realPlayerId))
-      .filter((item): item is RivalPlayerRow => !!item)
+      .map((realPlayerId: number) => this.buildPlayerRow(realPlayerId))
+      .filter((item: RivalPlayerRow | null): item is RivalPlayerRow => !!item)
       .slice(0, 11);
   }
 
   get substitutes(): RivalPlayerRow[] {
     const ids = this.normalizeIdCollection(this.participantSquad?.substitutesRealPlayersIds ?? this.participantSquad?.substitutes_real_players_ids);
     return ids
-      .map((realPlayerId) => this.buildPlayerRow(realPlayerId))
-      .filter((item): item is RivalPlayerRow => !!item);
+      .map((realPlayerId: number) => this.buildPlayerRow(realPlayerId))
+      .filter((item: RivalPlayerRow | null): item is RivalPlayerRow => !!item);
   }
 
   toggleExpanded(): void {
@@ -220,7 +220,7 @@ export class RivalsRealPlayerListComponent {
     });
   }
 
-  private ensureClause(dependantPlayerId: number, translatedValue: number, ownerParticipantId: number) {
+  private ensureClause(dependantPlayerId: number, translatedValue: number, ownerParticipantId: number): Observable<any> {
     const existing = this.playerClauseByDependantId.get(dependantPlayerId);
     if (existing) {
       return of(existing);
