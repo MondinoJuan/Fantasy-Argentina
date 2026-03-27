@@ -354,7 +354,7 @@ export class RivalsRealPlayerListComponent {
       totalScore,
       position: String(realPlayer?.position ?? '-'),
       translatedValue,
-      clauseValue: Number(clause?.totalClause ?? translatedValue + 3_000_000),
+      clauseValue: Number(clause?.totalClause ?? 0),
     };
   }
 
