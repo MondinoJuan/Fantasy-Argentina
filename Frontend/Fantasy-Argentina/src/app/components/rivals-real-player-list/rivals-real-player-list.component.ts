@@ -24,6 +24,8 @@ interface RivalPlayerRow {
   styleUrl: './rivals-real-player-list.component.scss',
 })
 export class RivalsRealPlayerListComponent {
+  private static readonly INITIAL_CLAUSE_DELTA = 3_000_000;
+
   @Input({ required: true }) participant!: any;
   @Input({ required: true }) participantSquad: any = null;
   @Input({ required: true }) tournamentId!: number;
@@ -347,6 +349,12 @@ export class RivalsRealPlayerListComponent {
     const translatedValue = Number(realPlayer?.translatedValue ?? 0);
     const totalScore = Number(realPlayer?.totalScore ?? 0);
 
+    const fallbackClause = Math.max(0, translatedValue + RivalsRealPlayerListComponent.INITIAL_CLAUSE_DELTA);
+    const persistedClause = Number(clause?.totalClause);
+    const clauseValue = Number.isFinite(persistedClause) && persistedClause > 0
+      ? persistedClause
+      : fallbackClause;
+
     return {
       realPlayerId,
       dependantPlayerId: dependantId,
@@ -354,7 +362,7 @@ export class RivalsRealPlayerListComponent {
       totalScore,
       position: String(realPlayer?.position ?? '-'),
       translatedValue,
-      clauseValue: Number(clause?.totalClause ?? 0),
+      clauseValue,
     };
   }
 
