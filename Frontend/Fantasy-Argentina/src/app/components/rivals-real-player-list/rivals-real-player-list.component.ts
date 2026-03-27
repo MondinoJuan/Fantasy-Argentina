@@ -66,16 +66,16 @@ export class RivalsRealPlayerListComponent {
   get starters(): RivalPlayerRow[] {
     const ids = this.normalizeIdCollection(this.participantSquad?.startingRealPlayersIds ?? this.participantSquad?.starting_real_players_ids);
     return ids
-      .map((realPlayerId) => this.buildPlayerRow(realPlayerId))
-      .filter((item): item is RivalPlayerRow => !!item)
+      .map((realPlayerId: number) => this.buildPlayerRow(realPlayerId))
+      .filter((item: RivalPlayerRow | null): item is RivalPlayerRow => !!item)
       .slice(0, 11);
   }
 
   get substitutes(): RivalPlayerRow[] {
     const ids = this.normalizeIdCollection(this.participantSquad?.substitutesRealPlayersIds ?? this.participantSquad?.substitutes_real_players_ids);
     return ids
-      .map((realPlayerId) => this.buildPlayerRow(realPlayerId))
-      .filter((item): item is RivalPlayerRow => !!item);
+      .map((realPlayerId: number) => this.buildPlayerRow(realPlayerId))
+      .filter((item: RivalPlayerRow | null): item is RivalPlayerRow => !!item);
   }
 
   toggleExpanded(): void {
@@ -116,12 +116,14 @@ export class RivalsRealPlayerListComponent {
     }
 
     const buyer = this.participantById.get(this.loggedParticipantId);
-    const seller = this.participantById.get(this.participantId);
 
-    if (!buyer || !seller) {
+    if (!buyer) {
       this.modalError = 'No se pudieron resolver comprador/vendedor.';
       return;
     }
+
+    const clause = this.playerClauseByDependantId.get(this.selectedPlayer.dependantPlayerId);
+    const clauseId = this.extractId(clause);
 
     const amount = Number(this.selectedPlayer.clauseValue ?? 0);
     if (amount <= 0) {
@@ -130,9 +132,8 @@ export class RivalsRealPlayerListComponent {
     }
 
     const buyerAvailable = Number(buyer?.availableMoney ?? 0);
-    const buyerBank = Number(buyer?.bankBudget ?? 0);
 
-    if (buyerAvailable < amount || buyerBank < amount) {
+    if (buyerAvailable < amount) {
       this.modalError = 'No tenés dinero suficiente para pagar la cláusula.';
       return;
     }
@@ -141,16 +142,20 @@ export class RivalsRealPlayerListComponent {
 
     this.transferRealPlayer(this.selectedPlayer.realPlayerId, this.participantId, this.loggedParticipantId).pipe(
       switchMap(() => forkJoin({
-        buyer: this.apiService.patchParticipant({
-          id: this.loggedParticipantId,
-          availableMoney: Math.max(0, buyerAvailable - amount),
-          bankBudget: Math.max(0, buyerBank - amount),
+        transfer: this.apiService.participantTransferMoney({
+          fromParticipantId: this.loggedParticipantId,
+          toParticipantId: this.participantId,
+          amount,
         }),
-        seller: this.apiService.patchParticipant({
-          id: this.participantId,
-          availableMoney: Number(seller?.availableMoney ?? 0) + amount,
-          bankBudget: Number(seller?.bankBudget ?? 0) + amount,
-        }),
+        ...(clauseId
+          ? {
+            clause: this.apiService.patchPlayerClause({
+              id: clauseId,
+              ownerParticipant: this.loggedParticipantId,
+              updateDate: new Date(),
+            }),
+          }
+          : {}),
       })),
     ).subscribe({
       next: () => {
@@ -170,7 +175,6 @@ export class RivalsRealPlayerListComponent {
     const amount = Number(this.operationAmount);
     const owner = this.participantById.get(this.participantId);
     const ownerAvailable = Number(owner?.availableMoney ?? 0);
-    const ownerBank = Number(owner?.bankBudget ?? 0);
 
     if (!Number.isFinite(amount) || amount <= 0) {
       this.modalError = 'Ingresá un monto válido para blindar.';
@@ -183,36 +187,15 @@ export class RivalsRealPlayerListComponent {
     }
 
     const dependantId = this.selectedPlayer.dependantPlayerId;
-    const translatedValue = Number(this.selectedPlayer.translatedValue ?? 0);
-    const increase = amount * 2;
-
     this.isSubmitting = true;
 
-    this.ensureClause(dependantId, translatedValue, this.participantId).pipe(
+    this.ensureClause(dependantId, Number(this.selectedPlayer.translatedValue ?? 0), this.participantId).pipe(
       switchMap((playerClause: any) => {
         const playerClauseId = this.extractId(playerClause);
-        const baseClause = Number(playerClause?.baseClause ?? translatedValue + 3_000_000);
-        const additional = Number(playerClause?.additionalShieldingClause ?? 0);
-
-        return forkJoin({
-          shielding: this.apiService.postShielding({
-            playerClause: playerClauseId!,
-            participant: this.participantId,
-            investedAmount: amount,
-            clauseIncrease: increase,
-            shieldingDate: new Date(),
-          }),
-          clause: this.apiService.patchPlayerClause({
-            id: playerClauseId!,
-            additionalShieldingClause: additional + increase,
-            totalClause: baseClause + additional + increase,
-            updateDate: new Date(),
-          }),
-          participant: this.apiService.patchParticipant({
-            id: this.participantId,
-            availableMoney: Math.max(0, ownerAvailable - amount),
-            bankBudget: Math.max(0, ownerBank - amount),
-          }),
+        return this.apiService.applyShieldingToPlayerClause({
+          playerClauseId: playerClauseId!,
+          participantId: this.participantId,
+          amount,
         });
       }),
     ).subscribe({
@@ -225,6 +208,26 @@ export class RivalsRealPlayerListComponent {
         this.isSubmitting = false;
       },
     });
+  }
+
+  private ensureClause(dependantPlayerId: number, translatedValue: number, ownerParticipantId: number): Observable<any> {
+    const existing = this.playerClauseByDependantId.get(dependantPlayerId);
+    if (existing) {
+      return of(existing);
+    }
+
+    const base = Math.max(0, translatedValue + 3_000_000);
+    return this.apiService.postPlayerClause({
+      tournament: this.tournamentId,
+      dependantPlayer: dependantPlayerId,
+      ownerParticipant: ownerParticipantId,
+      baseClause: base,
+      additionalShieldingClause: 0,
+      totalClause: base,
+      updateDate: new Date(),
+    }).pipe(
+      switchMap((response: any) => of(response?.data ?? response)),
+    );
   }
 
   private submitNegotiationOffer(): void {
@@ -282,26 +285,6 @@ export class RivalsRealPlayerListComponent {
         this.isSubmitting = false;
       },
     });
-  }
-
-  private ensureClause(dependantPlayerId: number, translatedValue: number, ownerParticipantId: number) {
-    const existing = this.playerClauseByDependantId.get(dependantPlayerId);
-    if (existing) {
-      return of(existing);
-    }
-
-    const base = translatedValue + 3_000_000;
-    return this.apiService.postPlayerClause({
-      tournament: this.tournamentId,
-      dependantPlayer: dependantPlayerId,
-      ownerParticipant: ownerParticipantId,
-      baseClause: base,
-      additionalShieldingClause: 0,
-      totalClause: base,
-      updateDate: new Date(),
-    }).pipe(
-      switchMap((response: any) => of(response?.data ?? response)),
-    );
   }
 
   private transferRealPlayer(realPlayerId: number, fromParticipantId: number, toParticipantId: number): Observable<unknown> {

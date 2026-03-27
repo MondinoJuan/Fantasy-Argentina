@@ -155,6 +155,9 @@
             <button type="button" *ngIf="canRespondToNegotiation(negotiation)" (click)="rejectNegotiation(negotiation)">Rechazar</button>
             <button type="button" *ngIf="canRespondToNegotiation(negotiation)" (click)="openCounterNegotiationModal(negotiation)">Modificar monto</button>
           </div>
+          <p class="state error negotiation-accept-hint" *ngIf="canRespondToNegotiation(negotiation) && getNegotiationAcceptHint(negotiation)">
+            {{ getNegotiationAcceptHint(negotiation) }}
+          </p>
         </article>
       </div>
     </section>
