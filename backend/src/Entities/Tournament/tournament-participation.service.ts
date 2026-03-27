@@ -6,13 +6,10 @@ import { Matchday } from '../Matchday/matchday.entity.js';
 import { MatchdayMarket } from '../MatchdayMarket/matchdayMarket.entity.js';
 import { Participant } from '../Participant/participant.entity.js';
 import { ParticipantSquad } from '../ParticipantSquad/participantSquad.entity.js';
-import { PlayerClause } from '../PlayerClause/playerClause.entity.js';
 import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
-import { Shielding } from '../Shielding/shielding.entity.js';
 import { Tournament } from './tournament.entity.js';
 
 const DEFAULT_FORMATION: ParticipantFormation = PARTICIPANT_FORMATIONS[0];
-const INITIAL_CLAUSE_DELTA = 3_000_000;
 
 function pickRandom<T>(values: T[], limit: number): T[] {
   const clone = [...values];
@@ -108,43 +105,6 @@ async function createDependantPlayersForSelection(tournament: Tournament, player
   return dependantIds;
 }
 
-function normalizeInitialClauseBase(realPlayer: RealPlayer): number {
-  const translated = typeof realPlayer.translatedValue === 'number' && Number.isFinite(realPlayer.translatedValue)
-    ? Number(realPlayer.translatedValue)
-    : 0;
-
-  return Math.max(0, translated + INITIAL_CLAUSE_DELTA);
-}
-
-function createInitialClausesForParticipant(
-  tournament: Tournament,
-  participant: Participant,
-  selectedPlayers: RealPlayer[],
-  dependantIds: number[],
-  entityManager: EntityManager,
-): void {
-  for (let index = 0; index < selectedPlayers.length; index += 1) {
-    const dependantId = dependantIds[index];
-    const realPlayer = selectedPlayers[index];
-
-    if (!dependantId || !realPlayer) {
-      continue;
-    }
-
-    const baseClause = normalizeInitialClauseBase(realPlayer);
-
-    entityManager.create(PlayerClause, {
-      tournament,
-      dependantPlayer: dependantId,
-      ownerParticipant: participant,
-      baseClause,
-      additionalShieldingClause: 0,
-      totalClause: baseClause,
-      updateDate: new Date(),
-    } as any);
-  }
-}
-
 async function assignInitialSquadToParticipant(tournament: Tournament, participant: Participant, entityManager: EntityManager, formation: ParticipantFormation = DEFAULT_FORMATION): Promise<number[]> {
   const required = getRequiredPlayersByPosition(formation);
   const reservedIds = await getTournamentReservedRealPlayerIds(tournament, entityManager);
@@ -187,7 +147,6 @@ async function assignInitialSquadToParticipant(tournament: Tournament, participa
     .filter((id): id is number => typeof id === 'number');
 
   const dependantIds = await createDependantPlayersForSelection(tournament, selectedPlayers, entityManager);
-  createInitialClausesForParticipant(tournament, participant, selectedPlayers, dependantIds, entityManager);
 
   entityManager.create(ParticipantSquad, {
     participant,
