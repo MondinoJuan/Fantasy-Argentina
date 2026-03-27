@@ -122,6 +122,23 @@ import { ultSeasonCollectionI } from '../modelos/ultSeason.collection.interface'
 import { ultSeasonI } from '../modelos/ultSeason.interface';
 import { ultSeasonPatchI } from '../modelos/ultSeason.patch.interface';
 
+export type SyncPlayedResultsJobStatus = 'queued' | 'running' | 'completed' | 'failed';
+
+export interface SyncPlayedResultsJob {
+  jobId: string;
+  status: SyncPlayedResultsJobStatus;
+  competitionId: number;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  scannedMatches: number;
+  processedMatches: number;
+  updatedMatches: number;
+  missingPayloadData: number;
+  errors: Array<{ gameId: string; message: string }>;
+  lastError: string | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -197,6 +214,12 @@ export class ApiService {
   patchParticipant(participant: participantPatchI) { return this.http.patch<responseParticipantI>(`${this.url}/participants/${participant.id}`, participant); }
   removeParticipant(id: number | string) { return this.http.delete<responseParticipantI>(`${this.url}/participants/${id}`); }
   joinParticipantByTournamentCode(payload: { userId: number; tournamentCode: string }) { return this.http.post<any>(`${this.url}/participants/join-by-code`, payload); }
+  participantSpendMoney(payload: { participantId: number; amount: number }) {
+    return this.http.post<any>(`${this.url}/participants/${payload.participantId}/spend-money`, { amount: payload.amount });
+  }
+  participantTransferMoney(payload: { fromParticipantId: number; toParticipantId: number; amount: number }) {
+    return this.http.post<any>(`${this.url}/participants/transfer-money`, payload);
+  }
 
   // Real Players
   searchRealPlayers() { return this.http.get<realPlayerCollectionI>(`${this.url}/real-players`); }
@@ -290,6 +313,12 @@ export class ApiService {
   searchPlayerClauses() { return this.http.get<playerClauseCollectionI>(`${this.url}/player-clauses`); }
   searchPlayerClauseById(id: number | string) { return this.http.get<responsePlayerClauseI>(`${this.url}/player-clauses/${id}`); }
   postPlayerClause(playerClause: addPlayerClauseI) { return this.http.post<responsePlayerClauseI>(`${this.url}/player-clauses`, playerClause); }
+  applyShieldingToPlayerClause(payload: { playerClauseId: number; participantId: number; amount: number }) {
+    return this.http.post<any>(`${this.url}/player-clauses/${payload.playerClauseId}/apply-shielding`, {
+      participantId: payload.participantId,
+      amount: payload.amount,
+    });
+  }
   updatePlayerClause(playerClause: playerClauseI) { return this.http.put<responsePlayerClauseI>(`${this.url}/player-clauses/${playerClause.id}`, playerClause); }
   patchPlayerClause(playerClause: playerClausePatchI) { return this.http.patch<responsePlayerClauseI>(`${this.url}/player-clauses/${playerClause.id}`, playerClause); }
   removePlayerClause(id: number | string) { return this.http.delete<responsePlayerClauseI>(`${this.url}/player-clauses/${id}`); }
@@ -359,8 +388,17 @@ export class ApiService {
 
 
 
-  postExternalSyncPlayedResults(payload: { competitionId?: number }) {
-    return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/sync-played-results`, payload);
+  postExternalSyncPlayedResults(payload: { competitionId: number }) {
+    return this.http.post<{ message: string; data: SyncPlayedResultsJob }>(
+      `${this.url}/external/sportsapipro/fixture/sync-played-results`,
+      payload,
+    );
+  }
+
+  getExternalSyncPlayedResultsJob(jobId: string) {
+    return this.http.get<{ message: string; data: SyncPlayedResultsJob }>(
+      `${this.url}/external/sportsapipro/fixture/sync-played-results/${encodeURIComponent(jobId)}`,
+    );
   }
 
   searchExternalRankingsWithLocalPerformances(competitionId: number | string) {

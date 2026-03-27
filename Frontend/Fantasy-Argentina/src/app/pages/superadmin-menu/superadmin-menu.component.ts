@@ -2,9 +2,9 @@ import { CommonModule, JsonPipe } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { forkJoin } from 'rxjs';
-import { finalize, map } from 'rxjs/operators';
-import { ApiService } from '../../servicios/api.service';
+import { forkJoin, interval } from 'rxjs';
+import { finalize, map, switchMap, takeWhile } from 'rxjs/operators';
+import { ApiService, SyncPlayedResultsJob } from '../../servicios/api.service';
 import { AuthService } from '../../servicios/auth.service';
 
 import { ActionField, SuperadminAction, SUPERADMIN_ACTION_CONFIG, SUPERADMIN_FIELD_LABELS } from './superadmin-actions.config';
@@ -99,6 +99,16 @@ export class SuperadminMenuComponent {
     this.result = null;
 
     const form = this.actionForm.getRawValue();
+
+    if (this.currentAction === 'syncPlayedMatchResults') {
+      const competitionId = Number(form.competitionId);
+      if (!Number.isFinite(competitionId) || competitionId <= 0) {
+        this.errorMessage = 'Ingresá un competitionId válido (> 0).';
+        return;
+      }
+      this.runSyncPlayedResults(competitionId);
+      return;
+    }
 
     if (this.currentAction === 'getPersistedFixture') {
       const leagueId = Number(form.leagueId);
@@ -204,6 +214,52 @@ export class SuperadminMenuComponent {
       error: (error: any) => {
         this.errorMessage = error?.error?.message ?? 'No se pudo ejecutar la operación.';
       }
+    });
+  }
+
+  private runSyncPlayedResults(competitionId: number): void {
+    this.isLoading = true;
+
+    this.apiService.postExternalSyncPlayedResults({ competitionId }).pipe(
+      switchMap((response) => {
+        const job = response?.data;
+        if (!job?.jobId) {
+          throw new Error('No se recibió jobId de sincronización.');
+        }
+
+        this.successMessage = 'Sincronización iniciada. Consultando progreso...';
+        this.result = { ...response, polling: true };
+
+        return interval(3000).pipe(
+          switchMap(() => this.apiService.getExternalSyncPlayedResultsJob(job.jobId)),
+          takeWhile((jobResponse) => {
+            const status = jobResponse?.data?.status;
+            return status === 'queued' || status === 'running';
+          }, true),
+        );
+      }),
+      finalize(() => {
+        this.isLoading = false;
+      }),
+    ).subscribe({
+      next: (jobResponse: { message: string; data: SyncPlayedResultsJob }) => {
+        this.result = jobResponse;
+
+        if (jobResponse.data.status === 'completed') {
+          this.successMessage = 'Sincronización completada correctamente.';
+          return;
+        }
+
+        if (jobResponse.data.status === 'failed') {
+          this.errorMessage = jobResponse.data.lastError ?? 'La sincronización falló.';
+          return;
+        }
+
+        this.successMessage = 'Sincronización en progreso...';
+      },
+      error: (error: any) => {
+        this.errorMessage = error?.error?.message ?? 'No se pudo ejecutar la sincronización.';
+      },
     });
   }
 }
