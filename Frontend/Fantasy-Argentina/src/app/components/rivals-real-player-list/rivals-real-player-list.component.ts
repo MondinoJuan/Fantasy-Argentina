@@ -189,7 +189,11 @@ export class RivalsRealPlayerListComponent {
     const dependantId = this.selectedPlayer.dependantPlayerId;
     this.isSubmitting = true;
 
-    this.ensureClause(dependantId, Number(this.selectedPlayer.translatedValue ?? 0), this.participantId).pipe(
+    const applyShielding$ = this.ensureClause(
+      dependantId,
+      Number(this.selectedPlayer.translatedValue ?? 0),
+      this.participantId,
+    ).pipe(
       switchMap((playerClause: any) => {
         const playerClauseId = this.extractId(playerClause);
         return this.apiService.applyShieldingToPlayerClause({
@@ -198,17 +202,9 @@ export class RivalsRealPlayerListComponent {
           amount,
         });
       }),
-      clause: this.apiService.patchPlayerClause({
-        id: playerClauseId,
-        additionalShieldingClause: additional + increase,
-        totalClause: baseClause + additional + increase,
-        updateDate: new Date(),
-      }),
-      participant: this.apiService.participantSpendMoney({
-        participantId: this.participantId,
-        amount,
-      }),
-    }).subscribe({
+    );
+
+    applyShielding$.subscribe({
       next: () => {
         this.closeModal();
         this.updated.emit();
