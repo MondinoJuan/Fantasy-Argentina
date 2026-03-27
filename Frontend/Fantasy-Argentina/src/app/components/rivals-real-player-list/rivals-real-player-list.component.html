@@ -28,7 +28,7 @@
       (click)="openPlayerModal(player)"
     >
       <span>{{ player.name }}</span>
-      <span>{{ player.totalScore }} pts</span>
+      <span>{{ player.totalScore | number:'1.0-0' }} pts</span>
       <span>{{ player.position }}</span>
       <span>${{ player.translatedValue | number:'1.0-0' }}</span>
       <span>Cláusula: ${{ player.clauseValue | number:'1.0-0' }}</span>
