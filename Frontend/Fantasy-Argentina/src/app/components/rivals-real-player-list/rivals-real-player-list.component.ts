@@ -198,7 +198,17 @@ export class RivalsRealPlayerListComponent {
           amount,
         });
       }),
-    ).subscribe({
+      clause: this.apiService.patchPlayerClause({
+        id: playerClauseId,
+        additionalShieldingClause: additional + increase,
+        totalClause: baseClause + additional + increase,
+        updateDate: new Date(),
+      }),
+      participant: this.apiService.participantSpendMoney({
+        participantId: this.participantId,
+        amount,
+      }),
+    }).subscribe({
       next: () => {
         this.closeModal();
         this.updated.emit();
@@ -348,7 +358,7 @@ export class RivalsRealPlayerListComponent {
       totalScore,
       position: String(realPlayer?.position ?? '-'),
       translatedValue,
-      clauseValue: Number(clause?.totalClause ?? translatedValue + 3_000_000),
+      clauseValue: Number(clause?.totalClause ?? 0),
     };
   }
 

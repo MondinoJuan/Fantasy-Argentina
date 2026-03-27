@@ -8,6 +8,7 @@ import { Participant } from '../Participant/participant.entity.js';
 import { ParticipantSquad } from '../ParticipantSquad/participantSquad.entity.js';
 import { PlayerClause } from '../PlayerClause/playerClause.entity.js';
 import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
+import { Shielding } from '../Shielding/shielding.entity.js';
 import { Tournament } from './tournament.entity.js';
 
 const DEFAULT_FORMATION: ParticipantFormation = PARTICIPANT_FORMATIONS[0];
