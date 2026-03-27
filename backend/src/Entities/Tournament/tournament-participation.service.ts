@@ -133,7 +133,7 @@ function createInitialClausesForParticipant(
 
     const baseClause = normalizeInitialClauseBase(realPlayer);
 
-    const playerClause = entityManager.create(PlayerClause, {
+    entityManager.create(PlayerClause, {
       tournament,
       dependantPlayer: dependantId,
       ownerParticipant: participant,
@@ -141,14 +141,6 @@ function createInitialClausesForParticipant(
       additionalShieldingClause: 0,
       totalClause: baseClause,
       updateDate: new Date(),
-    } as any);
-
-    entityManager.create(Shielding, {
-      playerClause,
-      participant,
-      investedAmount: 0,
-      clauseIncrease: 0,
-      shieldingDate: new Date(),
     } as any);
   }
 }

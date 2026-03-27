@@ -656,7 +656,7 @@ export class InsideTournamentComponent implements OnInit {
     const playerClauseId = this.extractId(playerClause);
 
     const buyer = this.participantById.get(buyerId);
-    if (!buyer || !realPlayerId || !playerClauseId) return;
+    if (!buyer || !realPlayerId) return;
 
     const buyerAvailable = Number(buyer?.availableMoney ?? 0);
     if (amount >= buyerAvailable) return;
@@ -674,11 +674,15 @@ export class InsideTournamentComponent implements OnInit {
             toParticipantId: sellerId,
             amount,
           }),
-          clause: this.apiService.patchPlayerClause({
-            id: playerClauseId,
-            ownerParticipant: buyerId,
-            updateDate: new Date(),
-          }),
+          ...(playerClauseId
+            ? {
+              clause: this.apiService.patchPlayerClause({
+                id: playerClauseId,
+                ownerParticipant: buyerId,
+                updateDate: new Date(),
+              }),
+            }
+            : {}),
         }).subscribe({
           next: () => this.refreshTournamentState('negotiation'),
         });

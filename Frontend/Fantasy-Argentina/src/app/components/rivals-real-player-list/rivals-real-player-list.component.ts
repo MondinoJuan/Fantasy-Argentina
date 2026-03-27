@@ -124,10 +124,6 @@ export class RivalsRealPlayerListComponent {
 
     const clause = this.playerClauseByDependantId.get(this.selectedPlayer.dependantPlayerId);
     const clauseId = this.extractId(clause);
-    if (!clauseId) {
-      this.modalError = 'No existe cláusula persistida para este jugador.';
-      return;
-    }
 
     const amount = Number(this.selectedPlayer.clauseValue ?? 0);
     if (amount <= 0) {
@@ -151,11 +147,15 @@ export class RivalsRealPlayerListComponent {
           toParticipantId: this.participantId,
           amount,
         }),
-        clause: this.apiService.patchPlayerClause({
-          id: clauseId,
-          ownerParticipant: this.loggedParticipantId,
-          updateDate: new Date(),
-        }),
+        ...(clauseId
+          ? {
+            clause: this.apiService.patchPlayerClause({
+              id: clauseId,
+              ownerParticipant: this.loggedParticipantId,
+              updateDate: new Date(),
+            }),
+          }
+          : {}),
       })),
     ).subscribe({
       next: () => {
@@ -187,32 +187,16 @@ export class RivalsRealPlayerListComponent {
     }
 
     const dependantId = this.selectedPlayer.dependantPlayerId;
-    const increase = amount * 2;
-    const playerClause = this.playerClauseByDependantId.get(dependantId);
-    const playerClauseId = this.extractId(playerClause);
-
-    if (!playerClauseId) {
-      this.modalError = 'No existe cláusula persistida para este jugador. Contactá al administrador.';
-      return;
-    }
-
     this.isSubmitting = true;
 
-    const baseClause = Number(playerClause?.baseClause ?? 0);
-    if (!Number.isFinite(baseClause) || baseClause <= 0) {
-      this.modalError = 'La cláusula base es inválida para este jugador.';
-      this.isSubmitting = false;
-      return;
-    }
-    const additional = Number(playerClause?.additionalShieldingClause ?? 0);
-
-    forkJoin({
-      shielding: this.apiService.postShielding({
-        playerClause: playerClauseId,
-        participant: this.participantId,
-        investedAmount: amount,
-        clauseIncrease: increase,
-        shieldingDate: new Date(),
+    this.ensureClause(dependantId, Number(this.selectedPlayer.translatedValue ?? 0), this.participantId).pipe(
+      switchMap((playerClause: any) => {
+        const playerClauseId = this.extractId(playerClause);
+        return this.apiService.applyShieldingToPlayerClause({
+          playerClauseId: playerClauseId!,
+          participantId: this.participantId,
+          amount,
+        });
       }),
       clause: this.apiService.patchPlayerClause({
         id: playerClauseId,
@@ -234,6 +218,26 @@ export class RivalsRealPlayerListComponent {
         this.isSubmitting = false;
       },
     });
+  }
+
+  private ensureClause(dependantPlayerId: number, translatedValue: number, ownerParticipantId: number) {
+    const existing = this.playerClauseByDependantId.get(dependantPlayerId);
+    if (existing) {
+      return of(existing);
+    }
+
+    const base = Math.max(0, translatedValue + 3_000_000);
+    return this.apiService.postPlayerClause({
+      tournament: this.tournamentId,
+      dependantPlayer: dependantPlayerId,
+      ownerParticipant: ownerParticipantId,
+      baseClause: base,
+      additionalShieldingClause: 0,
+      totalClause: base,
+      updateDate: new Date(),
+    }).pipe(
+      switchMap((response: any) => of(response?.data ?? response)),
+    );
   }
 
   private submitNegotiationOffer(): void {

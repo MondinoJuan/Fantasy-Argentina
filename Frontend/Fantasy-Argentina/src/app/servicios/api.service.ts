@@ -313,6 +313,12 @@ export class ApiService {
   searchPlayerClauses() { return this.http.get<playerClauseCollectionI>(`${this.url}/player-clauses`); }
   searchPlayerClauseById(id: number | string) { return this.http.get<responsePlayerClauseI>(`${this.url}/player-clauses/${id}`); }
   postPlayerClause(playerClause: addPlayerClauseI) { return this.http.post<responsePlayerClauseI>(`${this.url}/player-clauses`, playerClause); }
+  applyShieldingToPlayerClause(payload: { playerClauseId: number; participantId: number; amount: number }) {
+    return this.http.post<any>(`${this.url}/player-clauses/${payload.playerClauseId}/apply-shielding`, {
+      participantId: payload.participantId,
+      amount: payload.amount,
+    });
+  }
   updatePlayerClause(playerClause: playerClauseI) { return this.http.put<responsePlayerClauseI>(`${this.url}/player-clauses/${playerClause.id}`, playerClause); }
   patchPlayerClause(playerClause: playerClausePatchI) { return this.http.patch<responsePlayerClauseI>(`${this.url}/player-clauses/${playerClause.id}`, playerClause); }
   removePlayerClause(id: number | string) { return this.http.delete<responsePlayerClauseI>(`${this.url}/player-clauses/${id}`); }
