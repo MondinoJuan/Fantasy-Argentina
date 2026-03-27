@@ -1,9 +1,11 @@
 import { Router } from 'express';
-import { sanitizeParticipantInput, findAll, findOne, add, update, remove, joinByTournamentCode } from './participant.controler.js';
+import { sanitizeParticipantInput, findAll, findOne, add, update, remove, joinByTournamentCode, spendMoney, transferMoney } from './participant.controler.js';
 
 export const ParticipantRouter = Router();
 
 ParticipantRouter.get('/', findAll);
+ParticipantRouter.post('/transfer-money', transferMoney);
+ParticipantRouter.post('/:id/spend-money', spendMoney);
 ParticipantRouter.get('/:id', findOne);
 ParticipantRouter.post('/', sanitizeParticipantInput, add);
 ParticipantRouter.post('/join-by-code', joinByTournamentCode);
