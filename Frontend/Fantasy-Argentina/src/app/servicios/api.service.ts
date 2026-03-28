@@ -220,6 +220,11 @@ export class ApiService {
   participantTransferMoney(payload: { fromParticipantId: number; toParticipantId: number; amount: number }) {
     return this.http.post<any>(`${this.url}/participants/transfer-money`, payload);
   }
+  participantQuickSellPlayer(payload: { participantId: number; realPlayerId: number }) {
+    return this.http.post<any>(`${this.url}/participants/${payload.participantId}/quick-sell-player`, {
+      realPlayerId: payload.realPlayerId,
+    });
+  }
 
   // Real Players
   searchRealPlayers() { return this.http.get<realPlayerCollectionI>(`${this.url}/real-players`); }

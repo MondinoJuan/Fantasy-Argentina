@@ -171,6 +171,36 @@ export class RivalsRealPlayerListComponent {
     });
   }
 
+  quickSellPlayer(): void {
+    if (!this.selectedPlayer || !this.isOwnerLoggedUser || this.isSubmitting) return;
+
+    const translatedValue = Number(this.selectedPlayer.translatedValue ?? 0);
+    const quickSaleValue = Math.max(0, translatedValue * 0.7);
+    const shouldQuickSell = window.confirm(
+      `¿Estás seguro?\nVas a vender este jugador al 70% de su valor.\nRecibirás $${quickSaleValue.toLocaleString('es-AR')}.`
+    );
+    if (!shouldQuickSell) {
+      return;
+    }
+
+    this.modalError = '';
+    this.isSubmitting = true;
+
+    this.apiService.participantQuickSellPlayer({
+      participantId: this.participantId,
+      realPlayerId: this.selectedPlayer.realPlayerId,
+    }).subscribe({
+      next: () => {
+        this.closeModal();
+        this.updated.emit();
+      },
+      error: (error: any) => {
+        this.modalError = error?.error?.message ?? 'No se pudo realizar la venta rápida.';
+        this.isSubmitting = false;
+      },
+    });
+  }
+
   private submitShielding(): void {
     if (!this.selectedPlayer) return;
 
