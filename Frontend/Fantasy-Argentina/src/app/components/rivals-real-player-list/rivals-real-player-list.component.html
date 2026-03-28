@@ -56,6 +56,14 @@
       </button>
       <button
         type="button"
+        *ngIf="isOwnerLoggedUser"
+        (click)="quickSellPlayer()"
+        [disabled]="isSubmitting"
+      >
+        Venta rápida
+      </button>
+      <button
+        type="button"
         *ngIf="!isOwnerLoggedUser"
         (click)="payClause()"
         [disabled]="isSubmitting || !clauseEnabled"

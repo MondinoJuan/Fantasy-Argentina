@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { Participant } from './participant.entity.js';
 import { Tournament } from '../Tournament/tournament.entity.js';
+import { ParticipantSquad } from '../ParticipantSquad/participantSquad.entity.js';
+import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
+import { EntityManager } from '@mikro-orm/core';
 import { orm } from '../../shared/db/orm.js';
 import { setupParticipantAfterJoin } from '../Tournament/tournament-participation.service.js';
 
@@ -14,6 +17,17 @@ function parseId(idParam: string | string[] | undefined) {
 function toInt(value: unknown): number | null {
   const parsed = Number.parseInt(String(value ?? ''), 10);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+async function getLatestParticipantSquad(participant: Participant, entityManager: EntityManager = em): Promise<ParticipantSquad | null> {
+  const squads = await entityManager.find(ParticipantSquad, { participant }, { orderBy: { acquisitionDate: 'desc' } });
+
+  if (squads.length === 0) {
+    return null;
+  }
+
+  const active = squads.find((squad) => !squad.releaseDate);
+  return active ?? squads[0];
 }
 
 function toPositiveNumber(value: unknown): number | null {
@@ -258,4 +272,89 @@ async function transferMoney(req: Request, res: Response) {
   }
 }
 
-export { sanitizeParticipantInput, findAll, findOne, add, update, remove, joinByTournamentCode, spendMoney, transferMoney };
+async function quickSellRealPlayer(req: Request, res: Response) {
+  try {
+    const participantId = parseId(req.params.id);
+    const realPlayerId = toInt(req.body?.realPlayerId ?? req.body?.realPlayer);
+
+    if (!Number.isFinite(participantId) || participantId <= 0 || !realPlayerId || realPlayerId <= 0) {
+      res.status(400).json({ message: 'participant id and realPlayerId are required' });
+      return;
+    }
+
+    const result = await em.transactional(async (transactionalEm) => {
+      const participant = await transactionalEm.findOne(Participant, { id: participantId });
+
+      if (!participant) {
+        throw new Error('participant not found');
+      }
+
+      const squad = await getLatestParticipantSquad(participant, transactionalEm);
+      if (!squad) {
+        throw new Error('participant squad not found');
+      }
+
+      const currentStarting = (squad.startingRealPlayersIds ?? []).map((id) => Number.parseInt(String(id), 10)).filter((id) => Number.isFinite(id) && id > 0);
+      const currentSubstitutes = (squad.substitutesRealPlayersIds ?? []).map((id) => Number.parseInt(String(id), 10)).filter((id) => Number.isFinite(id) && id > 0);
+
+      const ownsPlayer = currentStarting.includes(realPlayerId) || currentSubstitutes.includes(realPlayerId);
+      if (!ownsPlayer) {
+        throw new Error('real player is not part of participant squad');
+      }
+
+      const realPlayer = await transactionalEm.findOne(RealPlayer, { id: realPlayerId });
+      if (!realPlayer) {
+        throw new Error('real player not found');
+      }
+
+      const saleValue = Number(realPlayer.translatedValue ?? 0) * 0.7;
+
+      if (!Number.isFinite(saleValue) || saleValue <= 0) {
+        throw new Error('real player has no translated value for quick sale');
+      }
+
+      squad.startingRealPlayersIds = currentStarting.filter((id) => id !== realPlayerId);
+      squad.substitutesRealPlayersIds = currentSubstitutes.filter((id) => id !== realPlayerId);
+
+      participant.bankBudget = Number(participant.bankBudget ?? 0) + saleValue;
+      participant.availableMoney = Number(participant.availableMoney ?? 0) + saleValue;
+
+      validateParticipantMoneyInvariant(participant);
+
+      await transactionalEm.flush();
+
+      return {
+        participant,
+        squad,
+        realPlayer,
+        saleValue,
+      };
+    });
+
+    res.status(200).json({
+      message: 'real player quick sold',
+      data: result,
+    });
+  } catch (error: any) {
+    if (
+      error.message === 'participant not found'
+      || error.message === 'participant squad not found'
+      || error.message === 'real player not found'
+    ) {
+      res.status(404).json({ message: error.message });
+      return;
+    }
+
+    if (
+      error.message === 'real player is not part of participant squad'
+      || error.message === 'real player has no translated value for quick sale'
+    ) {
+      res.status(400).json({ message: error.message });
+      return;
+    }
+
+    res.status(500).json({ message: error.message });
+  }
+}
+
+export { sanitizeParticipantInput, findAll, findOne, add, update, remove, joinByTournamentCode, spendMoney, transferMoney, quickSellRealPlayer };
