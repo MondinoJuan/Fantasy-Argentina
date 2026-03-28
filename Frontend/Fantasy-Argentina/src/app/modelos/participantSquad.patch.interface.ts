@@ -4,6 +4,7 @@ export interface participantSquadPatchI {
   participant?: number;
   startingRealPlayersIds?: number[];
   substitutesRealPlayersIds?: number[];
+  captainRealPlayerId?: number | null;
   formation?: ParticipantFormation;
   acquisitionDate?: Date;
   releaseDate?: Date;

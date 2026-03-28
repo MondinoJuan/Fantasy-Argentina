@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { forkJoin, Observable, of } from 'rxjs';
+import { forkJoin } from 'rxjs';
 import { ApiService } from '../../servicios/api.service';
 import { RequestCacheService } from '../../servicios/request-cache.service';
 import { FootballPitchComponent, PitchPlayer } from '../../components/football-pitch/football-pitch.component';
@@ -61,6 +61,7 @@ export class InsideTournamentComponent implements OnInit {
   matchdaysForTournament: any[] = [];
 
   participantSquadId: number | null = null;
+  participantCaptainRealPlayerId: number | null = null;
 
   private tournamentId: number | null = null;
   private allParticipantSquads: any[] = [];
@@ -288,11 +289,15 @@ export class InsideTournamentComponent implements OnInit {
       this.startingPlayersForPitch = [];
       this.substitutePlayersForPitch = [];
       this.participantSquadId = null;
+      this.participantCaptainRealPlayerId = null;
       return;
     }
 
     const squadEntry = this.allParticipantSquads.find((item) => this.extractId(item.participant) === participantId);
     this.participantSquadId = this.extractId(squadEntry);
+    this.participantCaptainRealPlayerId = this.extractId(
+      squadEntry?.captainRealPlayerId ?? squadEntry?.captain_real_player_id
+    );
 
     this.selectedFormation = String(squadEntry?.formation ?? this.formations[0]);
 
@@ -646,47 +651,17 @@ export class InsideTournamentComponent implements OnInit {
   acceptNegotiation(negotiation: any): void {
     if (!this.canAcceptNegotiation(negotiation)) return;
 
-    const sellerId = this.extractId(negotiation?.sellerParticipant) ?? 0;
     const buyerId = this.extractId(negotiation?.buyerParticipant) ?? 0;
     const amount = Number(negotiation?.agreedAmount ?? 0);
-    const dependantId = this.extractId(negotiation?.dependantPlayer) ?? 0;
-    const dependant = this.allDependantPlayers.find((item) => this.extractId(item) === dependantId);
-    const realPlayerId = this.extractId(dependant?.realPlayer) ?? 0;
-    const playerClause = this.playerClauseByDependantId.get(dependantId);
-    const playerClauseId = this.extractId(playerClause);
 
     const buyer = this.participantById.get(buyerId);
-    if (!buyer || !realPlayerId) return;
+    if (!buyer) return;
 
     const buyerAvailable = Number(buyer?.availableMoney ?? 0);
     if (amount >= buyerAvailable) return;
 
-    this.transferRealPlayer(realPlayerId, sellerId, buyerId).subscribe({
-      next: () => {
-        forkJoin({
-          negotiation: this.apiService.patchNegotiation({
-            id: this.extractId(negotiation)!,
-            status: 'accepted',
-            effectiveDate: new Date(),
-          }),
-          transfer: this.apiService.participantTransferMoney({
-            fromParticipantId: buyerId,
-            toParticipantId: sellerId,
-            amount,
-          }),
-          ...(playerClauseId
-            ? {
-              clause: this.apiService.patchPlayerClause({
-                id: playerClauseId,
-                ownerParticipant: buyerId,
-                updateDate: new Date(),
-              }),
-            }
-            : {}),
-        }).subscribe({
-          next: () => this.refreshTournamentState('negotiation'),
-        });
-      },
+    this.apiService.acceptNegotiation(this.extractId(negotiation)!).subscribe({
+      next: () => this.refreshTournamentState('negotiation'),
     });
   }
 
@@ -774,35 +749,6 @@ export class InsideTournamentComponent implements OnInit {
         this.isLoading = false;
       },
     });
-  }
-
-  private transferRealPlayer(realPlayerId: number, fromParticipantId: number, toParticipantId: number): Observable<unknown> {
-    const sellerSquad = this.allParticipantSquads.find((item) => this.extractId(item?.participant) === fromParticipantId);
-    const buyerSquad = this.allParticipantSquads.find((item) => this.extractId(item?.participant) === toParticipantId);
-
-    if (!sellerSquad || !buyerSquad) return of(null as unknown);
-
-    const sellerStarting = this.normalizeIdCollection(sellerSquad?.startingRealPlayersIds ?? sellerSquad?.starting_real_players_ids)
-      .filter((id) => id !== realPlayerId);
-    const sellerSubs = this.normalizeIdCollection(sellerSquad?.substitutesRealPlayersIds ?? sellerSquad?.substitutes_real_players_ids)
-      .filter((id) => id !== realPlayerId);
-
-    const buyerSubs = this.normalizeIdCollection(buyerSquad?.substitutesRealPlayersIds ?? buyerSquad?.substitutes_real_players_ids);
-    if (!buyerSubs.includes(realPlayerId)) {
-      buyerSubs.push(realPlayerId);
-    }
-
-    return forkJoin({
-      seller: this.apiService.patchParticipantSquad({
-        id: this.extractId(sellerSquad)!,
-        startingRealPlayersIds: sellerStarting,
-        substitutesRealPlayersIds: sellerSubs,
-      }),
-      buyer: this.apiService.patchParticipantSquad({
-        id: this.extractId(buyerSquad)!,
-        substitutesRealPlayersIds: buyerSubs,
-      }),
-    }) as Observable<unknown>;
   }
 
   private rebuildMapsAndNegotiationViews(): void {

@@ -350,6 +350,7 @@ export class ApiService {
   postNegotiation(negotiation: addNegotiationI) { return this.http.post<responseNegotiationI>(`${this.url}/negotiations`, negotiation); }
   updateNegotiation(negotiation: negotiationI) { return this.http.put<responseNegotiationI>(`${this.url}/negotiations/${negotiation.id}`, negotiation); }
   patchNegotiation(negotiation: negotiationPatchI) { return this.http.patch<responseNegotiationI>(`${this.url}/negotiations/${negotiation.id}`, negotiation); }
+  acceptNegotiation(negotiationId: number | string) { return this.http.post<responseNegotiationI>(`${this.url}/negotiations/${negotiationId}/accept`, {}); }
   removeNegotiation(id: number | string) { return this.http.delete<responseNegotiationI>(`${this.url}/negotiations/${id}`); }
 
   // External API - Sports API Pro

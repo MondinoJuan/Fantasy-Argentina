@@ -36,6 +36,14 @@
           <small class="pc-team">{{ player.position | uppercase }}</small>
           <p class="pc-name">{{ player.name }}</p>
           <small class="pc-team">{{ player.teamName }}</small>
+          <label class="captain-toggle">
+            <input
+              type="checkbox"
+              [checked]="isCaptain(player)"
+              (change)="toggleCaptain(player)"
+            >
+            Capitán
+          </label>
           <span class="pc-score">{{ player.lastScore ?? 0 }} pts</span>
         </article>
 

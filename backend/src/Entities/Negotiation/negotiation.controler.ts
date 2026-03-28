@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { Negotiation } from './negotiation.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { NEGOTIATION_STATUSES, isEnumValue } from '../../shared/domain-enums.js';
+import { ParticipantSquad } from '../ParticipantSquad/participantSquad.entity.js';
+import { PlayerClause } from '../PlayerClause/playerClause.entity.js';
 
 const em = orm.em;
 
@@ -29,6 +31,27 @@ function sanitizeNegotiationInput(req: Request, res: Response, next: NextFunctio
     }
   });
   next();
+}
+
+function normalizeIdCollection(value: unknown): number[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => Number.parseInt(String(item), 10))
+    .filter((item) => Number.isFinite(item) && item > 0);
+}
+
+async function getLatestParticipantSquad(participantId: number, entityManager = em): Promise<ParticipantSquad | null> {
+  const squads = await entityManager.find(ParticipantSquad, { participant: participantId }, { orderBy: { acquisitionDate: 'desc' } });
+
+  if (squads.length === 0) {
+    return null;
+  }
+
+  const active = squads.find((squad) => !squad.releaseDate);
+  return active ?? squads[0];
 }
 
 async function findAll(req: Request, res: Response) {
@@ -82,6 +105,157 @@ async function update(req: Request, res: Response) {
   }
 }
 
+async function accept(req: Request, res: Response) {
+  try {
+    const negotiationId = parseId(req.params.id);
+
+    if (!Number.isFinite(negotiationId) || negotiationId <= 0) {
+      res.status(400).json({ message: 'negotiation id must be a valid positive integer' });
+      return;
+    }
+
+    const result = await em.transactional(async (transactionalEm) => {
+      const negotiation = await transactionalEm.findOne(
+        Negotiation,
+        { id: negotiationId },
+        { populate: ['tournament', 'sellerParticipant', 'buyerParticipant', 'dependantPlayer', 'dependantPlayer.realPlayer'] },
+      );
+
+      if (!negotiation) {
+        throw new Error('negotiation not found');
+      }
+
+      const currentStatus = String(negotiation.status ?? '').trim().toLocaleLowerCase();
+      if (currentStatus === 'accepted' || currentStatus === 'acepted') {
+        throw new Error('negotiation already accepted');
+      }
+
+      if (currentStatus !== 'active' && currentStatus !== 'countered') {
+        throw new Error('negotiation is not active');
+      }
+
+      const sellerParticipant = negotiation.sellerParticipant;
+      const buyerParticipant = negotiation.buyerParticipant;
+      const sellerParticipantId = Number((sellerParticipant as any)?.id ?? 0);
+      const buyerParticipantId = Number((buyerParticipant as any)?.id ?? 0);
+      const tournamentId = Number((negotiation.tournament as any)?.id ?? 0);
+      const realPlayerId = Number((negotiation.dependantPlayer as any)?.realPlayer?.id ?? 0);
+      const amount = Number(negotiation.agreedAmount ?? 0);
+
+      if (!tournamentId || !realPlayerId || !sellerParticipantId || !buyerParticipantId) {
+        throw new Error('negotiation has invalid tournament or real player');
+      }
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error('negotiation agreedAmount must be greater than zero');
+      }
+
+      const sellerSquad = await getLatestParticipantSquad(sellerParticipantId, transactionalEm);
+      const buyerSquad = await getLatestParticipantSquad(buyerParticipantId, transactionalEm);
+
+      if (!sellerSquad || !buyerSquad) {
+        throw new Error('participant squad not found');
+      }
+
+      const sellerStarting = normalizeIdCollection(sellerSquad.startingRealPlayersIds);
+      const sellerSubs = normalizeIdCollection(sellerSquad.substitutesRealPlayersIds);
+      const buyerStarting = normalizeIdCollection(buyerSquad.startingRealPlayersIds);
+      const buyerSubs = normalizeIdCollection(buyerSquad.substitutesRealPlayersIds);
+
+      const sellerOwnsPlayer = sellerStarting.includes(realPlayerId) || sellerSubs.includes(realPlayerId);
+      if (!sellerOwnsPlayer) {
+        throw new Error('seller does not own this real player');
+      }
+
+      if (buyerStarting.includes(realPlayerId) || buyerSubs.includes(realPlayerId)) {
+        throw new Error('buyer already owns this real player');
+      }
+
+      const allTournamentParticipants = await transactionalEm.find(
+        ParticipantSquad,
+        { participant: { tournament: tournamentId } as any },
+        { populate: ['participant'] },
+      );
+
+      const duplicateOwners = allTournamentParticipants.filter((squad) => {
+        const participantId = Number((squad.participant as any)?.id ?? 0);
+        if (participantId === sellerParticipantId || participantId === buyerParticipantId) {
+          return false;
+        }
+        const starting = normalizeIdCollection(squad.startingRealPlayersIds);
+        const substitutes = normalizeIdCollection(squad.substitutesRealPlayersIds);
+        return starting.includes(realPlayerId) || substitutes.includes(realPlayerId);
+      });
+
+      if (duplicateOwners.length > 0) {
+        throw new Error('real player is duplicated in another participant squad');
+      }
+
+      if (Number(buyerParticipant.availableMoney ?? 0) < amount || Number(buyerParticipant.bankBudget ?? 0) < amount) {
+        throw new Error('buyer has insufficient funds');
+      }
+
+      sellerSquad.startingRealPlayersIds = sellerStarting.filter((id) => id !== realPlayerId);
+      sellerSquad.substitutesRealPlayersIds = sellerSubs.filter((id) => id !== realPlayerId);
+      if (Number(sellerSquad.captainRealPlayerId ?? 0) === realPlayerId) {
+        sellerSquad.captainRealPlayerId = null;
+      }
+
+      buyerSquad.substitutesRealPlayersIds = buyerSubs.includes(realPlayerId)
+        ? buyerSubs
+        : [...buyerSubs, realPlayerId];
+
+      buyerParticipant.availableMoney = Number(buyerParticipant.availableMoney ?? 0) - amount;
+      buyerParticipant.bankBudget = Number(buyerParticipant.bankBudget ?? 0) - amount;
+      sellerParticipant.availableMoney = Number(sellerParticipant.availableMoney ?? 0) + amount;
+      sellerParticipant.bankBudget = Number(sellerParticipant.bankBudget ?? 0) + amount;
+
+      const playerClause = await transactionalEm.findOne(
+        PlayerClause,
+        { tournament: tournamentId, dependantPlayer: negotiation.dependantPlayer },
+      );
+
+      if (playerClause) {
+        playerClause.ownerParticipant = buyerParticipant;
+        playerClause.updateDate = new Date();
+      }
+
+      negotiation.status = 'accepted';
+      negotiation.effectiveDate = new Date();
+
+      await transactionalEm.flush();
+
+      return negotiation;
+    });
+
+    res.status(200).json({ message: 'negotiation accepted', data: result });
+  } catch (error: any) {
+    if (
+      error.message === 'negotiation not found'
+      || error.message === 'participant squad not found'
+    ) {
+      res.status(404).json({ message: error.message });
+      return;
+    }
+
+    if (
+      error.message === 'negotiation already accepted'
+      || error.message === 'negotiation is not active'
+      || error.message === 'negotiation has invalid tournament or real player'
+      || error.message === 'negotiation agreedAmount must be greater than zero'
+      || error.message === 'seller does not own this real player'
+      || error.message === 'buyer already owns this real player'
+      || error.message === 'real player is duplicated in another participant squad'
+      || error.message === 'buyer has insufficient funds'
+    ) {
+      res.status(400).json({ message: error.message });
+      return;
+    }
+
+    res.status(500).json({ message: error.message });
+  }
+}
+
 async function remove(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
@@ -94,4 +268,4 @@ async function remove(req: Request, res: Response) {
   }
 }
 
-export { sanitizeNegotiationInput, findAll, findOne, add, update, remove };
+export { sanitizeNegotiationInput, findAll, findOne, add, update, remove, accept };
