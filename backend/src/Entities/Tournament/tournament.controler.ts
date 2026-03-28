@@ -776,6 +776,7 @@ async function sumEndOfMatchdayPoints(req: Request, res: Response) {
         }
 
         const participantSquad = await getLatestParticipantSquad(participant);
+        const captainRealPlayerId = Number.parseInt(String(participantSquad?.captainRealPlayerId ?? ''), 10);
 
         const realPlayerIds = [...new Set((participantSquad?.startingRealPlayersIds ?? [])
           .map((id) => Number.parseInt(String(id), 10))
@@ -810,6 +811,9 @@ async function sumEndOfMatchdayPoints(req: Request, res: Response) {
             const contributedPoints = hasPositionMismatch
               ? rawPoints - 3
               : rawPoints;
+            const finalContributedPoints = Number.isFinite(captainRealPlayerId) && captainRealPlayerId > 0 && realPlayerId === captainRealPlayerId
+              ? contributedPoints * 2
+              : contributedPoints;
 
             const latestPerformance = playerPerformances
               .slice()
@@ -826,11 +830,11 @@ async function sumEndOfMatchdayPoints(req: Request, res: Response) {
                 participant,
                 matchday,
                 realPlayer: realPlayerId,
-                contributedPoints,
+                contributedPoints: finalContributedPoints,
                 playerPerformance: latestPerformance,
               } as any);
             } else {
-              breakdown.contributedPoints = contributedPoints;
+              breakdown.contributedPoints = finalContributedPoints;
               breakdown.playerPerformance = latestPerformance;
             }
 

@@ -61,6 +61,7 @@ export class InsideTournamentComponent implements OnInit {
   matchdaysForTournament: any[] = [];
 
   participantSquadId: number | null = null;
+  participantCaptainRealPlayerId: number | null = null;
 
   private tournamentId: number | null = null;
   private allParticipantSquads: any[] = [];
@@ -288,11 +289,15 @@ export class InsideTournamentComponent implements OnInit {
       this.startingPlayersForPitch = [];
       this.substitutePlayersForPitch = [];
       this.participantSquadId = null;
+      this.participantCaptainRealPlayerId = null;
       return;
     }
 
     const squadEntry = this.allParticipantSquads.find((item) => this.extractId(item.participant) === participantId);
     this.participantSquadId = this.extractId(squadEntry);
+    this.participantCaptainRealPlayerId = this.extractId(
+      squadEntry?.captainRealPlayerId ?? squadEntry?.captain_real_player_id
+    );
 
     this.selectedFormation = String(squadEntry?.formation ?? this.formations[0]);
 
