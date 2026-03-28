@@ -184,6 +184,7 @@ button {
 }
 
 .modal-content {
+  position: relative;
   background: $bg-card;
   border: 1px solid $border-accent;
   border-radius: $radius-card;
@@ -312,5 +313,74 @@ button {
   &::before {
     content: "⚠";
     font-size: 0.9em;
+  }
+}
+
+.mini-confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: $radius-card;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  padding: 1rem;
+}
+
+.mini-confirm-modal {
+  width: 100%;
+  max-width: 320px;
+  background: darken($bg-card, 3%);
+  border: 1px solid $border-accent;
+  border-radius: $radius-card;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  padding: 0.9rem;
+  text-align: center;
+
+  h4 {
+    margin: 0 0 0.5rem;
+    color: $text-primary;
+    font-size: 0.95rem;
+  }
+
+  p {
+    margin: 0.2rem 0;
+    color: $text-secondary;
+    font-size: 0.82rem;
+  }
+}
+
+.mini-confirm-actions {
+  margin-top: 0.8rem;
+  display: flex;
+  gap: 0.5rem;
+
+  button {
+    flex: 1;
+    border-radius: $radius-btn;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid $border-accent;
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background $transition, color $transition, border-color $transition;
+
+    &:first-child {
+      background: transparent;
+      color: $text-secondary;
+    }
+
+    &:last-child {
+      background: $accent-green;
+      border-color: rgba($accent-green, 0.8);
+      color: #fff;
+    }
+
+    &:hover {
+      border-color: rgba(255, 255, 255, 0.35);
+      color: $text-primary;
+    }
   }
 }

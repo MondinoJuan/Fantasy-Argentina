@@ -71,5 +71,17 @@
         Pagar cláusula
       </button>
     </div>
+
+    <div class="mini-confirm-backdrop" *ngIf="showQuickSaleConfirm">
+      <div class="mini-confirm-modal">
+        <h4>¿Estás seguro?</h4>
+        <p>Este jugador se venderá al 70% de su valor.</p>
+        <p>Recibirás ${{ quickSaleValue | number:'1.0-0' }}.</p>
+        <div class="mini-confirm-actions">
+          <button type="button" (click)="cancelQuickSellConfirmation()" [disabled]="isSubmitting">No</button>
+          <button type="button" (click)="confirmQuickSellPlayer()" [disabled]="isSubmitting">Sí</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>

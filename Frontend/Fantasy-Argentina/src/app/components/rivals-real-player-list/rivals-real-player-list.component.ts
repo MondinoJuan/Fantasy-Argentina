@@ -46,6 +46,8 @@ export class RivalsRealPlayerListComponent {
   operationAmount = 0;
   modalError = '';
   isSubmitting = false;
+  showQuickSaleConfirm = false;
+  quickSaleValue = 0;
 
   constructor(private readonly apiService: ApiService) {}
 
@@ -97,6 +99,8 @@ export class RivalsRealPlayerListComponent {
     this.operationAmount = 0;
     this.modalError = '';
     this.isSubmitting = false;
+    this.showQuickSaleConfirm = false;
+    this.quickSaleValue = 0;
   }
 
   submitPrimaryAction(): void {
@@ -175,16 +179,20 @@ export class RivalsRealPlayerListComponent {
     if (!this.selectedPlayer || !this.isOwnerLoggedUser || this.isSubmitting) return;
 
     const translatedValue = Number(this.selectedPlayer.translatedValue ?? 0);
-    const quickSaleValue = Math.max(0, translatedValue * 0.7);
-    const shouldQuickSell = window.confirm(
-      `¿Estás seguro?\nVas a vender este jugador al 70% de su valor.\nRecibirás $${quickSaleValue.toLocaleString('es-AR')}.`
-    );
-    if (!shouldQuickSell) {
-      return;
-    }
+    this.quickSaleValue = Math.max(0, translatedValue * 0.7);
+    this.showQuickSaleConfirm = true;
+  }
+
+  cancelQuickSellConfirmation(): void {
+    this.showQuickSaleConfirm = false;
+  }
+
+  confirmQuickSellPlayer(): void {
+    if (!this.selectedPlayer || !this.isOwnerLoggedUser || this.isSubmitting) return;
 
     this.modalError = '';
     this.isSubmitting = true;
+    this.showQuickSaleConfirm = false;
 
     this.apiService.participantQuickSellPlayer({
       participantId: this.participantId,
