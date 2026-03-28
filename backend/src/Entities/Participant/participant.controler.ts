@@ -315,6 +315,9 @@ async function quickSellRealPlayer(req: Request, res: Response) {
 
       squad.startingRealPlayersIds = currentStarting.filter((id) => id !== realPlayerId);
       squad.substitutesRealPlayersIds = currentSubstitutes.filter((id) => id !== realPlayerId);
+      if (Number(squad.captainRealPlayerId ?? 0) === realPlayerId) {
+        squad.captainRealPlayerId = null;
+      }
 
       participant.bankBudget = Number(participant.bankBudget ?? 0) + saleValue;
       participant.availableMoney = Number(participant.availableMoney ?? 0) + saleValue;

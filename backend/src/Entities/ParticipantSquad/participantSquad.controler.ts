@@ -49,7 +49,7 @@ function normalizeOptionalRealPlayerId(value: unknown): number | null | undefine
   return null;
 }
 
-function validateCaptainBelongsToStarting(input: Record<string, unknown>): string | null {
+function normalizeCaptainAgainstStarting(input: Record<string, unknown>): string | null {
   const captainRaw = input.captainRealPlayerId;
   if (captainRaw === undefined || captainRaw === null) {
     return null;
@@ -70,7 +70,7 @@ function validateCaptainBelongsToStarting(input: Record<string, unknown>): strin
     .filter((item) => Number.isFinite(item) && item > 0);
 
   if (!startingIds.includes(captainId)) {
-    return 'captainRealPlayerId must be included in startingRealPlayersIds';
+    input.captainRealPlayerId = null;
   }
 
   return null;
@@ -129,7 +129,7 @@ async function add(req: Request, res: Response) {
       return;
     }
 
-    const captainValidationError = validateCaptainBelongsToStarting(req.body.sanitizeParticipantSquadInput);
+    const captainValidationError = normalizeCaptainAgainstStarting(req.body.sanitizeParticipantSquadInput);
     if (captainValidationError) {
       res.status(400).json({ message: captainValidationError });
       return;
@@ -162,11 +162,12 @@ async function update(req: Request, res: Response) {
       captainRealPlayerId: itemToUpdate.captainRealPlayerId ?? null,
       ...req.body.sanitizeParticipantSquadInput,
     };
-    const captainValidationError = validateCaptainBelongsToStarting(mergedForValidation);
+    const captainValidationError = normalizeCaptainAgainstStarting(mergedForValidation);
     if (captainValidationError) {
       res.status(400).json({ message: captainValidationError });
       return;
     }
+    req.body.sanitizeParticipantSquadInput.captainRealPlayerId = mergedForValidation.captainRealPlayerId;
 
     em.assign(itemToUpdate, req.body.sanitizeParticipantSquadInput);
     await em.flush();

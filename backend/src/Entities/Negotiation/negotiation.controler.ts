@@ -197,6 +197,9 @@ async function accept(req: Request, res: Response) {
 
       sellerSquad.startingRealPlayersIds = sellerStarting.filter((id) => id !== realPlayerId);
       sellerSquad.substitutesRealPlayersIds = sellerSubs.filter((id) => id !== realPlayerId);
+      if (Number(sellerSquad.captainRealPlayerId ?? 0) === realPlayerId) {
+        sellerSquad.captainRealPlayerId = null;
+      }
 
       buyerSquad.substitutesRealPlayersIds = buyerSubs.includes(realPlayerId)
         ? buyerSubs
