@@ -92,10 +92,10 @@ Si quiero hacerlo en base a los ultimos partidos, no en base al ultimo, debo usa
 * Capaz se podria hacer con un trigger? que cada vez que se cree un PlayerPerformance se sume el puntaje almacenado en la propiedad pointsObtained al puntaje del Participant en totalScore.
 
 ## Futuro
-* Si un realPlayer es elegido como capitán por un Participant, que los puntos que le sume al mismo al final de una fecha sea x2.
 * Hay que mejorar el sistema de final de pujas. Si lo hace el superadmin es injusto, si lo hace un tiempo despues de la ultima puja no termina mas (se pueden hacer pujas indefinidas por $0), si lo hago a un tiempo despues del ultimo partido de la fecha se puede romper por partido postpuesto. ¿Qué hacer si dos personas ofertan la misma cantidad de dinero? Si hay una oferta = $0 tampoco deberia dar la puja por ganada.
 * Botones para modificar o eliminar entidades en el superadmin-menu.
 * Posibilidad de eliminar un tournament (solo para el que lo creo).
+* Hacer que el tiempo de espera hasta que se pueda usar la clausula se defina en el forms de creacion de tournament.
 
 ## Listado ligas
 SPORTSAPIPRO V2:
