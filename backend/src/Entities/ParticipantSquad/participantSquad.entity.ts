@@ -15,6 +15,9 @@ export class ParticipantSquad extends BaseEntity {
   @Property({ type: 'json', nullable: false })
   substitutesRealPlayersIds: number[] = [];
 
+  @Property({ nullable: true })
+  captainRealPlayerId?: number | null;
+
   @Property({ nullable: false })
   formation: ParticipantFormation = '4-4-2';
 

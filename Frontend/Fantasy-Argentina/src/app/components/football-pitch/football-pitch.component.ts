@@ -86,6 +86,7 @@ export class FootballPitchComponent implements OnChanges {
   @Input() participantSquadId: number | null = null;
   @Input() startingPlayers: PitchPlayer[] = [];
   @Input() substitutePlayers: PitchPlayer[] = [];
+  @Input() captainRealPlayerId: number | null = null;
   @Input() formation = '4-4-2';
   @Input() playerPerformances: any[] = [];
 
@@ -102,6 +103,8 @@ export class FootballPitchComponent implements OnChanges {
   private initialStartingIds: number[] = [];
   private initialSubstituteIds: number[] = [];
   private initialFormation = this.formation;
+  private initialCaptainRealPlayerId: number | null = null;
+  selectedCaptainRealPlayerId: number | null = null;
 
   constructor(private readonly apiService: ApiService) {}
 
@@ -111,7 +114,8 @@ export class FootballPitchComponent implements OnChanges {
       changes['substitutePlayers'] ||
       changes['formation'] ||
       changes['playerPerformances'] ||
-      changes['participantSquadId']
+      changes['participantSquadId'] ||
+      changes['captainRealPlayerId']
     ) {
       this.initializeStateFromInputs();
     }
@@ -144,11 +148,13 @@ export class FootballPitchComponent implements OnChanges {
       formation: this.formation as any,
       startingRealPlayersIds: this.getCurrentStartingPlayers().map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id))),
       substitutesRealPlayersIds: this.substitutes.map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id))),
+      captainRealPlayerId: this.selectedCaptainRealPlayerId,
     }).subscribe({
       next: () => {
         this.initialStartingIds = this.getCurrentStartingPlayers().map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id)));
         this.initialSubstituteIds = this.substitutes.map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id)));
         this.initialFormation = this.formation;
+        this.initialCaptainRealPlayerId = this.selectedCaptainRealPlayerId;
         this.hasUnsavedChanges = false;
         this.isSaving = false;
         this.squadSaved.emit();
@@ -175,6 +181,23 @@ export class FootballPitchComponent implements OnChanges {
     ].filter((id) => id !== slotId);
   }
 
+  toggleCaptain(player: PitchPlayer): void {
+    const playerId = this.extractId(player.id);
+    if (!playerId) {
+      return;
+    }
+
+    this.selectedCaptainRealPlayerId = this.selectedCaptainRealPlayerId === playerId
+      ? null
+      : playerId;
+    this.updateDirtyState();
+  }
+
+  isCaptain(player: PitchPlayer): boolean {
+    const playerId = this.extractId(player.id);
+    return !!playerId && playerId === this.selectedCaptainRealPlayerId;
+  }
+
   private initializeStateFromInputs(): void {
     const normalizedStarting = (this.startingPlayers ?? []).map((player) => this.normalizePlayer(player));
     const normalizedSubstitutes = (this.substitutePlayers ?? []).map((player) => this.normalizePlayer(player));
@@ -182,6 +205,10 @@ export class FootballPitchComponent implements OnChanges {
     this.initialStartingIds = normalizedStarting.map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id)));
     this.initialSubstituteIds = normalizedSubstitutes.map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id)));
     this.initialFormation = this.formation;
+    const normalizedCaptainId = this.extractId(this.captainRealPlayerId);
+    const isCaptainInStarting = normalizedCaptainId !== null && this.initialStartingIds.includes(normalizedCaptainId);
+    this.initialCaptainRealPlayerId = isCaptainInStarting ? normalizedCaptainId : null;
+    this.selectedCaptainRealPlayerId = this.initialCaptainRealPlayerId;
 
     this.substitutes = normalizedSubstitutes;
     this.buildSlotsFromPlayers(normalizedStarting);
@@ -212,11 +239,16 @@ export class FootballPitchComponent implements OnChanges {
   private updateDirtyState(): void {
     const currentStarting = this.getCurrentStartingPlayers().map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id)));
     const currentSubstitutes = this.substitutes.map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id)));
+    const captainStillStarting = this.selectedCaptainRealPlayerId !== null && currentStarting.includes(this.selectedCaptainRealPlayerId);
+    if (!captainStillStarting) {
+      this.selectedCaptainRealPlayerId = null;
+    }
 
     this.hasUnsavedChanges =
       this.initialFormation !== this.formation ||
       !this.areSameIdArrays(this.initialStartingIds, currentStarting) ||
-      !this.areSameIdArrays(this.initialSubstituteIds, currentSubstitutes);
+      !this.areSameIdArrays(this.initialSubstituteIds, currentSubstitutes) ||
+      this.initialCaptainRealPlayerId !== this.selectedCaptainRealPlayerId;
   }
 
   private areSameIdArrays(left: number[], right: number[]): boolean {

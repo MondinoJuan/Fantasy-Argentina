@@ -96,6 +96,7 @@ Si quiero hacerlo en base a los ultimos partidos, no en base al ultimo, debo usa
 * Botones para modificar o eliminar entidades en el superadmin-menu.
 * Posibilidad de eliminar un tournament (solo para el que lo creo).
 * Hacer que el tiempo de espera hasta que se pueda usar la clausula se defina en el forms de creacion de tournament.
+* Mantener esta modalidad de tournament, pero tambien incluir la opcion de draft. Esta modalidad de tournament consiste en que al crear un tournament se invita a los Users que participarán, estos eligirán los realPlayers por turnos hasta completar un 11 (previamente se elige la formación que utilizarán). Además, al final de cada fecha se otorga la posibilidad de elegir un realPlayer a cada participant por turnos, yendo desde el último en el ranking de puntos hasta el primero. Los turnos del draft pueden ser intercambiables, pero no se a cambio de qué.
 
 ## Listado ligas
 SPORTSAPIPRO V2:

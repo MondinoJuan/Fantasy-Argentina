@@ -32,6 +32,50 @@ function normalizeRealPlayerIds(value: unknown, fallbackValue?: unknown): number
   return undefined;
 }
 
+function normalizeOptionalRealPlayerId(value: unknown): number | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null || value === '') {
+    return null;
+  }
+
+  const parsed = Number.parseInt(String(value), 10);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+
+  return null;
+}
+
+function normalizeCaptainAgainstStarting(input: Record<string, unknown>): string | null {
+  const captainRaw = input.captainRealPlayerId;
+  if (captainRaw === undefined || captainRaw === null) {
+    return null;
+  }
+
+  const captainId = Number.parseInt(String(captainRaw), 10);
+  if (!Number.isFinite(captainId) || captainId <= 0) {
+    return 'captainRealPlayerId must be a valid positive integer or null';
+  }
+
+  const startingIdsRaw = input.startingRealPlayersIds;
+  if (!Array.isArray(startingIdsRaw)) {
+    return null;
+  }
+
+  const startingIds = startingIdsRaw
+    .map((item) => Number.parseInt(String(item), 10))
+    .filter((item) => Number.isFinite(item) && item > 0);
+
+  if (!startingIds.includes(captainId)) {
+    input.captainRealPlayerId = null;
+  }
+
+  return null;
+}
+
 function sanitizeParticipantSquadInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeParticipantSquadInput = {
     participant: req.body.participant ?? req.body.participantId,
@@ -42,6 +86,9 @@ function sanitizeParticipantSquadInput(req: Request, res: Response, next: NextFu
     substitutesRealPlayersIds: normalizeRealPlayerIds(
       req.body.substitutesRealPlayersIds ?? req.body.substitutes_real_players_ids,
     ) ?? [],
+    captainRealPlayerId: normalizeOptionalRealPlayerId(
+      req.body.captainRealPlayerId ?? req.body.captain_real_player_id,
+    ),
     formation: req.body.formation,
     releaseDate: req.body.releaseDate,
     purchasePrice: req.body.purchasePrice,
@@ -82,6 +129,12 @@ async function add(req: Request, res: Response) {
       return;
     }
 
+    const captainValidationError = normalizeCaptainAgainstStarting(req.body.sanitizeParticipantSquadInput);
+    if (captainValidationError) {
+      res.status(400).json({ message: captainValidationError });
+      return;
+    }
+
     const item = em.create(ParticipantSquad, req.body.sanitizeParticipantSquadInput);
     await em.flush();
     res.status(201).json({ message: 'participant squad created', data: item });
@@ -98,7 +151,24 @@ async function update(req: Request, res: Response) {
     }
 
     const id = parseId(req.params.id);
-    const itemToUpdate = await em.getReference(ParticipantSquad, id);
+    const itemToUpdate = await em.findOne(ParticipantSquad, { id });
+    if (!itemToUpdate) {
+      res.status(404).json({ message: 'participant squad not found' });
+      return;
+    }
+
+    const mergedForValidation = {
+      startingRealPlayersIds: itemToUpdate.startingRealPlayersIds,
+      captainRealPlayerId: itemToUpdate.captainRealPlayerId ?? null,
+      ...req.body.sanitizeParticipantSquadInput,
+    };
+    const captainValidationError = normalizeCaptainAgainstStarting(mergedForValidation);
+    if (captainValidationError) {
+      res.status(400).json({ message: captainValidationError });
+      return;
+    }
+    req.body.sanitizeParticipantSquadInput.captainRealPlayerId = mergedForValidation.captainRealPlayerId;
+
     em.assign(itemToUpdate, req.body.sanitizeParticipantSquadInput);
     await em.flush();
     res.status(200).json({ message: 'participant squad updated', data: itemToUpdate });
