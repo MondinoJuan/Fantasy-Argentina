@@ -6,6 +6,10 @@ import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
 import { EntityManager } from '@mikro-orm/core';
 import { orm } from '../../shared/db/orm.js';
 import { setupParticipantAfterJoin } from '../Tournament/tournament-participation.service.js';
+import { PlayerPointsBreakdown } from '../PlayerPointsBreakdown/playerPointsBreakdown.entity.js';
+import { ParticipantMatchdayPoints } from '../ParticipantMatchdayPoints/participantMatchdayPoints.entity.js';
+import { Negotiation } from '../Negotiation/negotiation.entity.js';
+import { Bid } from '../Bid/bid.entity.js';
 
 const em = orm.em;
 
@@ -142,6 +146,61 @@ async function remove(req: Request, res: Response) {
     res.status(200).json({ message: 'participant deleted' });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
+  }
+}
+
+async function leaveTournament(req: Request, res: Response) {
+  try {
+    const userId = toInt(req.body?.userId);
+    const tournamentId = toInt(req.body?.tournamentId);
+
+    if (!userId || !tournamentId) {
+      res.status(400).json({ message: 'userId and tournamentId are required numbers' });
+      return;
+    }
+
+    const result = await em.transactional(async (transactionalEm) => {
+      const participant = await transactionalEm.findOne(Participant, { user: userId, tournament: tournamentId }, { populate: ['tournament'] });
+
+      if (!participant) {
+        throw new Error('participant not found for user and tournament');
+      }
+
+      await transactionalEm.nativeDelete(ParticipantSquad, { participant: participant.id });
+      await transactionalEm.nativeDelete(PlayerPointsBreakdown, { participant: participant.id });
+      await transactionalEm.nativeDelete(ParticipantMatchdayPoints, { participant: participant.id });
+      await transactionalEm.nativeDelete(Bid, { participant: participant.id });
+      await transactionalEm.nativeDelete(Negotiation, {
+        $or: [{ sellerParticipant: participant.id }, { buyerParticipant: participant.id }],
+        status: { $in: ['active', 'countered'] },
+      } as any);
+      await transactionalEm.nativeDelete(Participant, { id: participant.id });
+
+      const remainingParticipants = await transactionalEm.count(Participant, { tournament: tournamentId });
+
+      if (remainingParticipants === 0) {
+        await transactionalEm.nativeDelete(Tournament, { id: tournamentId });
+      }
+
+      return {
+        participantId: participant.id,
+        tournamentDeleted: remainingParticipants === 0,
+      };
+    });
+
+    res.status(200).json({
+      message: result.tournamentDeleted
+        ? 'participant removed and tournament deleted because it had no participants left'
+        : 'participant removed from tournament',
+      data: result,
+    });
+  } catch (error: any) {
+    const message = error?.message ?? 'could not remove participant from tournament';
+    if (message === 'participant not found for user and tournament') {
+      res.status(404).json({ message });
+      return;
+    }
+    res.status(500).json({ message });
   }
 }
 
@@ -360,4 +419,4 @@ async function quickSellRealPlayer(req: Request, res: Response) {
   }
 }
 
-export { sanitizeParticipantInput, findAll, findOne, add, update, remove, joinByTournamentCode, spendMoney, transferMoney, quickSellRealPlayer };
+export { sanitizeParticipantInput, findAll, findOne, add, update, remove, joinByTournamentCode, spendMoney, transferMoney, quickSellRealPlayer, leaveTournament };

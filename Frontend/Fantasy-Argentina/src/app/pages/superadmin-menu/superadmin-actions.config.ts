@@ -70,7 +70,7 @@ export const SUPERADMIN_ACTION_CONFIG: Record<SuperadminAction, { title: string;
   persistPlayers: { title: 'Persistir jugadores', fields: ['leagueIdEnApi'] },
   persistTeams: { title: 'Persistir equipos', fields: ['leagueIdEnApi'] },
   persistSport: { title: 'Persistir deporte', fields: ['sportId', 'descripcion', 'cupoTitular', 'cupoSuplente'] },
-  persistLeague: { title: 'Persistir liga', fields: ['idEnApi', 'country'] },
+  persistLeague: { title: 'Persistir liga', fields: ['idEnApi', 'country', 'limiteMin', 'limiteMax'] },
   persistUltSeason: { title: 'Persistir ultSeason', fields: ['leagueIdEnApi'] },
   persistFixture: { title: 'Persistir fixture', fields: ['competitionId', 'seasonId'] },
   getPersistedFixture: { title: 'Ver fixture persistido por League ID', fields: ['leagueId'] },

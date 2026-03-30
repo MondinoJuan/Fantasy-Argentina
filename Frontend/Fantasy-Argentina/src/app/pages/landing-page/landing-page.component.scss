@@ -199,12 +199,56 @@ button {
 }
 
 .tournament-card {
+  position: relative;
   min-height: 12.8rem;
   background: linear-gradient(170deg, rgba(251, 228, 216, 0.95), rgba(223, 182, 178, 0.55));
   border: 1px solid rgba(82, 43, 91, 0.25);
   border-radius: 1rem;
   padding: 1rem;
   animation: fade-up 0.4s ease;
+}
+
+.danger-trash-btn {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  background: #d7263d;
+  padding: 0.4rem 0.55rem;
+  border-radius: 0.55rem;
+  line-height: 1;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: grid;
+  place-items: center;
+  z-index: 50;
+}
+
+.modal-card {
+  width: min(28rem, calc(100% - 2rem));
+  background: rgba(251, 228, 216, 0.98);
+  border: 1px solid rgba(82, 43, 91, 0.35);
+  border-radius: 1rem;
+  padding: 1rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.secondary {
+  background: #9b8aa5;
+}
+
+.danger {
+  background: #d7263d;
 }
 
 .empty { text-align: center; }

@@ -51,3 +51,12 @@ Content-Type: application/json
   "userId": 1,
   "tournamentCode": "T-ABCDEFGH"
 }
+
+### salir de torneo y eliminar participant + relacionados
+POST http://127.0.0.1:3000/api/participants/leave-tournament
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "tournamentId": 1
+}

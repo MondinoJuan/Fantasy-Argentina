@@ -11,7 +11,10 @@ Content-Type: application/json
 {
   "name": "Liga Profesional",
   "country": "Argentina",
-  "idEnApi": "1"
+  "sport": "Football",
+  "idEnApi": "1",
+  "limiteMin": 1000000,
+  "limiteMax": 7000000
 }
 
 ### actualizar un registro de League por id
@@ -21,7 +24,10 @@ Content-Type: application/json
 {
   "name": "Liga Profesional actualizado",
   "country": "Argentina",
-  "idEnApi": "1"
+  "sport": "Football",
+  "idEnApi": "1",
+  "limiteMin": 1100000,
+  "limiteMax": 7100000
 }
 
 ### actualizar parcialmente un registro de League por id
@@ -31,7 +37,8 @@ Content-Type: application/json
 {
   "name": "Liga Profesional actualizado",
   "country": "Argentina",
-  "idEnApi": "1"
+  "limiteMin": null,
+  "limiteMax": null
 }
 
 ### eliminar un registro de League por id
@@ -49,6 +56,8 @@ POST http://127.0.0.1:3000/api/leagues/sync/by-id-en-api
 Content-Type: application/json
 
 {
-  "sportId": 1,
-  "idEnApi": 72
+  "idEnApi": 72,
+  "country": "argentina",
+  "limiteMin": 1000000,
+  "limiteMax": 7000000
 }

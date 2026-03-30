@@ -35,7 +35,11 @@ async function getLeagueFromCountryLeagues(country: string, competitionId: numbe
   return matched;
 }
 
-export async function persistNewLeagueService(competitionId: number, country = 'argentina') {
+export async function persistNewLeagueService(
+  competitionId: number,
+  country = 'argentina',
+  limits?: { limiteMin?: number | null; limiteMax?: number | null },
+) {
   const external = await getLeagueFromCountryLeagues(country, competitionId);
 
   let league = await em.findOne(League, { idEnApi: competitionId });
@@ -49,6 +53,8 @@ export async function persistNewLeagueService(competitionId: number, country = '
       country: externalCountry || 'Unknown',
       sport: normalizedSport,
       idEnApi: competitionId,
+      limiteMin: null,
+      limiteMax: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -56,6 +62,14 @@ export async function persistNewLeagueService(competitionId: number, country = '
     league.name = externalName || league.name;
     league.country = externalCountry || league.country;
     league.sport = normalizedSport;
+  }
+
+  if (typeof limits?.limiteMin === 'number' && Number.isFinite(limits.limiteMin)) {
+    league.limiteMin = limits.limiteMin;
+  }
+
+  if (typeof limits?.limiteMax === 'number' && Number.isFinite(limits.limiteMax)) {
+    league.limiteMax = limits.limiteMax;
   }
 
   await em.flush();

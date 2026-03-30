@@ -21,6 +21,12 @@ export class League extends BaseEntity {
   @Property({ nullable: false })
   idEnApi!: number;
 
+  @Property({ type: 'float', nullable: true })
+  limiteMin?: number | null;
+
+  @Property({ type: 'float', nullable: true })
+  limiteMax?: number | null;
+
   @OneToMany(() => Tournament, (tournament) => tournament.league, {
     cascade: [Cascade.ALL],
   })
