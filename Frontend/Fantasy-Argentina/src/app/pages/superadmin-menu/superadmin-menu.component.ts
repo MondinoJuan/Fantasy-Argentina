@@ -54,7 +54,7 @@ export class SuperadminMenuComponent {
       leagueId: [1, [Validators.required, Validators.min(1)]],
       leagueIdEnApi: [72, [Validators.required, Validators.min(1)]],
       idEnApi: [72, [Validators.required, Validators.min(1)]],
-      country: ['argentina', Validators.required],
+      country: [''],
       descripcion: ['Football', Validators.required],
       cupoTitular: [11, [Validators.required, Validators.min(1)]],
       cupoSuplente: [5, [Validators.required, Validators.min(0)]],
@@ -135,8 +135,9 @@ export class SuperadminMenuComponent {
         cupoSuplente: Number(form.cupoSuplente),
       }),
       persistLeague: () => this.apiService.syncLeagueByIdEnApi({
+        // Si country queda vacío, el backend usa lookup directo por tournament/idEnApi.
+        country: String(form.country ?? '').trim() || null,
         idEnApi: Number(form.idEnApi),
-        country: String(form.country ?? '').trim(),
         limiteMin: Number.isFinite(Number(form.limiteMin)) ? Number(form.limiteMin) : null,
         limiteMax: Number.isFinite(Number(form.limiteMax)) ? Number(form.limiteMax) : null,
       }),

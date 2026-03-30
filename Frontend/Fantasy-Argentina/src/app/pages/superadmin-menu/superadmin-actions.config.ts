@@ -55,7 +55,7 @@ export const SUPERADMIN_FIELD_LABELS: Record<ActionField, string> = {
   leagueId: 'League ID local (BDD)',
   leagueIdEnApi: 'League ID en API',
   idEnApi: 'League idEnApi (alta liga)',
-  country: 'País',
+  country: 'País (opcional)',
   descripcion: 'Descripción deporte',
   cupoTitular: 'Cupo titular',
   cupoSuplente: 'Cupo suplente',

@@ -224,12 +224,13 @@ async function remove(req: Request, res: Response) {
 async function syncByIdEnApi(req: Request, res: Response) {
   try {
     const idEnApi = Number.parseInt(String(req.body?.idEnApi ?? ''), 10);
-    const country = String(req.body?.country ?? 'argentina').trim();
+    const rawCountry = typeof req.body?.country === 'string' ? req.body.country.trim() : '';
+    const country = rawCountry.length > 0 ? rawCountry : null;
     const limiteMin = toNumber(req.body?.limiteMin);
     const limiteMax = toNumber(req.body?.limiteMax);
 
-    if (!Number.isFinite(idEnApi) || !country) {
-      res.status(400).json({ message: 'idEnApi and country are required' });
+    if (!Number.isFinite(idEnApi)) {
+      res.status(400).json({ message: 'idEnApi is required' });
       return;
     }
 
