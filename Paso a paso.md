@@ -96,6 +96,7 @@ Si quiero hacerlo en base a los ultimos partidos, no en base al ultimo, debo usa
 * Hay que mejorar el sistema de final de pujas. Si lo hace el superadmin es injusto, si lo hace un tiempo despues de la ultima puja no termina mas (se pueden hacer pujas indefinidas por $0), si lo hago a un tiempo despues del ultimo partido de la fecha se puede romper por partido postpuesto. ¿Qué hacer si dos personas ofertan la misma cantidad de dinero? Si hay una oferta = $0 tampoco deberia dar la puja por ganada.
 * Botones para modificar o eliminar entidades en el superadmin-menu.
 * Posibilidad de eliminar un tournament (solo para el que lo creo).
+* Mantener esta modalidad de tournament, pero tambien incluir la opcion de draft. Esta modalidad de tournament consiste en que al crear un tournament se invita a los Users que participarán, estos eligirán los realPlayers por turnos hasta completar un 11 (previamente se elige la formación que utilizarán). Además, al final de cada fecha se otorga la posibilidad de elegir un realPlayer a cada participant por turnos, yendo desde el último en el ranking de puntos hasta el primero. Los turnos del draft pueden ser intercambiables, pero no se a cambio de qué.
 
 ## Listado ligas
 SPORTSAPIPRO V2:
