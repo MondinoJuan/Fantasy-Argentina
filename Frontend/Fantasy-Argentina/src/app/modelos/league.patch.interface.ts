@@ -4,4 +4,6 @@ export interface leaguePatchI {
   country?: string;
   sport?: string;
   idEnApi?: number;
+  limiteMin?: number | null;
+  limiteMax?: number | null;
 }

@@ -29,12 +29,6 @@ export class Tournament extends BaseEntity {
   @Property({ nullable: false })
   squadSize!: number;
 
-  @Property({ type: 'float', nullable: false })
-  limiteMin!: number;
-
-  @Property({ type: 'float', nullable: false })
-  limiteMax!: number;
-
   @Property({ nullable: false })
   status!: TournamentStatus;
 

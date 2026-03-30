@@ -66,10 +66,9 @@ function sanitizeTournamentInput(req: Request, res: Response, next: NextFunction
     creationDate: req.body.creationDate,
     initialBudget: req.body.initialBudget,
     squadSize: req.body.squadSize,
-    limiteMin: toNumber(req.body.limiteMin),
-    limiteMax: toNumber(req.body.limiteMax),
     status: req.body.status,
     clauseEnableDate: req.body.clauseEnableDate,
+    clauseWaitDays: toInt(req.body.clauseWaitDays),
     creatorUserId: req.body.creatorUserId,
   };
 
@@ -590,8 +589,22 @@ async function add(req: Request, res: Response) {
       ? requestedBudget
       : DEFAULT_INITIAL_BUDGET;
 
-    tournamentInput.limiteMin = FIXED_TRANSLATED_MIN;
-    tournamentInput.limiteMax = FIXED_TRANSLATED_MAX;
+    const requestedCreationDate = tournamentInput.creationDate ? new Date(tournamentInput.creationDate) : new Date();
+    const effectiveCreationDate = Number.isNaN(requestedCreationDate.getTime()) ? new Date() : requestedCreationDate;
+
+    const requestedClauseEnableDate = tournamentInput.clauseEnableDate ? new Date(tournamentInput.clauseEnableDate) : null;
+    const parsedClauseWaitDays = Number.parseInt(String((tournamentInput as any).clauseWaitDays ?? ''), 10);
+    const clauseWaitDays = Number.isFinite(parsedClauseWaitDays) && parsedClauseWaitDays >= 0 ? parsedClauseWaitDays : 14;
+
+    const computedClauseEnableDate = new Date(effectiveCreationDate);
+    computedClauseEnableDate.setDate(computedClauseEnableDate.getDate() + clauseWaitDays);
+
+    tournamentInput.creationDate = effectiveCreationDate;
+    tournamentInput.clauseEnableDate = requestedClauseEnableDate && !Number.isNaN(requestedClauseEnableDate.getTime())
+      ? requestedClauseEnableDate
+      : computedClauseEnableDate;
+
+    delete (tournamentInput as any).clauseWaitDays;
 
     const localLeagueId = toInt(rawLeagueId);
 

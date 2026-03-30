@@ -21,16 +21,16 @@ import { AuthService } from '../../servicios/auth.service';
 export class LandingPageComponent implements OnInit {
   tournaments: tournamentI[] = [];
   leagues: leagueI[] = [];
-  readonly sportOptions = [
-    { idEnApi: 1, label: 'Football', descripcion: 'Football', cupoTitular: 11, cupoSuplente: 5 },
-    { idEnApi: 2, label: 'Basket', descripcion: 'Basketball', cupoTitular: 5, cupoSuplente: 3 },
-  ];
+  readonly participantIdByTournamentId = new Map<number, number>();
   searchTerm = '';
   isLoading = true;
   isCreating = false;
   isJoining = false;
+  isLeaving = false;
   showCreateForm = false;
   menuOpen = false;
+  showLeaveModal = false;
+  selectedTournamentToLeave: tournamentI | null = null;
   errorMessage = '';
   joinErrorMessage = '';
 
@@ -59,10 +59,8 @@ export class LandingPageComponent implements OnInit {
     this.createTournamentForm = this.fb.nonNullable.group({
       name: ['', [Validators.required, Validators.minLength(4)]],
       leagueId: [0, [Validators.required, Validators.min(1)]],
-      sportIdEnApi: [1, Validators.required],
       initialBudget: [20000000, [Validators.required, Validators.min(100000)]],
-      limiteMin: [1000000, [Validators.required, Validators.min(1)]],
-      limiteMax: [7000000, [Validators.required, Validators.min(2)]],
+      clauseWaitDays: [14, [Validators.required, Validators.min(0), Validators.max(365)]],
       status: ['active', Validators.required]
     });
 
@@ -130,9 +128,6 @@ export class LandingPageComponent implements OnInit {
 
     const formValue = this.createTournamentForm.getRawValue();
     const creationDate = new Date();
-    const clauseEnableDate = new Date(creationDate);
-    clauseEnableDate.setDate(clauseEnableDate.getDate() + 14);
-
     const selectedLeagueId = Number(formValue.leagueId);
 
     if (!Number.isFinite(selectedLeagueId) || selectedLeagueId <= 0) {
@@ -141,20 +136,21 @@ export class LandingPageComponent implements OnInit {
       return;
     }
 
-    const selectedSport = this.sportOptions.find((sport) => sport.idEnApi === Number(formValue.sportIdEnApi));
+    const selectedLeague = this.leagues.find((league) => Number(league.id) === selectedLeagueId);
+    const clauseWaitDays = Number.isFinite(Number(formValue.clauseWaitDays)) ? Number(formValue.clauseWaitDays) : 14;
+    const clauseEnableDate = new Date(creationDate);
+    clauseEnableDate.setDate(clauseEnableDate.getDate() + Math.max(0, clauseWaitDays));
 
     this.apiService.postTournament({
       name: formValue.name.trim(),
       league: selectedLeagueId,
-      sport: selectedSport?.descripcion ?? 'Football',
-      sportId: Number(formValue.sportIdEnApi),
+      sport: String(selectedLeague?.sport ?? 'Football'),
       creationDate,
       initialBudget: Number.isFinite(Number(formValue.initialBudget)) && Number(formValue.initialBudget) > 0 ? Number(formValue.initialBudget) : 20000000,
       squadSize: 16,
-      limiteMin: 1000000,
-      limiteMax: 7000000,
       status: formValue.status as TournamentStatus,
       clauseEnableDate,
+      clauseWaitDays: Math.max(0, clauseWaitDays),
       creatorUserId: userId,
     }).pipe(
       finalize(() => this.isCreating = false),
@@ -164,10 +160,8 @@ export class LandingPageComponent implements OnInit {
         this.createTournamentForm.reset({
           name: '',
           leagueId: this.leagues[0]?.id ?? 0,
-          sportIdEnApi: 1,
           initialBudget: 20000000,
-          limiteMin: 1000000,
-          limiteMax: 7000000,
+          clauseWaitDays: 14,
           status: 'active',
         });
 
@@ -245,6 +239,42 @@ export class LandingPageComponent implements OnInit {
     this.router.navigate(['/inside-tournament'], { queryParams: { tournamentId } });
   }
 
+  openLeaveTournamentModal(tournament: tournamentI, event: Event): void {
+    event.stopPropagation();
+    this.selectedTournamentToLeave = tournament;
+    this.showLeaveModal = true;
+    this.errorMessage = '';
+  }
+
+  closeLeaveTournamentModal(): void {
+    this.showLeaveModal = false;
+    this.selectedTournamentToLeave = null;
+  }
+
+  confirmLeaveTournament(): void {
+    if (!this.selectedTournamentToLeave?.id || this.isLeaving) return;
+
+    const userId = Number(localStorage.getItem('currentUserId'));
+    if (!userId) {
+      this.router.navigate(['/logIn']);
+      return;
+    }
+
+    this.isLeaving = true;
+    this.apiService.leaveParticipantTournament({
+      userId,
+      tournamentId: this.selectedTournamentToLeave.id,
+    }).pipe(finalize(() => this.isLeaving = false)).subscribe({
+      next: () => {
+        this.closeLeaveTournamentModal();
+        this.loadTournaments(userId);
+      },
+      error: (error) => {
+        this.errorMessage = error?.error?.message ?? 'No se pudo eliminar tu participación del torneo.';
+      }
+    });
+  }
+
   private extractEntityId(value: number | { id?: number } | undefined | null): number | null {
     if (typeof value === 'number') {
       return Number.isFinite(value) ? value : null;
@@ -268,15 +298,22 @@ export class LandingPageComponent implements OnInit {
     }).pipe(finalize(() => this.isLoading = false)).subscribe({
       next: ({ participants, tournaments, leagues }: any) => {
         this.leagues = leagues?.data ?? [];
+        this.participantIdByTournamentId.clear();
 
         if (!this.createTournamentForm.controls.leagueId.value && this.leagues.length > 0) {
           this.createTournamentForm.patchValue({ leagueId: this.leagues[0].id ?? 0 });
         }
+
+        for (const participant of participants.data ?? []) {
+          if (this.extractEntityId(participant.user) !== userId) continue;
+          const tournamentId = this.extractEntityId(participant.tournament);
+          const participantId = this.extractEntityId(participant.id);
+          if (!tournamentId || !participantId) continue;
+          this.participantIdByTournamentId.set(tournamentId, participantId);
+        }
+
         const joinedTournamentIds = new Set(
-          participants.data
-            .filter((participant: any) => this.extractEntityId(participant.user) === userId)
-            .map((participant: any) => this.extractEntityId(participant.tournament))
-            .filter((tournamentId: any): tournamentId is number => tournamentId !== null)
+          this.participantIdByTournamentId.keys()
         );
 
         this.tournaments = tournaments.data.filter((tournament: any) =>

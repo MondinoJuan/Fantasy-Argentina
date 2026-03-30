@@ -6,7 +6,6 @@ import { Matchday } from '../Matchday/matchday.entity.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
 import { GameMatch } from '../GameMatch/gameMatch.entity.js';
 import { League } from '../League/league.entity.js';
-import { Tournament } from '../Tournament/tournament.entity.js';
 import { RealTeam } from '../RealTeam/realTeam.entity.js';
 import { MATCHDAY_STATUSES, MATCH_STATUSES, isEnumValue } from '../../shared/domain-enums.js';
 import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
@@ -1007,22 +1006,16 @@ function clamp(value: number, min: number, max: number): number {
 async function updateRealPlayerTranslatedValuesByLatestFormForCompetition(competitionId: number, localEm: typeof orm.em) {
   const league = await localEm.findOne(League, { idEnApi: competitionId });
   if (!league) return { skipped: true, reason: 'league not found locally' };
-
-  const tournament = await localEm.findOne(
-    Tournament,
-    { league: { id: league.id } } as any,
-    { orderBy: { id: 'desc' } as any },
-  );
-  if (!tournament || typeof tournament.limiteMin !== 'number' || typeof tournament.limiteMax !== 'number') {
-    return { skipped: true, reason: 'tournament with limits not found for league', leagueId: league.id };
-  }
-
-  const limiteMin = Number(tournament.limiteMin);
-  const limiteMax = Number(tournament.limiteMax);
+  const limiteMin = typeof league.limiteMin === 'number' && Number.isFinite(league.limiteMin)
+    ? Number(league.limiteMin)
+    : 1_000_000;
+  const limiteMax = typeof league.limiteMax === 'number' && Number.isFinite(league.limiteMax)
+    ? Number(league.limiteMax)
+    : 7_000_000;
   const range = limiteMax - limiteMin;
 
   if (!Number.isFinite(range) || range <= 0) {
-    return { skipped: true, reason: 'invalid tournament limits', limiteMin, limiteMax, tournamentId: tournament.id };
+    return { skipped: true, reason: 'invalid league limits', limiteMin, limiteMax, leagueId: league.id };
   }
 
   const teams = await em.find(RealTeam, { league: { id: league.id } } as any, { fields: ['id'] as any });
@@ -1101,7 +1094,6 @@ async function updateRealPlayerTranslatedValuesByLatestFormForCompetition(compet
   return {
     skipped: false,
     leagueId: league.id,
-    tournamentId: tournament.id,
     limiteMin,
     limiteMax,
     playersInLeague: players.length,

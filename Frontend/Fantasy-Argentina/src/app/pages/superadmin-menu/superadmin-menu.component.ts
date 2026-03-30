@@ -137,6 +137,8 @@ export class SuperadminMenuComponent {
       persistLeague: () => this.apiService.syncLeagueByIdEnApi({
         idEnApi: Number(form.idEnApi),
         country: String(form.country ?? '').trim(),
+        limiteMin: Number.isFinite(Number(form.limiteMin)) ? Number(form.limiteMin) : null,
+        limiteMax: Number.isFinite(Number(form.limiteMax)) ? Number(form.limiteMax) : null,
       }),
       persistUltSeason: () => this.apiService.syncUltSeasonByLeagueIdEnApi({ leagueIdEnApi: Number(form.leagueIdEnApi) }),
       persistFixture: () => this.apiService.postExternalFixtureBuildCompetition({

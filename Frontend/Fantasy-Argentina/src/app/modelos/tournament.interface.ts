@@ -9,8 +9,6 @@ export interface tournamentI {
   creationDate: Date;
   initialBudget: number;
   squadSize: number;
-  limiteMin: number;
-  limiteMax: number;
   status: TournamentStatus;
   publicCode?: string;
   clauseEnableDate?: Date;

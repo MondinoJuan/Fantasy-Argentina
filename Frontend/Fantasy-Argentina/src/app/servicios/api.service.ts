@@ -214,6 +214,7 @@ export class ApiService {
   patchParticipant(participant: participantPatchI) { return this.http.patch<responseParticipantI>(`${this.url}/participants/${participant.id}`, participant); }
   removeParticipant(id: number | string) { return this.http.delete<responseParticipantI>(`${this.url}/participants/${id}`); }
   joinParticipantByTournamentCode(payload: { userId: number; tournamentCode: string }) { return this.http.post<any>(`${this.url}/participants/join-by-code`, payload); }
+  leaveParticipantTournament(payload: { userId: number; tournamentId: number }) { return this.http.post<any>(`${this.url}/participants/leave-tournament`, payload); }
   participantSpendMoney(payload: { participantId: number; amount: number }) {
     return this.http.post<any>(`${this.url}/participants/${payload.participantId}/spend-money`, { amount: payload.amount });
   }
@@ -368,7 +369,7 @@ export class ApiService {
     return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/build`, payload);
   }
 
-  syncLeagueByIdEnApi(payload: { idEnApi: number; country: string }) {
+  syncLeagueByIdEnApi(payload: { idEnApi: number; country: string; limiteMin?: number | null; limiteMax?: number | null }) {
     return this.http.post<any>(`${this.url}/leagues/sync/by-id-en-api`, payload);
   }
 

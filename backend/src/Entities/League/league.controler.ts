@@ -11,12 +11,27 @@ function parseId(idParam: string | string[] | undefined) {
   return Number.parseInt(rawId ?? '', 10);
 }
 
+function toNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number.parseFloat(value.trim());
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
 function sanitizeLeagueInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeLeagueInput = {
     name: req.body.name,
     country: req.body.country,
     sport: req.body.sport,
     idEnApi: req.body.idEnApi,
+    limiteMin: toNumber(req.body.limiteMin),
+    limiteMax: toNumber(req.body.limiteMax),
   };
 
   Object.keys(req.body.sanitizeLeagueInput).forEach((key) => {
@@ -53,6 +68,8 @@ async function syncFromSportsApiPro(req: Request, res: Response) {
         country: externalLeague.country,
         sport: 'Football',
         idEnApi: externalLeague.id,
+        limiteMin: null,
+        limiteMax: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -105,6 +122,8 @@ async function ensureByNameFromSportsApiPro(req: Request, res: Response) {
       country: matchedLeague.country,
       sport: 'Football',
       idEnApi: matchedLeague.id,
+      limiteMin: null,
+      limiteMax: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -206,13 +225,15 @@ async function syncByIdEnApi(req: Request, res: Response) {
   try {
     const idEnApi = Number.parseInt(String(req.body?.idEnApi ?? ''), 10);
     const country = String(req.body?.country ?? 'argentina').trim();
+    const limiteMin = toNumber(req.body?.limiteMin);
+    const limiteMax = toNumber(req.body?.limiteMax);
 
     if (!Number.isFinite(idEnApi) || !country) {
       res.status(400).json({ message: 'idEnApi and country are required' });
       return;
     }
 
-    const item = await persistNewLeagueService(idEnApi, country);
+    const item = await persistNewLeagueService(idEnApi, country, { limiteMin, limiteMax });
     await em.flush();
     res.status(201).json({ message: 'league synced from sportsapipro', data: item });
   } catch (error: any) {

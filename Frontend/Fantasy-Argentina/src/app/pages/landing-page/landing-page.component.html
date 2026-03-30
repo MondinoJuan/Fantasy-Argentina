@@ -48,26 +48,12 @@
           </label>
           <div class="grid-2">
             <label>
-              Deporte
-              <select formControlName="sportIdEnApi">
-                @for (sport of sportOptions; track sport) {
-                  <option [ngValue]="sport.idEnApi">{{ sport.label }}</option>
-                }
-              </select>
-            </label>
-            <label>
               Presupuesto inicial
               <input type="number" formControlName="initialBudget" />
             </label>
-          </div>
-          <div class="grid-2">
             <label>
-              Límite mínimo de precio
-              <input type="number" formControlName="limiteMin" readonly />
-            </label>
-            <label>
-              Límite máximo de precio
-              <input type="number" formControlName="limiteMax" readonly />
+              Días para habilitar cláusulas
+              <input type="number" formControlName="clauseWaitDays" min="0" />
             </label>
           </div>
           <p><strong>Plantel fijo:</strong> 11 titulares + 5 suplentes (16 jugadores)</p>
@@ -116,6 +102,14 @@
 
       @for (tournament of filteredTournaments; track tournament.id) {
         <article class="tournament-card" role="button" tabindex="0" (click)="openTournament(tournament.id)" (keyup.enter)="openTournament(tournament.id)">
+          <button
+            type="button"
+            class="danger-trash-btn"
+            aria-label="Eliminar mi participación del torneo"
+            (click)="openLeaveTournamentModal(tournament, $event)"
+          >
+            🗑️
+          </button>
           <h3>{{ tournament.name }}</h3>
           <p><strong>Estado:</strong> {{ tournament.status }}</p>
           <p><strong>Creado:</strong> {{ tournament.creationDate | date: 'dd/MM/yyyy' }}</p>
@@ -134,3 +128,18 @@
     }
   }
 </section>
+
+@if (showLeaveModal && selectedTournamentToLeave) {
+  <div class="modal-backdrop">
+    <div class="modal-card">
+      <h3>¿Está seguro de la acción?</h3>
+      <p>Vas a eliminar tu participación del torneo <strong>{{ selectedTournamentToLeave.name }}</strong>.</p>
+      <div class="modal-actions">
+        <button type="button" class="secondary" (click)="closeLeaveTournamentModal()">Cancelar</button>
+        <button type="button" class="danger" [disabled]="isLeaving" (click)="confirmLeaveTournament()">
+          {{ isLeaving ? 'Eliminando...' : 'Eliminar participación' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
