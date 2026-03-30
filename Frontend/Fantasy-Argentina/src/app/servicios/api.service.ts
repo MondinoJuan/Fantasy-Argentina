@@ -369,7 +369,7 @@ export class ApiService {
     return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/build`, payload);
   }
 
-  syncLeagueByIdEnApi(payload: { idEnApi: number; country: string; limiteMin?: number | null; limiteMax?: number | null }) {
+  syncLeagueByIdEnApi(payload: { idEnApi: number; country?: string | null; limiteMin?: number | null; limiteMax?: number | null }) {
     return this.http.post<any>(`${this.url}/leagues/sync/by-id-en-api`, payload);
   }
 

@@ -20,6 +20,10 @@ function normalizeCountryInput(country: string): string {
   return noDiacritics.replace(/\s+/g, '-');
 }
 
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 async function getLeagueFromCountryLeagues(country: string, competitionId: number): Promise<UnknownRecord> {
   const payload = asRecord(await requestSportsApiPro('/api/leagues', {
     country: normalizeCountryInput(country),
@@ -35,16 +39,39 @@ async function getLeagueFromCountryLeagues(country: string, competitionId: numbe
   return matched;
 }
 
+async function getLeagueFromTournamentInfo(competitionId: number): Promise<UnknownRecord> {
+  const payload = asRecord(await requestSportsApiPro(`/api/tournament/${competitionId}/info`));
+  const data = asRecord(payload.data);
+  const uniqueTournament = asRecord(data.uniqueTournament);
+
+  if (Object.keys(uniqueTournament).length === 0) {
+    throw new Error('No se encontró la competición.');
+  }
+
+  const category = asRecord(uniqueTournament.category);
+
+  return {
+    name: asString(uniqueTournament.name),
+    country: asString(category.name) || asString(category.slug) || 'international',
+  };
+}
+
 export async function persistNewLeagueService(
   competitionId: number,
-  country = 'argentina',
+  country?: string | null,
   limits?: { limiteMin?: number | null; limiteMax?: number | null },
 ) {
-  const external = await getLeagueFromCountryLeagues(country, competitionId);
+  const normalizedCountry = typeof country === 'string' ? country.trim() : '';
+  const hasCountry = normalizedCountry.length > 0;
+  const external = hasCountry
+    ? await getLeagueFromCountryLeagues(normalizedCountry, competitionId)
+    : await getLeagueFromTournamentInfo(competitionId);
 
   let league = await em.findOne(League, { idEnApi: competitionId });
   const externalName = String(external.name ?? `League ${competitionId}`).trim();
-  const externalCountry = String(country ?? 'Unknown').trim();
+  const externalCountry = hasCountry
+    ? normalizedCountry
+    : asString(external.country) || 'international';
   const normalizedSport = '1';
 
   if (!league) {
