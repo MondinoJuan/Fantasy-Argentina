@@ -47,7 +47,7 @@ export async function persistLeagueKnockoutStageByIdEnApi(leagueIdEnApi: number)
     throw new Error('league must exist locally. Use superadmin sync first.');
   }
 
-  if (!league.kncokoutStage) {
+  if (!league.knockoutStage) {
     return {
       skipped: true,
       message: 'La league seleccionada no tiene fase eliminatoria (kncokoutStage=false).',

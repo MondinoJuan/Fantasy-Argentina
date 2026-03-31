@@ -80,7 +80,7 @@ export async function persistNewLeagueService(
       country: externalCountry || 'Unknown',
       sport: normalizedSport,
       idEnApi: competitionId,
-      kncokoutStage: false,
+      knockoutStage: false,
       limiteMin: null,
       limiteMax: null,
       createdAt: new Date(),
@@ -93,7 +93,7 @@ export async function persistNewLeagueService(
   }
 
   if (typeof options?.kncokoutStage === 'boolean') {
-    league.kncokoutStage = options.kncokoutStage;
+    league.knockoutStage = options.kncokoutStage;
   }
 
   if (typeof options?.limiteMin === 'number' && Number.isFinite(options.limiteMin)) {
