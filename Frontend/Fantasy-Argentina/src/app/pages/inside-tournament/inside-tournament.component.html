@@ -180,6 +180,12 @@
 
     <section class="panel">
       <h2>Equipos rivales (otros participants)</h2>
+      <p *ngIf="tournament?.clauseEnableDate as clauseEnableDate">
+        El pago de cláusulas se habilita el {{ clauseEnableDate | date:'dd/MM/yyyy HH:mm' }}.
+      </p>
+      <p *ngIf="!tournament?.clauseEnableDate">
+        El pago de cláusulas se habilita 14 días después de crear el torneo.
+      </p>
       <p *ngIf="participantsOrdered.length === 0">Por ahora no hay participants cargados en este torneo.</p>
       <app-rivals-real-player-list
         *ngFor="let listedParticipant of participantsOrdered"

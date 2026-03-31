@@ -29,6 +29,9 @@ export class PlayerClause extends BaseEntity {
   @Property({ nullable: false })
   updateDate: Date = new Date();
 
+  @Property({ nullable: true })
+  clauseDisabledUntil?: Date | null = null;
+
   @OneToMany(() => Shielding, (shielding) => shielding.playerClause, {
     cascade: [Cascade.ALL],
   })

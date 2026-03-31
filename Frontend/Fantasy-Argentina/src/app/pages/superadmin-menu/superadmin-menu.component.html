@@ -34,7 +34,13 @@
         <label *ngFor="let field of currentFields">
           {{ fieldLabels[field] }}
           <input
+            *ngIf="field !== 'kncokoutStage'"
             [type]="field === 'descripcion' || field === 'country' ? 'text' : 'number'"
+            [formControlName]="field"
+          >
+          <input
+            *ngIf="field === 'kncokoutStage'"
+            type="checkbox"
             [formControlName]="field"
           >
         </label>

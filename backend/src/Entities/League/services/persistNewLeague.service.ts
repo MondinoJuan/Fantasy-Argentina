@@ -20,6 +20,10 @@ function normalizeCountryInput(country: string): string {
   return noDiacritics.replace(/\s+/g, '-');
 }
 
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 async function getLeagueFromCountryLeagues(country: string, competitionId: number): Promise<UnknownRecord> {
   const payload = asRecord(await requestSportsApiPro('/api/leagues', {
     country: normalizeCountryInput(country),
@@ -35,16 +39,39 @@ async function getLeagueFromCountryLeagues(country: string, competitionId: numbe
   return matched;
 }
 
+async function getLeagueFromTournamentInfo(competitionId: number): Promise<UnknownRecord> {
+  const payload = asRecord(await requestSportsApiPro(`/api/tournament/${competitionId}/info`));
+  const data = asRecord(payload.data);
+  const uniqueTournament = asRecord(data.uniqueTournament);
+
+  if (Object.keys(uniqueTournament).length === 0) {
+    throw new Error('No se encontró la competición.');
+  }
+
+  const category = asRecord(uniqueTournament.category);
+
+  return {
+    name: asString(uniqueTournament.name),
+    country: asString(category.name) || asString(category.slug) || 'international',
+  };
+}
+
 export async function persistNewLeagueService(
   competitionId: number,
-  country = 'argentina',
-  limits?: { limiteMin?: number | null; limiteMax?: number | null },
+  country?: string | null,
+  options?: { limiteMin?: number | null; limiteMax?: number | null; kncokoutStage?: boolean },
 ) {
-  const external = await getLeagueFromCountryLeagues(country, competitionId);
+  const normalizedCountry = typeof country === 'string' ? country.trim() : '';
+  const hasCountry = normalizedCountry.length > 0;
+  const external = hasCountry
+    ? await getLeagueFromCountryLeagues(normalizedCountry, competitionId)
+    : await getLeagueFromTournamentInfo(competitionId);
 
   let league = await em.findOne(League, { idEnApi: competitionId });
   const externalName = String(external.name ?? `League ${competitionId}`).trim();
-  const externalCountry = String(country ?? 'Unknown').trim();
+  const externalCountry = hasCountry
+    ? normalizedCountry
+    : asString(external.country) || 'international';
   const normalizedSport = '1';
 
   if (!league) {
@@ -53,6 +80,7 @@ export async function persistNewLeagueService(
       country: externalCountry || 'Unknown',
       sport: normalizedSport,
       idEnApi: competitionId,
+      kncokoutStage: false,
       limiteMin: null,
       limiteMax: null,
       createdAt: new Date(),
@@ -64,12 +92,16 @@ export async function persistNewLeagueService(
     league.sport = normalizedSport;
   }
 
-  if (typeof limits?.limiteMin === 'number' && Number.isFinite(limits.limiteMin)) {
-    league.limiteMin = limits.limiteMin;
+  if (typeof options?.kncokoutStage === 'boolean') {
+    league.kncokoutStage = options.kncokoutStage;
   }
 
-  if (typeof limits?.limiteMax === 'number' && Number.isFinite(limits.limiteMax)) {
-    league.limiteMax = limits.limiteMax;
+  if (typeof options?.limiteMin === 'number' && Number.isFinite(options.limiteMin)) {
+    league.limiteMin = options.limiteMin;
+  }
+
+  if (typeof options?.limiteMax === 'number' && Number.isFinite(options.limiteMax)) {
+    league.limiteMax = options.limiteMax;
   }
 
   await em.flush();

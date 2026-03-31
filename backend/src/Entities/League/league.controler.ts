@@ -3,6 +3,7 @@ import { League } from './league.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { fetchLeaguesFromSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
 import { persistNewLeagueService } from './services/persistNewLeague.service.js';
+import { persistLeagueKnockoutStageByIdEnApi } from './services/persistLeagueKnockoutStage.service.js';
 
 const em = orm.em;
 
@@ -24,12 +25,27 @@ function toNumber(value: unknown): number | null {
   return null;
 }
 
+function toOptionalBoolean(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') return true;
+    if (normalized === 'false') return false;
+  }
+
+  return undefined;
+}
+
 function sanitizeLeagueInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeLeagueInput = {
     name: req.body.name,
     country: req.body.country,
     sport: req.body.sport,
     idEnApi: req.body.idEnApi,
+    kncokoutStage: toOptionalBoolean(req.body.kncokoutStage),
     limiteMin: toNumber(req.body.limiteMin),
     limiteMax: toNumber(req.body.limiteMax),
   };
@@ -68,6 +84,7 @@ async function syncFromSportsApiPro(req: Request, res: Response) {
         country: externalLeague.country,
         sport: 'Football',
         idEnApi: externalLeague.id,
+        kncokoutStage: false,
         limiteMin: null,
         limiteMax: null,
         createdAt: new Date(),
@@ -122,6 +139,7 @@ async function ensureByNameFromSportsApiPro(req: Request, res: Response) {
       country: matchedLeague.country,
       sport: 'Football',
       idEnApi: matchedLeague.id,
+      kncokoutStage: false,
       limiteMin: null,
       limiteMax: null,
       createdAt: new Date(),
@@ -224,20 +242,65 @@ async function remove(req: Request, res: Response) {
 async function syncByIdEnApi(req: Request, res: Response) {
   try {
     const idEnApi = Number.parseInt(String(req.body?.idEnApi ?? ''), 10);
-    const country = String(req.body?.country ?? 'argentina').trim();
+    const rawCountry = typeof req.body?.country === 'string' ? req.body.country.trim() : '';
+    const country = rawCountry.length > 0 ? rawCountry : null;
+    const kncokoutStage = toOptionalBoolean(req.body?.kncokoutStage);
     const limiteMin = toNumber(req.body?.limiteMin);
     const limiteMax = toNumber(req.body?.limiteMax);
 
-    if (!Number.isFinite(idEnApi) || !country) {
-      res.status(400).json({ message: 'idEnApi and country are required' });
+    if (!Number.isFinite(idEnApi)) {
+      res.status(400).json({ message: 'idEnApi is required' });
       return;
     }
 
-    const item = await persistNewLeagueService(idEnApi, country, { limiteMin, limiteMax });
+    const item = await persistNewLeagueService(idEnApi, country, { limiteMin, limiteMax, kncokoutStage });
     await em.flush();
     res.status(201).json({ message: 'league synced from sportsapipro', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
 }
-export { sanitizeLeagueInput, findAll, findByIdEnApi, findOne, add, update, remove, syncFromSportsApiPro, ensureByNameFromSportsApiPro, syncByIdEnApi };
+
+async function syncKnockoutStageByLeagueIdEnApi(req: Request, res: Response) {
+  try {
+    const leagueIdEnApi = Number.parseInt(String(req.body?.leagueIdEnApi ?? ''), 10);
+    if (!Number.isFinite(leagueIdEnApi)) {
+      res.status(400).json({ message: 'leagueIdEnApi is required' });
+      return;
+    }
+
+    const result = await persistLeagueKnockoutStageByIdEnApi(leagueIdEnApi);
+
+    if (result.skipped) {
+      res.status(200).json({
+        message: result.message,
+        data: {
+          league: result.league,
+          skipped: true,
+        },
+      });
+      return;
+    }
+
+    res.status(201).json({
+      message: 'league knockout stage synced from sportsapipro',
+      data: result,
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+export {
+  sanitizeLeagueInput,
+  findAll,
+  findByIdEnApi,
+  findOne,
+  add,
+  update,
+  remove,
+  syncFromSportsApiPro,
+  ensureByNameFromSportsApiPro,
+  syncByIdEnApi,
+  syncKnockoutStageByLeagueIdEnApi,
+};

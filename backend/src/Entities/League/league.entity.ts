@@ -21,6 +21,9 @@ export class League extends BaseEntity {
   @Property({ nullable: false })
   idEnApi!: number;
 
+  @Property({ nullable: false, default: false })
+  kncokoutStage = false;
+
   @Property({ type: 'float', nullable: true })
   limiteMin?: number | null;
 

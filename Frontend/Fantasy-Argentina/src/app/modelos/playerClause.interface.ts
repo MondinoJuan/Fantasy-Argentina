@@ -7,4 +7,5 @@ export interface playerClauseI {
   additionalShieldingClause: number;
   totalClause: number;
   updateDate: Date;
+  clauseDisabledUntil?: Date | null;
 }

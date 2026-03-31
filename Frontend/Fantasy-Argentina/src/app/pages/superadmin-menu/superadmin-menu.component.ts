@@ -27,7 +27,7 @@ export class SuperadminMenuComponent {
   readonly fieldLabels = SUPERADMIN_FIELD_LABELS;
 
   readonly persistenceActions: SuperadminAction[] = [
-    'persistPlayers', 'persistTeams', 'persistSport', 'persistLeague', 'persistUltSeason', 'persistFixture',
+    'persistPlayers', 'persistTeams', 'persistSport', 'persistLeague', 'persistUltSeason', 'persistFixture', 'persistLeagueKnockoutStage',
   ];
 
   readonly getAllActions: SuperadminAction[] = [
@@ -54,7 +54,8 @@ export class SuperadminMenuComponent {
       leagueId: [1, [Validators.required, Validators.min(1)]],
       leagueIdEnApi: [72, [Validators.required, Validators.min(1)]],
       idEnApi: [72, [Validators.required, Validators.min(1)]],
-      country: ['argentina', Validators.required],
+      country: [''],
+      kncokoutStage: [false],
       descripcion: ['Football', Validators.required],
       cupoTitular: [11, [Validators.required, Validators.min(1)]],
       cupoSuplente: [5, [Validators.required, Validators.min(0)]],
@@ -135,8 +136,10 @@ export class SuperadminMenuComponent {
         cupoSuplente: Number(form.cupoSuplente),
       }),
       persistLeague: () => this.apiService.syncLeagueByIdEnApi({
+        // Si country queda vacío, el backend usa lookup directo por tournament/idEnApi.
+        country: String(form.country ?? '').trim() || null,
+        kncokoutStage: Boolean(form.kncokoutStage),
         idEnApi: Number(form.idEnApi),
-        country: String(form.country ?? '').trim(),
         limiteMin: Number.isFinite(Number(form.limiteMin)) ? Number(form.limiteMin) : null,
         limiteMax: Number.isFinite(Number(form.limiteMax)) ? Number(form.limiteMax) : null,
       }),
@@ -144,6 +147,9 @@ export class SuperadminMenuComponent {
       persistFixture: () => this.apiService.postExternalFixtureBuildCompetition({
         competitionId: Number(form.competitionId),
         seasonId: Number(form.seasonId),
+      }),
+      persistLeagueKnockoutStage: () => this.apiService.syncLeagueKnockoutStageByLeagueIdEnApi({
+        leagueIdEnApi: Number(form.leagueIdEnApi),
       }),
       getPersistedFixture: () => this.apiService.searchExternalLocalPersistedFixture({ leagueId: Number(form.leagueId) }),
       getAllUsers: () => this.apiService.searchUsers(),
