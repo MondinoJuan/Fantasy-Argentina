@@ -152,6 +152,9 @@ export class ApiService {
     return this.http.post<{ message: string; data: { token: string; user: any } }>(`${this.url}/auth/login`, payload);
   }
   me() { return this.http.get<{ message: string; data: any }>(`${this.url}/auth/me`); }
+  getServerTime() {
+    return this.http.get<{ message: string; data: { now: string; nowMs: number } }>(`${this.url}/time/now`);
+  }
 
   // Users
   searchUsers() { return this.http.get<userCollectionI>(`${this.url}/users`); }

@@ -127,7 +127,6 @@ export class LandingPageComponent implements OnInit {
     this.isCreating = true;
 
     const formValue = this.createTournamentForm.getRawValue();
-    const creationDate = new Date();
     const selectedLeagueId = Number(formValue.leagueId);
 
     if (!Number.isFinite(selectedLeagueId) || selectedLeagueId <= 0) {
@@ -138,18 +137,14 @@ export class LandingPageComponent implements OnInit {
 
     const selectedLeague = this.leagues.find((league) => Number(league.id) === selectedLeagueId);
     const clauseWaitDays = Number.isFinite(Number(formValue.clauseWaitDays)) ? Number(formValue.clauseWaitDays) : 14;
-    const clauseEnableDate = new Date(creationDate);
-    clauseEnableDate.setDate(clauseEnableDate.getDate() + Math.max(0, clauseWaitDays));
 
     this.apiService.postTournament({
       name: formValue.name.trim(),
       league: selectedLeagueId,
       sport: String(selectedLeague?.sport ?? 'Football'),
-      creationDate,
       initialBudget: Number.isFinite(Number(formValue.initialBudget)) && Number(formValue.initialBudget) > 0 ? Number(formValue.initialBudget) : 20000000,
       squadSize: 16,
       status: formValue.status as TournamentStatus,
-      clauseEnableDate,
       clauseWaitDays: Math.max(0, clauseWaitDays),
       creatorUserId: userId,
     }).pipe(

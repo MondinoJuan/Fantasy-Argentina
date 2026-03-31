@@ -27,6 +27,7 @@ import { UltSeasonRouter } from './Entities/UltSeason/ultSeason.routes.js';
 import { AuthRouter } from './Entities/Auth/auth.routes.js';
 import "dotenv/config";
 import { requireAuth } from './shared/http/auth.middleware.js';
+import { serverNow, serverNowMs } from './shared/time/serverClock.js';
 
 function getAllowedCorsOrigins(): string[] {
   const raw = process.env.CORS_ALLOWED_ORIGINS ?? '';
@@ -81,7 +82,7 @@ function getRateLimitConfig() {
 function rateLimitMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
   const { windowMs, maxRequests } = getRateLimitConfig();
   const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
-  const now = Date.now();
+  const now = serverNowMs();
   const entry = requestRateByIp.get(ip);
 
   if (!entry || now - entry.windowStart >= windowMs) {
@@ -118,7 +119,7 @@ function mutationRateLimitMiddleware(req: express.Request, res: express.Response
 
   const { windowMs, maxRequests } = getMutationRateLimitConfig();
   const actor = String(req.authUser?.id ?? req.ip ?? req.socket.remoteAddress ?? 'unknown');
-  const now = Date.now();
+  const now = serverNowMs();
   const entry = mutationRateByActor.get(actor);
 
   if (!entry || now - entry.windowStart >= windowMs) {
@@ -169,6 +170,16 @@ app.use('/api', (req, res, next) => {
   return requireAuth(req, res, next);
 });
 app.use('/api', mutationRateLimitMiddleware);
+app.get('/api/time/now', (_req, res) => {
+  const now = serverNow();
+  return res.status(200).json({
+    message: 'server time',
+    data: {
+      now: now.toISOString(),
+      nowMs: now.getTime(),
+    },
+  });
+});
 app.use('/api/users', UserRouter)
 app.use('/api/tournaments', TournamentRouter)
 app.use('/api/leagues', LeagueRouter)
