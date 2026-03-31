@@ -2,7 +2,8 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { ApiService } from '../../servicios/api.service';
 import { RequestCacheService } from '../../servicios/request-cache.service';
 import { FootballPitchComponent, PitchPlayer } from '../../components/football-pitch/football-pitch.component';
@@ -83,6 +84,7 @@ export class InsideTournamentComponent implements OnInit {
   negotiationAmountInput = 0;
   negotiationAmountError = '';
   isSavingNegotiationAmount = false;
+  private serverClockSkewMs = 0;
 
   constructor(
     private readonly apiService: ApiService,
@@ -191,8 +193,14 @@ export class InsideTournamentComponent implements OnInit {
       matchdays: this.requestCacheService.getOrSet('matchdays', () => this.apiService.searchMatchdays(), 120_000),
       participantMatchdayPoints: this.requestCacheService.getOrSet('participant-matchday-points', () => this.apiService.searchParticipantMatchdayPoints(), 20_000),
       playerPerformances: this.requestCacheService.getOrSet('player-performances', () => this.apiService.searchPlayerPerformances(), 20_000),
+      serverTime: this.apiService.getServerTime().pipe(catchError(() => of(null))),
     }).subscribe({
       next: (response) => {
+        const serverNowMs = Number(response.serverTime?.data?.nowMs);
+        if (Number.isFinite(serverNowMs) && serverNowMs > 0) {
+          this.serverClockSkewMs = serverNowMs - Date.now();
+        }
+
         const currentUserId = Number(localStorage.getItem('currentUserId'));
 
         this.tournament = response.tournaments.data.find((item: any) => this.extractId(item) === this.tournamentId) ?? null;
@@ -511,7 +519,7 @@ export class InsideTournamentComponent implements OnInit {
       return false;
     }
 
-    return clauseDate.getTime() <= Date.now();
+    return clauseDate.getTime() <= Date.now() + this.serverClockSkewMs;
     //return true;
   }
 

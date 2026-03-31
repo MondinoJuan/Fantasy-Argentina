@@ -19,6 +19,7 @@ import { Bid } from '../Bid/bid.entity.js';
 import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
 import { TOURNAMENT_STATUSES, MATCHDAY_STATUSES, MATCH_STATUSES, MARKET_ORIGINS, isEnumValue } from '../../shared/domain-enums.js';
 import { setupParticipantAfterJoin } from './tournament-participation.service.js';
+import { serverNow } from '../../shared/time/serverClock.js';
 
 const em = orm.em;
 const POSTPONED_MATCHES_PATH = 'src/Entities/Tournament/data/postponedMatches.json';
@@ -63,11 +64,9 @@ function sanitizeTournamentInput(req: Request, res: Response, next: NextFunction
     sport: req.body.sport,
     sportId: req.body.sportId,
     competitionId: req.body.competitionId,
-    creationDate: req.body.creationDate,
     initialBudget: req.body.initialBudget,
     squadSize: req.body.squadSize,
     status: req.body.status,
-    clauseEnableDate: req.body.clauseEnableDate,
     clauseWaitDays: toInt(req.body.clauseWaitDays),
     creatorUserId: req.body.creatorUserId,
   };
@@ -589,20 +588,15 @@ async function add(req: Request, res: Response) {
       ? requestedBudget
       : DEFAULT_INITIAL_BUDGET;
 
-    const requestedCreationDate = tournamentInput.creationDate ? new Date(tournamentInput.creationDate) : new Date();
-    const effectiveCreationDate = Number.isNaN(requestedCreationDate.getTime()) ? new Date() : requestedCreationDate;
-
-    const requestedClauseEnableDate = tournamentInput.clauseEnableDate ? new Date(tournamentInput.clauseEnableDate) : null;
+    const currentServerNow = serverNow();
     const parsedClauseWaitDays = Number.parseInt(String((tournamentInput as any).clauseWaitDays ?? ''), 10);
     const clauseWaitDays = Number.isFinite(parsedClauseWaitDays) && parsedClauseWaitDays >= 0 ? parsedClauseWaitDays : 14;
 
-    const computedClauseEnableDate = new Date(effectiveCreationDate);
+    const computedClauseEnableDate = new Date(currentServerNow);
     computedClauseEnableDate.setDate(computedClauseEnableDate.getDate() + clauseWaitDays);
 
-    tournamentInput.creationDate = effectiveCreationDate;
-    tournamentInput.clauseEnableDate = requestedClauseEnableDate && !Number.isNaN(requestedClauseEnableDate.getTime())
-      ? requestedClauseEnableDate
-      : computedClauseEnableDate;
+    tournamentInput.creationDate = currentServerNow;
+    tournamentInput.clauseEnableDate = computedClauseEnableDate;
 
     delete (tournamentInput as any).clauseWaitDays;
 

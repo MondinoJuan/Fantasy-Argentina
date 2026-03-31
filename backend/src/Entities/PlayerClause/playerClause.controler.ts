@@ -5,6 +5,7 @@ import { Shielding } from '../Shielding/shielding.entity.js';
 import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
 import { ParticipantSquad } from '../ParticipantSquad/participantSquad.entity.js';
 import { orm } from '../../shared/db/orm.js';
+import { serverNow } from '../../shared/time/serverClock.js';
 
 const em = orm.em;
 
@@ -243,7 +244,7 @@ async function executeClausePurchase(req: Request, res: Response) {
         throw new Error('player clause owner does not match seller');
       }
 
-      const now = new Date();
+      const now = serverNow();
       if (playerClause?.clauseDisabledUntil && playerClause.clauseDisabledUntil.getTime() > now.getTime()) {
         throw new Error(`clause disabled until ${playerClause.clauseDisabledUntil.toISOString()}`);
       }
