@@ -22,7 +22,7 @@ export class League extends BaseEntity {
   idEnApi!: number;
 
   @Property({ nullable: false, default: false })
-  kncokoutStage = false;
+  knockoutStage = false;
 
   @Property({ type: 'float', nullable: true })
   limiteMin?: number | null;

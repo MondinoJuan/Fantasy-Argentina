@@ -111,6 +111,6 @@ SPORTSAPIPRO V2:
 17015 - UEFA conference league
 357 - FIFA Club World Cup
 34 - Ligue 1
-384 - CONMEBOL Libertadores
-480 - CONMEBOL Sudamericana
+384 - CONMEBOL Libertadores - season ID: 87760
+480 - CONMEBOL Sudamericana - season ID: 87770
 295 - World Cup Qual. CONMEBOL
