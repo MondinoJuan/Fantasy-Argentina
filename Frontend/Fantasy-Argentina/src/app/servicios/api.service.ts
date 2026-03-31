@@ -325,6 +325,14 @@ export class ApiService {
       amount: payload.amount,
     });
   }
+  executePlayerClausePurchase(payload: {
+    tournamentId: number;
+    dependantPlayerId: number;
+    buyerParticipantId: number;
+    sellerParticipantId: number;
+  }) {
+    return this.http.post<any>(`${this.url}/player-clauses/execute-purchase`, payload);
+  }
   updatePlayerClause(playerClause: playerClauseI) { return this.http.put<responsePlayerClauseI>(`${this.url}/player-clauses/${playerClause.id}`, playerClause); }
   patchPlayerClause(playerClause: playerClausePatchI) { return this.http.patch<responsePlayerClauseI>(`${this.url}/player-clauses/${playerClause.id}`, playerClause); }
   removePlayerClause(id: number | string) { return this.http.delete<responsePlayerClauseI>(`${this.url}/player-clauses/${id}`); }
@@ -369,8 +377,12 @@ export class ApiService {
     return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/build`, payload);
   }
 
-  syncLeagueByIdEnApi(payload: { idEnApi: number; country?: string | null; limiteMin?: number | null; limiteMax?: number | null }) {
+  syncLeagueByIdEnApi(payload: { idEnApi: number; country?: string | null; kncokoutStage?: boolean; limiteMin?: number | null; limiteMax?: number | null }) {
     return this.http.post<any>(`${this.url}/leagues/sync/by-id-en-api`, payload);
+  }
+
+  syncLeagueKnockoutStageByLeagueIdEnApi(payload: { leagueIdEnApi: number }) {
+    return this.http.post<any>(`${this.url}/leagues/sync/knockout-stage/by-league-id-en-api`, payload);
   }
 
   syncTeamsByLeagueIdEnApi(payload: { leagueIdEnApi: number }) {

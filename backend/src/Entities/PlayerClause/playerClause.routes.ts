@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { sanitizePlayerClauseInput, findAll, findOne, add, update, remove, applyShielding } from './playerClause.controler.js';
+import { sanitizePlayerClauseInput, findAll, findOne, add, update, remove, applyShielding, executeClausePurchase } from './playerClause.controler.js';
 
 export const PlayerClauseRouter = Router();
 
 PlayerClauseRouter.get('/', findAll);
+PlayerClauseRouter.post('/execute-purchase', executeClausePurchase);
 PlayerClauseRouter.post('/:id/apply-shielding', applyShielding);
 PlayerClauseRouter.get('/:id', findOne);
 PlayerClauseRouter.post('/', sanitizePlayerClauseInput, add);

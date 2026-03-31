@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CdkAccordionModule } from '@angular/cdk/accordion';
-import { forkJoin, Observable, of } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { ApiService } from '../../servicios/api.service';
 
@@ -128,9 +128,6 @@ export class RivalsRealPlayerListComponent {
       return;
     }
 
-    const clause = this.playerClauseByDependantId.get(this.selectedPlayer.dependantPlayerId);
-    const clauseId = this.extractId(clause);
-
     const amount = Number(this.selectedPlayer.clauseValue ?? 0);
     if (amount <= 0) {
       this.modalError = 'La cláusula no tiene un valor válido.';
@@ -146,24 +143,12 @@ export class RivalsRealPlayerListComponent {
 
     this.isSubmitting = true;
 
-    this.transferRealPlayer(this.selectedPlayer.realPlayerId, this.participantId, this.loggedParticipantId).pipe(
-      switchMap(() => forkJoin({
-        transfer: this.apiService.participantTransferMoney({
-          fromParticipantId: this.loggedParticipantId,
-          toParticipantId: this.participantId,
-          amount,
-        }),
-        ...(clauseId
-          ? {
-            clause: this.apiService.patchPlayerClause({
-              id: clauseId,
-              ownerParticipant: this.loggedParticipantId,
-              updateDate: new Date(),
-            }),
-          }
-          : {}),
-      })),
-    ).subscribe({
+    this.apiService.executePlayerClausePurchase({
+      tournamentId: this.tournamentId,
+      dependantPlayerId: this.selectedPlayer.dependantPlayerId,
+      buyerParticipantId: this.loggedParticipantId,
+      sellerParticipantId: this.participantId,
+    }).subscribe({
       next: () => {
         this.closeModal();
         this.updated.emit();
@@ -331,49 +316,6 @@ export class RivalsRealPlayerListComponent {
         this.isSubmitting = false;
       },
     });
-  }
-
-  private transferRealPlayer(realPlayerId: number, fromParticipantId: number, toParticipantId: number): Observable<unknown> {
-    const sellerSquad = this.findSquadForParticipant(fromParticipantId);
-    const buyerSquad = this.findSquadForParticipant(toParticipantId);
-
-    if (!sellerSquad || !buyerSquad) {
-      return of(null as unknown);
-    }
-
-    const sellerStarting = this.normalizeIdCollection(sellerSquad?.startingRealPlayersIds ?? sellerSquad?.starting_real_players_ids)
-      .filter((id) => id !== realPlayerId);
-    const sellerSubs = this.normalizeIdCollection(sellerSquad?.substitutesRealPlayersIds ?? sellerSquad?.substitutes_real_players_ids)
-      .filter((id) => id !== realPlayerId);
-
-    const buyerSubs = this.normalizeIdCollection(buyerSquad?.substitutesRealPlayersIds ?? buyerSquad?.substitutes_real_players_ids);
-    if (!buyerSubs.includes(realPlayerId)) {
-      buyerSubs.push(realPlayerId);
-    }
-
-    return forkJoin({
-      seller: this.apiService.patchParticipantSquad({
-        id: this.extractId(sellerSquad)!,
-        startingRealPlayersIds: sellerStarting,
-        substitutesRealPlayersIds: sellerSubs,
-      }),
-      buyer: this.apiService.patchParticipantSquad({
-        id: this.extractId(buyerSquad)!,
-        substitutesRealPlayersIds: buyerSubs,
-      }),
-    }) as Observable<unknown>;
-  }
-
-  private findSquadForParticipant(participantId: number): any {
-    if (this.participantId === participantId) {
-      return this.participantSquad;
-    }
-
-    const squadCandidate = Array.from(this.participantById.values())
-      .map((participant) => participant?.participantSquad)
-      .find((item) => this.extractId(item?.participant) === participantId || this.extractId(item?.participant) === this.extractId(participantId));
-
-    return squadCandidate ?? null;
   }
 
   private buildPlayerRow(realPlayerId: number): RivalPlayerRow | null {

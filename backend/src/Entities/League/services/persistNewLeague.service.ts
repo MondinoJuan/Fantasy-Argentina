@@ -59,7 +59,7 @@ async function getLeagueFromTournamentInfo(competitionId: number): Promise<Unkno
 export async function persistNewLeagueService(
   competitionId: number,
   country?: string | null,
-  limits?: { limiteMin?: number | null; limiteMax?: number | null },
+  options?: { limiteMin?: number | null; limiteMax?: number | null; kncokoutStage?: boolean },
 ) {
   const normalizedCountry = typeof country === 'string' ? country.trim() : '';
   const hasCountry = normalizedCountry.length > 0;
@@ -80,6 +80,7 @@ export async function persistNewLeagueService(
       country: externalCountry || 'Unknown',
       sport: normalizedSport,
       idEnApi: competitionId,
+      kncokoutStage: false,
       limiteMin: null,
       limiteMax: null,
       createdAt: new Date(),
@@ -91,12 +92,16 @@ export async function persistNewLeagueService(
     league.sport = normalizedSport;
   }
 
-  if (typeof limits?.limiteMin === 'number' && Number.isFinite(limits.limiteMin)) {
-    league.limiteMin = limits.limiteMin;
+  if (typeof options?.kncokoutStage === 'boolean') {
+    league.kncokoutStage = options.kncokoutStage;
   }
 
-  if (typeof limits?.limiteMax === 'number' && Number.isFinite(limits.limiteMax)) {
-    league.limiteMax = limits.limiteMax;
+  if (typeof options?.limiteMin === 'number' && Number.isFinite(options.limiteMin)) {
+    league.limiteMin = options.limiteMin;
+  }
+
+  if (typeof options?.limiteMax === 'number' && Number.isFinite(options.limiteMax)) {
+    league.limiteMax = options.limiteMax;
   }
 
   await em.flush();
