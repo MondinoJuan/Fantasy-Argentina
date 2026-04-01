@@ -697,9 +697,11 @@ async function getLatestParticipantSquad(participant: Participant): Promise<Part
   return active ?? squads[0];
 }
 
-async function buildPositionMismatchMap(participant: Participant): Promise<Map<number, boolean>> {
+function buildPositionMismatchMapFromSquad(
+  squad: ParticipantSquad | null,
+  playerPositionById: Map<number, RealPlayer['position']>,
+): Map<number, boolean> {
   const mismatchMap = new Map<number, boolean>();
-  const squad = await getLatestParticipantSquad(participant);
 
   if (!squad) {
     return mismatchMap;
@@ -711,9 +713,6 @@ async function buildPositionMismatchMap(participant: Participant): Promise<Map<n
   if (startingIds.length === 0) {
     return mismatchMap;
   }
-
-  const realPlayers = await em.find(RealPlayer, { id: { $in: startingIds } });
-  const playerPositionById = new Map(realPlayers.map((player) => [player.id, player.position]));
 
   startingIds.forEach((realPlayerId, index) => {
     const expected = expectedSlotPositions[index] ?? 'midfielder';
@@ -761,116 +760,233 @@ async function sumEndOfMatchdayPoints(req: Request, res: Response) {
       return;
     }
 
-    const tournaments = await em.find(Tournament, { league });
     let processedParticipants = 0;
     let upsertedBreakdowns = 0;
+    const selectedMatchId = selectedMatch?.id ?? null;
 
-    for (const tournament of tournaments) {
-      const participants = await em.find(Participant, { tournament });
+    await em.transactional(async (transactionalEm) => {
+      const tournaments = await transactionalEm.find(Tournament, { league });
+      const tournamentIds = tournaments
+        .map((tournament) => Number(tournament.id ?? 0))
+        .filter((id) => Number.isFinite(id) && id > 0);
 
-      for (const participant of participants) {
-        processedParticipants += 1;
+      if (tournamentIds.length === 0) {
+        return;
+      }
 
-        if (!selectedMatch) {
-          await em.nativeDelete(PlayerPointsBreakdown, { participant, matchday });
-        } else {
-          const existing = await em.find(PlayerPointsBreakdown, { participant, matchday }, { populate: ['playerPerformance.match'] });
-          for (const breakdown of existing) {
-            if (breakdown.playerPerformance?.match?.id === selectedMatch.id) {
-              em.remove(breakdown);
-            }
+      const participants = await transactionalEm.find(Participant, { tournament: { $in: tournamentIds } });
+      const participantIds = participants
+        .map((participant) => Number(participant.id ?? 0))
+        .filter((id) => Number.isFinite(id) && id > 0);
+
+      processedParticipants = participants.length;
+
+      if (participantIds.length === 0) {
+        return;
+      }
+
+      const squads = await transactionalEm.find(ParticipantSquad, { participant: { $in: participantIds } }, {
+        orderBy: [{ participant: 'asc' }, { acquisitionDate: 'desc' }],
+      });
+
+      const latestSquadByParticipantId = new Map<number, ParticipantSquad>();
+      for (const squad of squads) {
+        const participantId = Number((squad.participant as any)?.id ?? squad.participant);
+        if (!Number.isFinite(participantId) || participantId <= 0 || latestSquadByParticipantId.has(participantId)) {
+          continue;
+        }
+        latestSquadByParticipantId.set(participantId, squad);
+      }
+
+      const allStartingRealPlayerIds = new Set<number>();
+      for (const squad of latestSquadByParticipantId.values()) {
+        for (const rawId of squad.startingRealPlayersIds ?? []) {
+          const parsed = Number.parseInt(String(rawId), 10);
+          if (Number.isFinite(parsed) && parsed > 0) {
+            allStartingRealPlayerIds.add(parsed);
           }
         }
+      }
 
-        const participantSquad = await getLatestParticipantSquad(participant);
+      const realPlayers = allStartingRealPlayerIds.size > 0
+        ? await transactionalEm.find(RealPlayer, { id: { $in: [...allStartingRealPlayerIds] } })
+        : [];
+      const playerPositionById = new Map<number, RealPlayer['position']>(
+        realPlayers
+          .map((player) => [Number(player.id ?? 0), player.position] as const)
+          .filter(([id]) => Number.isFinite(id) && id > 0),
+      );
+
+      const performances = allStartingRealPlayerIds.size > 0
+        ? await transactionalEm.find(PlayerPerformance, {
+          matchday,
+          league,
+          realPlayer: { $in: [...allStartingRealPlayerIds] },
+          ...(selectedMatch ? { match: selectedMatch } : {}),
+        }, { populate: ['realPlayer'] })
+        : [];
+
+      const performancesByRealPlayer = new Map<number, PlayerPerformance[]>();
+      for (const performance of performances) {
+        const realPlayerId = Number((performance.realPlayer as any)?.id);
+        if (!Number.isFinite(realPlayerId) || realPlayerId <= 0) {
+          continue;
+        }
+        const list = performancesByRealPlayer.get(realPlayerId) ?? [];
+        list.push(performance);
+        performancesByRealPlayer.set(realPlayerId, list);
+      }
+
+      for (const entries of performancesByRealPlayer.values()) {
+        entries.sort((left, right) => new Date(right.updateDate).getTime() - new Date(left.updateDate).getTime());
+      }
+
+      const existingMatchdayBreakdowns = await transactionalEm.find(
+        PlayerPointsBreakdown,
+        { participant: { $in: participantIds }, matchday },
+        { populate: selectedMatch ? ['playerPerformance.match'] : [] },
+      );
+
+      const existingByParticipantAndPlayer = new Map<string, PlayerPointsBreakdown>();
+      for (const breakdown of existingMatchdayBreakdowns) {
+        const participantId = Number((breakdown.participant as any)?.id ?? breakdown.participant);
+        const realPlayerId = Number((breakdown.realPlayer as any)?.id ?? breakdown.realPlayer);
+        if (!Number.isFinite(participantId) || participantId <= 0 || !Number.isFinite(realPlayerId) || realPlayerId <= 0) {
+          continue;
+        }
+        existingByParticipantAndPlayer.set(`${participantId}:${realPlayerId}`, breakdown);
+      }
+
+      if (!selectedMatchId) {
+        await transactionalEm.nativeDelete(PlayerPointsBreakdown, { participant: { $in: participantIds }, matchday });
+        existingByParticipantAndPlayer.clear();
+      } else {
+        for (const breakdown of existingMatchdayBreakdowns) {
+          if (breakdown.playerPerformance?.match?.id === selectedMatchId) {
+            transactionalEm.remove(breakdown);
+            const participantId = Number((breakdown.participant as any)?.id ?? breakdown.participant);
+            const realPlayerId = Number((breakdown.realPlayer as any)?.id ?? breakdown.realPlayer);
+            existingByParticipantAndPlayer.delete(`${participantId}:${realPlayerId}`);
+          }
+        }
+      }
+
+      for (const participant of participants) {
+        const participantId = participant.id;
+        if (!participantId) {
+          continue;
+        }
+        const participantSquad = latestSquadByParticipantId.get(participantId) ?? null;
         const captainRealPlayerId = Number.parseInt(String(participantSquad?.captainRealPlayerId ?? ''), 10);
-
         const realPlayerIds = [...new Set((participantSquad?.startingRealPlayersIds ?? [])
           .map((id) => Number.parseInt(String(id), 10))
           .filter((id): id is number => Number.isFinite(id) && id > 0))];
 
-        const mismatchMap = await buildPositionMismatchMap(participant);
+        const mismatchMap = buildPositionMismatchMapFromSquad(participantSquad, playerPositionById);
 
-        if (realPlayerIds.length > 0) {
-          const performances = await em.find(PlayerPerformance, {
-            realPlayer: { $in: realPlayerIds },
-            matchday,
-            league,
-            ...(selectedMatch ? { match: selectedMatch } : {}),
-          }, { populate: ['realPlayer'] });
-
-          const performancesByRealPlayer = new Map<number, PlayerPerformance[]>();
-          for (const performance of performances) {
-            const realPlayerId = Number((performance.realPlayer as any)?.id);
-            const list = performancesByRealPlayer.get(realPlayerId) ?? [];
-            list.push(performance);
-            performancesByRealPlayer.set(realPlayerId, list);
+        for (const realPlayerId of realPlayerIds) {
+          const playerPerformances = performancesByRealPlayer.get(realPlayerId) ?? [];
+          if (playerPerformances.length === 0) {
+            continue;
           }
 
-          for (const [realPlayerId, playerPerformances] of performancesByRealPlayer.entries()) {
-            const hasPositionMismatch = mismatchMap.get(realPlayerId) === true;
+          const hasPositionMismatch = mismatchMap.get(realPlayerId) === true;
+          const rawPoints = playerPerformances.reduce((total, performance) => total + Number(performance.pointsObtained ?? 0), 0);
+          const contributedPoints = hasPositionMismatch ? rawPoints - 3 : rawPoints;
+          const finalContributedPoints = Number.isFinite(captainRealPlayerId) && captainRealPlayerId > 0 && realPlayerId === captainRealPlayerId
+            ? contributedPoints * 2
+            : contributedPoints;
+          const latestPerformance = playerPerformances[0];
 
-            const rawPoints = playerPerformances.reduce((total, performance) => {
-              const points = Number(performance.pointsObtained ?? 0);
-              return total + points;
-            }, 0);
+          const key = `${participantId}:${realPlayerId}`;
+          let breakdown = existingByParticipantAndPlayer.get(key);
 
-            const contributedPoints = hasPositionMismatch
-              ? rawPoints - 3
-              : rawPoints;
-            const finalContributedPoints = Number.isFinite(captainRealPlayerId) && captainRealPlayerId > 0 && realPlayerId === captainRealPlayerId
-              ? contributedPoints * 2
-              : contributedPoints;
-
-            const latestPerformance = playerPerformances
-              .slice()
-              .sort((left, right) => new Date(right.updateDate).getTime() - new Date(left.updateDate).getTime())[0];
-
-            let breakdown = await em.findOne(PlayerPointsBreakdown, {
+          if (!breakdown) {
+            breakdown = transactionalEm.create(PlayerPointsBreakdown, {
               participant,
               matchday,
               realPlayer: realPlayerId,
-            });
-
-            if (!breakdown) {
-              breakdown = em.create(PlayerPointsBreakdown, {
-                participant,
-                matchday,
-                realPlayer: realPlayerId,
-                contributedPoints: finalContributedPoints,
-                playerPerformance: latestPerformance,
-              } as any);
-            } else {
-              breakdown.contributedPoints = finalContributedPoints;
-              breakdown.playerPerformance = latestPerformance;
-            }
-
-            upsertedBreakdowns += 1;
+              contributedPoints: finalContributedPoints,
+              playerPerformance: latestPerformance,
+            } as any);
+            existingByParticipantAndPlayer.set(key, breakdown);
+          } else {
+            breakdown.contributedPoints = finalContributedPoints;
+            breakdown.playerPerformance = latestPerformance;
           }
+
+          upsertedBreakdowns += 1;
+        }
+      }
+
+      await transactionalEm.flush();
+
+      const refreshedMatchdayBreakdowns = await transactionalEm.find(PlayerPointsBreakdown, { participant: { $in: participantIds }, matchday });
+      const matchdayPointsByParticipant = new Map<number, number>();
+      for (const breakdown of refreshedMatchdayBreakdowns) {
+        const participantId = Number((breakdown.participant as any)?.id ?? breakdown.participant);
+        if (!Number.isFinite(participantId) || participantId <= 0) {
+          continue;
+        }
+        matchdayPointsByParticipant.set(participantId, (matchdayPointsByParticipant.get(participantId) ?? 0) + Number(breakdown.contributedPoints ?? 0));
+      }
+
+      const existingParticipantMatchdayPoints = await transactionalEm.find(ParticipantMatchdayPoints, {
+        participant: { $in: participantIds },
+        matchday,
+      });
+
+      const participantMatchdayPointsByParticipant = new Map<number, ParticipantMatchdayPoints>();
+      for (const item of existingParticipantMatchdayPoints) {
+        const participantId = Number((item.participant as any)?.id ?? item.participant);
+        if (Number.isFinite(participantId) && participantId > 0) {
+          participantMatchdayPointsByParticipant.set(participantId, item);
+        }
+      }
+
+      for (const participant of participants) {
+        const participantId = participant.id;
+        if (!participantId) {
+          continue;
         }
 
-        const currentBreakdowns = await em.find(PlayerPointsBreakdown, { participant, matchday });
-        const matchdayPoints = currentBreakdowns.reduce((acc, item) => acc + Number(item.contributedPoints ?? 0), 0);
+        const matchdayPoints = Number(matchdayPointsByParticipant.get(participantId) ?? 0);
+        let participantMatchdayPoints = participantMatchdayPointsByParticipant.get(participantId);
 
-        let participantMatchdayPoints = await em.findOne(ParticipantMatchdayPoints, { participant, matchday });
         if (!participantMatchdayPoints) {
-          participantMatchdayPoints = em.create(ParticipantMatchdayPoints, {
+          participantMatchdayPoints = transactionalEm.create(ParticipantMatchdayPoints, {
             participant,
             matchday,
             matchdayPoints,
             calculationDate: new Date(),
           } as any);
+          participantMatchdayPointsByParticipant.set(participantId, participantMatchdayPoints);
         } else {
           participantMatchdayPoints.matchdayPoints = matchdayPoints;
           participantMatchdayPoints.calculationDate = new Date();
         }
-
-        const allBreakdowns = await em.find(PlayerPointsBreakdown, { participant });
-        participant.totalScore = allBreakdowns.reduce((acc, item) => acc + Number(item.contributedPoints ?? 0), 0);
       }
-    }
 
-    await em.flush();
+      const allBreakdowns = await transactionalEm.find(PlayerPointsBreakdown, { participant: { $in: participantIds } });
+      const totalByParticipant = new Map<number, number>();
+      for (const breakdown of allBreakdowns) {
+        const participantId = Number((breakdown.participant as any)?.id ?? breakdown.participant);
+        if (!Number.isFinite(participantId) || participantId <= 0) {
+          continue;
+        }
+        totalByParticipant.set(participantId, (totalByParticipant.get(participantId) ?? 0) + Number(breakdown.contributedPoints ?? 0));
+      }
+
+      for (const participant of participants) {
+        const participantId = participant.id;
+        if (!participantId) {
+          continue;
+        }
+        participant.totalScore = Number(totalByParticipant.get(participantId) ?? 0);
+      }
+
+      await transactionalEm.flush();
+    });
 
     res.status(200).json({
       message: 'end of matchday points added successfully',
@@ -878,7 +994,7 @@ async function sumEndOfMatchdayPoints(req: Request, res: Response) {
         leagueId,
         matchdayNumber,
         matchId: selectedMatch?.id ?? null,
-        tournaments: tournaments.length,
+        tournaments: await em.count(Tournament, { league }),
         processedParticipants,
         upsertedBreakdowns,
       },
@@ -903,9 +1019,9 @@ async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
       return;
     }
 
-    const tournaments = await em.find(Tournament, { league });
     const now = new Date();
 
+    let tournamentsCount = 0;
     let settledMarkets = 0;
     let processedBids = 0;
     let awardedPlayers = 0;
@@ -913,164 +1029,215 @@ async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
     let rewardedParticipants = 0;
     let distributedReward = 0;
 
-    for (const tournament of tournaments) {
-      const participants = await em.find(Participant, { tournament });
+    await em.transactional(async (transactionalEm) => {
+      const tournaments = await transactionalEm.find(Tournament, { league });
+      tournamentsCount = tournaments.length;
 
-      const matchday = await em.findOne(Matchday, {
-        league,
-        status: { $in: [MATCHDAY_STATUSES[1], MATCHDAY_STATUSES[2]] },
-      }, { orderBy: { matchdayNumber: 'asc' } })
-        ?? await em.findOne(Matchday, { league, matchdayNumber: 1 })
-        ?? em.create(Matchday, {
-          league,
-          season: String(new Date().getFullYear()),
-          matchdayNumber: 1,
-          startDate: now,
-          endDate: new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000),
-          status: MATCHDAY_STATUSES[1],
-        } as any);
-
-      const currentMarkets = await em.find(MatchdayMarket, { tournament }, { populate: ['matchday'] });
-
-      for (const market of currentMarkets) {
-        const dependantPlayerIds = Array.isArray(market.dependantPlayerIds)
-          ? market.dependantPlayerIds.map((id) => Number.parseInt(String(id), 10)).filter((id) => Number.isFinite(id) && id > 0)
-          : [];
-
-        for (const dependantPlayerId of dependantPlayerIds) {
-          const dependantPlayer = await em.findOne(DependantPlayer, { id: dependantPlayerId }, { populate: ['realPlayer'] });
-
-          if (!dependantPlayer?.realPlayer?.id) {
-            continue;
-          }
-
-          const bids = await em.find(Bid, {
-            tournament,
-            realPlayer: dependantPlayer.realPlayer,
-          }, {
-            populate: ['participant'],
-            orderBy: [{ offeredAmount: 'desc' }, { bidDate: 'asc' }],
-          });
-
-          if (bids.length === 0) {
-            continue;
-          }
-
-          processedBids += bids.length;
-
-          const competitiveBids = bids.filter((bid) => Number(bid.offeredAmount ?? 0) > 0);
-
-          if (competitiveBids.length === 0) {
-            for (const bid of bids) {
-              const participant = bid.participant as Participant;
-              const offeredAmount = Number(bid.offeredAmount ?? 0);
-
-              participant.reservedMoney = Math.max(0, Number(participant.reservedMoney ?? 0) - offeredAmount);
-              participant.availableMoney = Number(participant.availableMoney ?? 0) + offeredAmount;
-              bid.status = 'lost';
-              bid.cancellationDate = now;
-            }
-
-            continue;
-          }
-
-          const winnerBid = competitiveBids[0];
-          const winnerParticipant = winnerBid.participant as Participant;
-          const winnerAmount = Number(winnerBid.offeredAmount ?? 0);
-
-          winnerParticipant.bankBudget = Math.max(0, Number(winnerParticipant.bankBudget ?? 0) - winnerAmount);
-          winnerParticipant.reservedMoney = Math.max(0, Number(winnerParticipant.reservedMoney ?? 0) - winnerAmount);
-
-          const latestSquad = await em.findOne(ParticipantSquad, { participant: winnerParticipant }, { orderBy: { acquisitionDate: 'desc' } });
-          if (latestSquad && dependantPlayer.realPlayer.id) {
-            const currentSubs = Array.isArray(latestSquad.substitutesRealPlayersIds) ? latestSquad.substitutesRealPlayersIds : [];
-            if (!currentSubs.includes(dependantPlayer.realPlayer.id)) {
-              latestSquad.substitutesRealPlayersIds = [...currentSubs, dependantPlayer.realPlayer.id];
-              awardedPlayers += 1;
-            }
-          }
-
-          winnerBid.status = 'won';
-
-          for (const lostBid of bids) {
-            if (lostBid === winnerBid) {
-              continue;
-            }
-            const loser = lostBid.participant as Participant;
-            const offeredAmount = Number(lostBid.offeredAmount ?? 0);
-
-            loser.reservedMoney = Math.max(0, Number(loser.reservedMoney ?? 0) - offeredAmount);
-            loser.availableMoney = Number(loser.availableMoney ?? 0) + offeredAmount;
-            lostBid.status = 'lost';
-            lostBid.cancellationDate = now;
-          }
+      for (const tournament of tournaments) {
+        const tournamentId = tournament.id;
+        if (!tournamentId) {
+          continue;
         }
 
-        settledMarkets += 1;
-        em.remove(market);
-      }
+        const participants = await transactionalEm.find(Participant, { tournament });
+        const participantIds = participants
+          .map((participant) => Number(participant.id ?? 0))
+          .filter((id) => Number.isFinite(id) && id > 0);
 
-      const dependantPlayersInTournament = await em.find(DependantPlayer, { tournament }, { populate: ['realPlayer'] });
-      const reservedRealPlayerIds = new Set<number>(dependantPlayersInTournament
-        .map((item) => Number(item.realPlayer?.id ?? 0))
-        .filter((id) => Number.isFinite(id) && id > 0));
+        const matchday = await transactionalEm.findOne(Matchday, {
+          league,
+          status: { $in: [MATCHDAY_STATUSES[1], MATCHDAY_STATUSES[2]] },
+        }, { orderBy: { matchdayNumber: 'asc' } })
+          ?? await transactionalEm.findOne(Matchday, { league, matchdayNumber: 1 })
+          ?? transactionalEm.create(Matchday, {
+            league,
+            season: String(new Date().getFullYear()),
+            matchdayNumber: 1,
+            startDate: now,
+            endDate: new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000),
+            status: MATCHDAY_STATUSES[1],
+          } as any);
 
-      const quantityToAdd = participants.length * 4;
-      if (quantityToAdd > 0) {
-        const candidates = await em.find(RealPlayer, {
-          active: true,
-          id: { $nin: [...reservedRealPlayerIds] },
-          realTeam: { league },
-        }, { limit: 1000 });
+        const currentMarkets = await transactionalEm.find(MatchdayMarket, { tournament }, { populate: ['matchday'] });
+        const dependantPlayerIdsFromMarket = [...new Set(currentMarkets.flatMap((market) => (
+          Array.isArray(market.dependantPlayerIds)
+            ? market.dependantPlayerIds.map((id) => Number.parseInt(String(id), 10)).filter((id) => Number.isFinite(id) && id > 0)
+            : []
+        )))];
 
-        const chosen = pickRandom(candidates, quantityToAdd);
-        const dependantIds: number[] = [];
+        const dependantPlayers = dependantPlayerIdsFromMarket.length > 0
+          ? await transactionalEm.find(DependantPlayer, { id: { $in: dependantPlayerIdsFromMarket } }, { populate: ['realPlayer'] })
+          : [];
+        const dependantById = new Map<number, DependantPlayer>(dependantPlayers
+          .filter((dependantPlayer) => Number.isFinite(dependantPlayer.id))
+          .map((dependantPlayer) => [Number(dependantPlayer.id), dependantPlayer]));
 
-        for (const player of chosen) {
-          const dependant = em.create(DependantPlayer, {
+        const realPlayerIdsInMarket = [...new Set(dependantPlayers
+          .map((dependantPlayer) => Number(dependantPlayer.realPlayer?.id ?? 0))
+          .filter((id) => Number.isFinite(id) && id > 0))];
+
+        const bids = realPlayerIdsInMarket.length > 0
+          ? await transactionalEm.find(Bid, {
+            tournament,
+            realPlayer: { $in: realPlayerIdsInMarket },
+          }, {
+            populate: ['participant'],
+            orderBy: [{ realPlayer: 'asc' }, { offeredAmount: 'desc' }, { bidDate: 'asc' }],
+          })
+          : [];
+
+        const bidsByRealPlayerId = new Map<number, Bid[]>();
+        for (const bid of bids) {
+          const realPlayerId = Number((bid.realPlayer as any)?.id ?? bid.realPlayer);
+          if (!Number.isFinite(realPlayerId) || realPlayerId <= 0) {
+            continue;
+          }
+          const list = bidsByRealPlayerId.get(realPlayerId) ?? [];
+          list.push(bid);
+          bidsByRealPlayerId.set(realPlayerId, list);
+        }
+
+        const squads = participantIds.length > 0
+          ? await transactionalEm.find(ParticipantSquad, { participant: { $in: participantIds } }, { orderBy: [{ participant: 'asc' }, { acquisitionDate: 'desc' }] })
+          : [];
+        const latestSquadByParticipantId = new Map<number, ParticipantSquad>();
+        for (const squad of squads) {
+          const participantId = Number((squad.participant as any)?.id ?? squad.participant);
+          if (!Number.isFinite(participantId) || participantId <= 0 || latestSquadByParticipantId.has(participantId)) {
+            continue;
+          }
+          latestSquadByParticipantId.set(participantId, squad);
+        }
+
+        for (const market of currentMarkets) {
+          const dependantPlayerIds = Array.isArray(market.dependantPlayerIds)
+            ? market.dependantPlayerIds.map((id) => Number.parseInt(String(id), 10)).filter((id) => Number.isFinite(id) && id > 0)
+            : [];
+
+          for (const dependantPlayerId of dependantPlayerIds) {
+            const dependantPlayer = dependantById.get(dependantPlayerId);
+            const realPlayerId = Number(dependantPlayer?.realPlayer?.id ?? 0);
+            if (!dependantPlayer || !Number.isFinite(realPlayerId) || realPlayerId <= 0) {
+              continue;
+            }
+
+            const playerBids = bidsByRealPlayerId.get(realPlayerId) ?? [];
+            if (playerBids.length === 0) {
+              continue;
+            }
+
+            processedBids += playerBids.length;
+            const competitiveBids = playerBids.filter((bid) => Number(bid.offeredAmount ?? 0) > 0);
+
+            if (competitiveBids.length === 0) {
+              for (const bid of playerBids) {
+                const participant = bid.participant as Participant;
+                const offeredAmount = Number(bid.offeredAmount ?? 0);
+                participant.reservedMoney = Math.max(0, Number(participant.reservedMoney ?? 0) - offeredAmount);
+                participant.availableMoney = Number(participant.availableMoney ?? 0) + offeredAmount;
+                bid.status = 'lost';
+                bid.cancellationDate = now;
+              }
+              continue;
+            }
+
+            const winnerBid = competitiveBids[0];
+            const winnerParticipant = winnerBid.participant as Participant;
+            const winnerParticipantId = Number(winnerParticipant.id);
+            const winnerAmount = Number(winnerBid.offeredAmount ?? 0);
+
+            winnerParticipant.bankBudget = Math.max(0, Number(winnerParticipant.bankBudget ?? 0) - winnerAmount);
+            winnerParticipant.reservedMoney = Math.max(0, Number(winnerParticipant.reservedMoney ?? 0) - winnerAmount);
+
+            const latestSquad = latestSquadByParticipantId.get(winnerParticipantId);
+            if (latestSquad) {
+              const currentSubs = Array.isArray(latestSquad.substitutesRealPlayersIds) ? latestSquad.substitutesRealPlayersIds : [];
+              if (!currentSubs.includes(realPlayerId)) {
+                latestSquad.substitutesRealPlayersIds = [...currentSubs, realPlayerId];
+                awardedPlayers += 1;
+              }
+            }
+
+            winnerBid.status = 'won';
+
+            for (const lostBid of playerBids) {
+              if (lostBid === winnerBid) {
+                continue;
+              }
+              const loser = lostBid.participant as Participant;
+              const offeredAmount = Number(lostBid.offeredAmount ?? 0);
+              loser.reservedMoney = Math.max(0, Number(loser.reservedMoney ?? 0) - offeredAmount);
+              loser.availableMoney = Number(loser.availableMoney ?? 0) + offeredAmount;
+              lostBid.status = 'lost';
+              lostBid.cancellationDate = now;
+            }
+          }
+
+          settledMarkets += 1;
+          transactionalEm.remove(market);
+        }
+
+        const dependantPlayersInTournament = await transactionalEm.find(DependantPlayer, { tournament }, { populate: ['realPlayer'] });
+        const reservedRealPlayerIds = new Set<number>(dependantPlayersInTournament
+          .map((item) => Number(item.realPlayer?.id ?? 0))
+          .filter((id) => Number.isFinite(id) && id > 0));
+
+        const quantityToAdd = participants.length * 4;
+        if (quantityToAdd > 0) {
+          const candidates = await transactionalEm.find(RealPlayer, {
+            active: true,
+            id: { $nin: [...reservedRealPlayerIds] },
+            realTeam: { league },
+          }, { limit: 1000 });
+
+          const chosen = pickRandom(candidates, quantityToAdd);
+          const createdDependants = chosen.map((player) => transactionalEm.create(DependantPlayer, {
             tournament,
             realPlayer: player,
             marketValue: 0,
-          } as any);
-          em.persist(dependant);
-          await em.flush();
+          } as any));
 
-          if (dependant.id) {
-            dependantIds.push(dependant.id);
+          if (createdDependants.length > 0) {
+            transactionalEm.persist(createdDependants);
+            await transactionalEm.flush();
+          }
+
+          const dependantIds = createdDependants
+            .map((dependant) => Number(dependant.id ?? 0))
+            .filter((id) => Number.isFinite(id) && id > 0);
+
+          if (dependantIds.length > 0) {
+            transactionalEm.create(MatchdayMarket, {
+              tournament,
+              matchday,
+              dependantPlayerIds: dependantIds,
+              minimumPrice: 100,
+              origin: MARKET_ORIGINS[0],
+              creationDate: now,
+            } as any);
+            createdMarketEntries += 1;
           }
         }
 
-        if (dependantIds.length > 0) {
-          em.create(MatchdayMarket, {
-            tournament,
-            matchday,
-            dependantPlayerIds: dependantIds,
-            minimumPrice: 100,
-            origin: MARKET_ORIGINS[0],
-            creationDate: now,
-          } as any);
-          createdMarketEntries += 1;
-        }
+        const rankedParticipants = sortParticipantsByScoreWithRandomTieBreak(participants);
+        rankedParticipants.forEach((participant, index) => {
+          const position = index + 1;
+          const reward = rewardAmountByPosition(position);
+          participant.bankBudget = Number(participant.bankBudget ?? 0) + reward;
+          participant.availableMoney = Number(participant.availableMoney ?? 0) + reward;
+          rewardedParticipants += 1;
+          distributedReward += reward;
+        });
       }
 
-      const rankedParticipants = sortParticipantsByScoreWithRandomTieBreak(participants);
-      rankedParticipants.forEach((participant, index) => {
-        const position = index + 1;
-        const reward = rewardAmountByPosition(position);
-        participant.bankBudget = Number(participant.bankBudget ?? 0) + reward;
-        participant.availableMoney = Number(participant.availableMoney ?? 0) + reward;
-        rewardedParticipants += 1;
-        distributedReward += reward;
-      });
-    }
-
-    await em.flush();
+      await transactionalEm.flush();
+    });
 
     res.status(200).json({
       message: 'markets settled and refreshed successfully',
       data: {
         leagueId,
-        tournaments: tournaments.length,
+        tournaments: tournamentsCount,
         settledMarkets,
         processedBids,
         awardedPlayers,
