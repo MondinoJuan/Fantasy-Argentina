@@ -697,6 +697,33 @@ async function getLatestParticipantSquad(participant: Participant): Promise<Part
   return active ?? squads[0];
 }
 
+function buildPreferredLatestSquadByParticipant(squads: ParticipantSquad[]): Map<number, ParticipantSquad> {
+  const mostRecentByParticipantId = new Map<number, ParticipantSquad>();
+  const activeByParticipantId = new Map<number, ParticipantSquad>();
+
+  for (const squad of squads) {
+    const participantId = Number((squad.participant as any)?.id ?? squad.participant);
+    if (!Number.isFinite(participantId) || participantId <= 0) {
+      continue;
+    }
+
+    if (!mostRecentByParticipantId.has(participantId)) {
+      mostRecentByParticipantId.set(participantId, squad);
+    }
+
+    if (!squad.releaseDate && !activeByParticipantId.has(participantId)) {
+      activeByParticipantId.set(participantId, squad);
+    }
+  }
+
+  const preferredByParticipantId = new Map<number, ParticipantSquad>();
+  for (const [participantId, mostRecentSquad] of mostRecentByParticipantId.entries()) {
+    preferredByParticipantId.set(participantId, activeByParticipantId.get(participantId) ?? mostRecentSquad);
+  }
+
+  return preferredByParticipantId;
+}
+
 function buildPositionMismatchMapFromSquad(
   squad: ParticipantSquad | null,
   playerPositionById: Map<number, RealPlayer['position']>,
@@ -788,15 +815,7 @@ async function sumEndOfMatchdayPoints(req: Request, res: Response) {
       const squads = await transactionalEm.find(ParticipantSquad, { participant: { $in: participantIds } }, {
         orderBy: [{ participant: 'asc' }, { acquisitionDate: 'desc' }],
       });
-
-      const latestSquadByParticipantId = new Map<number, ParticipantSquad>();
-      for (const squad of squads) {
-        const participantId = Number((squad.participant as any)?.id ?? squad.participant);
-        if (!Number.isFinite(participantId) || participantId <= 0 || latestSquadByParticipantId.has(participantId)) {
-          continue;
-        }
-        latestSquadByParticipantId.set(participantId, squad);
-      }
+      const latestSquadByParticipantId = buildPreferredLatestSquadByParticipant(squads);
 
       const allStartingRealPlayerIds = new Set<number>();
       for (const squad of latestSquadByParticipantId.values()) {
@@ -1100,14 +1119,7 @@ async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
         const squads = participantIds.length > 0
           ? await transactionalEm.find(ParticipantSquad, { participant: { $in: participantIds } }, { orderBy: [{ participant: 'asc' }, { acquisitionDate: 'desc' }] })
           : [];
-        const latestSquadByParticipantId = new Map<number, ParticipantSquad>();
-        for (const squad of squads) {
-          const participantId = Number((squad.participant as any)?.id ?? squad.participant);
-          if (!Number.isFinite(participantId) || participantId <= 0 || latestSquadByParticipantId.has(participantId)) {
-            continue;
-          }
-          latestSquadByParticipantId.set(participantId, squad);
-        }
+        const latestSquadByParticipantId = buildPreferredLatestSquadByParticipant(squads);
 
         for (const market of currentMarkets) {
           const dependantPlayerIds = Array.isArray(market.dependantPlayerIds)
