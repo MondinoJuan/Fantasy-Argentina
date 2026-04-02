@@ -520,13 +520,27 @@ async function findAll(req: Request, res: Response) {
     const userId = Number.parseInt(String(req.query.userId ?? ''), 10);
 
     if (Number.isFinite(userId)) {
-      const participants = await em.find(Participant, { user: userId }, { populate: ['tournament', 'tournament.league'] });
+      let participants: Participant[] = [];
+
+      try {
+        participants = await em.find(Participant, { user: userId }, { populate: ['tournament', 'tournament.league'] });
+      } catch {
+        participants = await em.find(Participant, { user: userId }, { populate: ['tournament'] });
+      }
+
       const items = participants.map((participant) => participant.tournament);
       res.status(200).json({ message: 'found tournaments for user', data: items });
       return;
     }
 
-    const items = await em.find(Tournament, {}, { populate: ['league'] });
+    let items: Tournament[] = [];
+
+    try {
+      items = await em.find(Tournament, {}, { populate: ['league'] });
+    } catch {
+      items = await em.find(Tournament, {});
+    }
+
     res.status(200).json({ message: 'found all tournaments', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -536,7 +550,14 @@ async function findAll(req: Request, res: Response) {
 async function findOne(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = await em.findOneOrFail(Tournament, { id }, { populate: ['league'] });
+    let item: Tournament | null = null;
+
+    try {
+      item = await em.findOneOrFail(Tournament, { id }, { populate: ['league'] });
+    } catch {
+      item = await em.findOneOrFail(Tournament, { id });
+    }
+
     res.status(200).json({ message: 'found tournament', data: item });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -552,7 +573,13 @@ async function findOneByPublicCode(req: Request, res: Response) {
       return;
     }
 
-    const item = await em.findOne(Tournament, { publicCode }, { populate: ['league'] });
+    let item: Tournament | null = null;
+
+    try {
+      item = await em.findOne(Tournament, { publicCode }, { populate: ['league'] });
+    } catch {
+      item = await em.findOne(Tournament, { publicCode });
+    }
 
     if (!item) {
       res.status(404).json({ message: 'tournament not found by public code' });
