@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { EntityManager, LockMode } from '@mikro-orm/core';
 import { Bid } from './bid.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { BID_STATUSES, isEnumValue } from '../../shared/domain-enums.js';
@@ -45,7 +46,7 @@ function sanitizeBidInput(req: Request, res: Response, next: NextFunction) {
 }
 
 
-async function adjustParticipantFundsForBid(participantIdRaw: unknown, previousAmountRaw: unknown, nextAmountRaw: unknown) {
+async function adjustParticipantFundsForBid(entityManager: EntityManager, participantIdRaw: unknown, previousAmountRaw: unknown, nextAmountRaw: unknown) {
   const participantId = resolveParticipantId(participantIdRaw);
 
   if (!Number.isFinite(participantId) || participantId <= 0) {
@@ -60,7 +61,7 @@ async function adjustParticipantFundsForBid(participantIdRaw: unknown, previousA
     return;
   }
 
-  const participant = await orm.em.findOne(Participant, { id: participantId });
+  const participant = await entityManager.findOne(Participant, { id: participantId }, { lockMode: LockMode.PESSIMISTIC_WRITE });
   if (!participant) {
     throw new Error('participant not found for bid budget adjustment');
   }
@@ -129,29 +130,42 @@ async function add(req: Request, res: Response) {
       return;
     }
 
-    const existingBid = await orm.em.findOne(Bid, {
-      tournament: req.body.sanitizeBidInput.tournament,
-      participant: req.body.sanitizeBidInput.participant,
-      realPlayer: req.body.sanitizeBidInput.realPlayer,
+    const result = await orm.em.transactional(async (transactionalEm) => {
+      const existingBid = await transactionalEm.findOne(Bid, {
+        tournament: req.body.sanitizeBidInput.tournament,
+        participant: req.body.sanitizeBidInput.participant,
+        realPlayer: req.body.sanitizeBidInput.realPlayer,
+      }, { lockMode: LockMode.PESSIMISTIC_WRITE });
+
+      if (existingBid) {
+        const previousAmount = Number(existingBid.offeredAmount ?? 0);
+        const nextAmount = Number(req.body.sanitizeBidInput.offeredAmount ?? previousAmount);
+
+        await adjustParticipantFundsForBid(
+          transactionalEm,
+          req.body.sanitizeBidInput.participant ?? existingBid.participant,
+          previousAmount,
+          nextAmount,
+        );
+
+        transactionalEm.assign(existingBid, req.body.sanitizeBidInput);
+        await transactionalEm.flush();
+        return { statusCode: 200, message: 'bid updated', data: existingBid };
+      }
+
+      await adjustParticipantFundsForBid(
+        transactionalEm,
+        req.body.sanitizeBidInput.participant,
+        0,
+        req.body.sanitizeBidInput.offeredAmount,
+      );
+
+      const item = transactionalEm.create(Bid, req.body.sanitizeBidInput);
+      await transactionalEm.flush();
+      return { statusCode: 201, message: 'bid created', data: item };
     });
 
-    if (existingBid) {
-      const previousAmount = Number(existingBid.offeredAmount ?? 0);
-      const nextAmount = Number(req.body.sanitizeBidInput.offeredAmount ?? previousAmount);
-
-      await adjustParticipantFundsForBid(req.body.sanitizeBidInput.participant ?? existingBid.participant, previousAmount, nextAmount);
-
-      orm.em.assign(existingBid, req.body.sanitizeBidInput);
-      await orm.em.flush();
-      res.status(200).json({ message: 'bid updated', data: existingBid });
-      return;
-    }
-
-    await adjustParticipantFundsForBid(req.body.sanitizeBidInput.participant, 0, req.body.sanitizeBidInput.offeredAmount);
-
-    const item = orm.em.create(Bid, req.body.sanitizeBidInput);
-    await orm.em.flush();
-    res.status(201).json({ message: 'bid created', data: item });
+    res.status(result.statusCode).json({ message: result.message, data: result.data });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -165,16 +179,25 @@ async function update(req: Request, res: Response) {
     }
 
     const id = parseId(req.params.id);
-    const itemToUpdate = await orm.em.findOneOrFail(Bid, { id });
+    const result = await orm.em.transactional(async (transactionalEm) => {
+      const itemToUpdate = await transactionalEm.findOneOrFail(Bid, { id }, { lockMode: LockMode.PESSIMISTIC_WRITE });
 
-    const previousAmount = Number(itemToUpdate.offeredAmount ?? 0);
-    const nextAmount = Number(req.body.sanitizeBidInput.offeredAmount ?? previousAmount);
+      const previousAmount = Number(itemToUpdate.offeredAmount ?? 0);
+      const nextAmount = Number(req.body.sanitizeBidInput.offeredAmount ?? previousAmount);
 
-    await adjustParticipantFundsForBid(req.body.sanitizeBidInput.participant ?? itemToUpdate.participant, previousAmount, nextAmount);
+      await adjustParticipantFundsForBid(
+        transactionalEm,
+        req.body.sanitizeBidInput.participant ?? itemToUpdate.participant,
+        previousAmount,
+        nextAmount,
+      );
 
-    orm.em.assign(itemToUpdate, req.body.sanitizeBidInput);
-    await orm.em.flush();
-    res.status(200).json({ message: 'bid updated', data: itemToUpdate });
+      transactionalEm.assign(itemToUpdate, req.body.sanitizeBidInput);
+      await transactionalEm.flush();
+      return itemToUpdate;
+    });
+
+    res.status(200).json({ message: 'bid updated', data: result });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }

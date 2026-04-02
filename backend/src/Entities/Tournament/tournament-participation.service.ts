@@ -85,7 +85,7 @@ async function getTournamentReservedRealPlayerIds(tournament: Tournament, entity
 }
 
 async function createDependantPlayersForSelection(tournament: Tournament, players: RealPlayer[], entityManager: EntityManager): Promise<number[]> {
-  const dependantIds: number[] = [];
+  const createdDependantPlayers: DependantPlayer[] = [];
 
   for (const player of players) {
     const dependantPlayer = entityManager.create(DependantPlayer, {
@@ -95,14 +95,16 @@ async function createDependantPlayersForSelection(tournament: Tournament, player
     } as any);
 
     entityManager.persist(dependantPlayer);
-    await entityManager.flush();
-
-    if (dependantPlayer.id) {
-      dependantIds.push(dependantPlayer.id);
-    }
+    createdDependantPlayers.push(dependantPlayer);
   }
 
-  return dependantIds;
+  if (createdDependantPlayers.length > 0) {
+    await entityManager.flush();
+  }
+
+  return createdDependantPlayers
+    .map((dependantPlayer) => dependantPlayer.id)
+    .filter((id): id is number => typeof id === 'number' && Number.isFinite(id) && id > 0);
 }
 
 async function assignInitialSquadToParticipant(tournament: Tournament, participant: Participant, entityManager: EntityManager, formation: ParticipantFormation = DEFAULT_FORMATION): Promise<number[]> {
