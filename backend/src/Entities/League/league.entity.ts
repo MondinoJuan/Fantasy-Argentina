@@ -9,6 +9,15 @@ import { UltSeason } from '../UltSeason/ultSeason.entity.js';
 
 @Entity()
 export class League extends BaseEntity {
+  @Property({ nullable: false, default: 'league_only' })
+  competitionFormat: 'league_only' | 'knockout_only' | 'mixed' = 'league_only';
+
+  @Property({ nullable: false, default: false })
+  hasGroups = false;
+
+  @Property({ nullable: false, default: false })
+  hasTwoLegKnockout = false;
+
   @Property({ nullable: false })
   name!: string;
 

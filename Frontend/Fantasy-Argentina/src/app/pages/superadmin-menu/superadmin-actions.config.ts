@@ -41,12 +41,16 @@ export type ActionField =
   | 'idEnApi'
   | 'country'
   | 'kncokoutStage'
+  | 'competitionFormat'
+  | 'hasGroups'
+  | 'hasTwoLegKnockout'
   | 'descripcion'
   | 'cupoTitular'
   | 'cupoSuplente'
   | 'teamIdEnApi'
   | 'matchdayNumber'
   | 'gameMatchId'
+  | 'season'
   | 'limiteMin'
   | 'limiteMax';
 
@@ -59,12 +63,16 @@ export const SUPERADMIN_FIELD_LABELS: Record<ActionField, string> = {
   idEnApi: 'League idEnApi (alta liga)',
   country: 'País (opcional)',
   kncokoutStage: 'Tiene knockout stage',
+  competitionFormat: 'Formato de competencia',
+  hasGroups: 'Tiene fase de grupos',
+  hasTwoLegKnockout: 'Knockout ida y vuelta',
   descripcion: 'Descripción deporte',
   cupoTitular: 'Cupo titular',
   cupoSuplente: 'Cupo suplente',
   teamIdEnApi: 'Team ID en API',
   matchdayNumber: 'Nro fecha',
   gameMatchId: 'IdMatch (opcional)',
+  season: 'Season local (opcional para puntos)',
   limiteMin: 'Límite mínimo traducido',
   limiteMax: 'Límite máximo traducido',
 };
@@ -73,7 +81,7 @@ export const SUPERADMIN_ACTION_CONFIG: Record<SuperadminAction, { title: string;
   persistPlayers: { title: 'Persistir jugadores', fields: ['leagueIdEnApi'] },
   persistTeams: { title: 'Persistir equipos', fields: ['leagueIdEnApi'] },
   persistSport: { title: 'Persistir deporte', fields: ['sportId', 'descripcion', 'cupoTitular', 'cupoSuplente'] },
-  persistLeague: { title: 'Persistir liga', fields: ['idEnApi', 'country', 'kncokoutStage', 'limiteMin', 'limiteMax'] },
+  persistLeague: { title: 'Persistir liga', fields: ['idEnApi', 'country', 'kncokoutStage', 'competitionFormat', 'hasGroups', 'hasTwoLegKnockout', 'limiteMin', 'limiteMax'] },
   persistUltSeason: { title: 'Persistir ultSeason', fields: ['leagueIdEnApi'] },
   persistFixture: { title: 'Persistir fixture', fields: ['competitionId', 'seasonId'] },
   persistLeagueKnockoutStage: { title: 'Cargar kncokoutStage de league', fields: ['leagueIdEnApi'] },
@@ -101,7 +109,7 @@ export const SUPERADMIN_ACTION_CONFIG: Record<SuperadminAction, { title: string;
   rankingsByDate: { title: 'Recuperar rankings por jugador/fecha', fields: ['competitionId'] },
   updateTeamSquad: { title: 'Actualizar plantilla de equipos por League ID', fields: ['leagueId'] },
   syncPlayedMatchResults: { title: 'Actualizar resultados jugados', fields: ['competitionId'] },
-  sumEndOfMatchdayPoints: { title: 'Suma puntos de fin de fecha', fields: ['leagueId', 'matchdayNumber', 'gameMatchId'] },
+  sumEndOfMatchdayPoints: { title: 'Suma puntos de fin de fecha', fields: ['leagueId', 'matchdayNumber', 'season', 'gameMatchId'] },
   settleMarketByLeague: { title: 'Cerrar pujas y renovar market por league', fields: ['leagueId'] },
   translateRealPlayerPrices: { title: 'Traducir precios de realPlayer', fields: ['leagueId'] },
 };

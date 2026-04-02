@@ -39,8 +39,24 @@ function toOptionalBoolean(value: unknown): boolean | undefined {
   return undefined;
 }
 
+function toCompetitionFormat(value: unknown): 'league_only' | 'knockout_only' | 'mixed' | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'league_only' || normalized === 'knockout_only' || normalized === 'mixed') {
+    return normalized;
+  }
+
+  return undefined;
+}
+
 function sanitizeLeagueInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeLeagueInput = {
+    competitionFormat: toCompetitionFormat(req.body.competitionFormat),
+    hasGroups: toOptionalBoolean(req.body.hasGroups),
+    hasTwoLegKnockout: toOptionalBoolean(req.body.hasTwoLegKnockout),
     name: req.body.name,
     country: req.body.country,
     sport: req.body.sport,
@@ -80,6 +96,9 @@ async function syncFromSportsApiPro(req: Request, res: Response) {
       }
 
       em.create(League, {
+        competitionFormat: 'league_only',
+        hasGroups: false,
+        hasTwoLegKnockout: false,
         name: externalLeague.name,
         country: externalLeague.country,
         sport: 'Football',
@@ -135,6 +154,9 @@ async function ensureByNameFromSportsApiPro(req: Request, res: Response) {
     }
 
     const createdLeague = em.create(League, {
+      competitionFormat: 'league_only',
+      hasGroups: false,
+      hasTwoLegKnockout: false,
       name: matchedLeague.name,
       country: matchedLeague.country,
       sport: 'Football',
@@ -245,6 +267,9 @@ async function syncByIdEnApi(req: Request, res: Response) {
     const rawCountry = typeof req.body?.country === 'string' ? req.body.country.trim() : '';
     const country = rawCountry.length > 0 ? rawCountry : null;
     const kncokoutStage = toOptionalBoolean(req.body?.kncokoutStage);
+    const competitionFormat = toCompetitionFormat(req.body?.competitionFormat);
+    const hasGroups = toOptionalBoolean(req.body?.hasGroups);
+    const hasTwoLegKnockout = toOptionalBoolean(req.body?.hasTwoLegKnockout);
     const limiteMin = toNumber(req.body?.limiteMin);
     const limiteMax = toNumber(req.body?.limiteMax);
 
@@ -253,7 +278,14 @@ async function syncByIdEnApi(req: Request, res: Response) {
       return;
     }
 
-    const item = await persistNewLeagueService(idEnApi, country, { limiteMin, limiteMax, kncokoutStage });
+    const item = await persistNewLeagueService(idEnApi, country, {
+      limiteMin,
+      limiteMax,
+      kncokoutStage,
+      competitionFormat,
+      hasGroups,
+      hasTwoLegKnockout,
+    });
     await em.flush();
     res.status(201).json({ message: 'league synced from sportsapipro', data: item });
   } catch (error: any) {

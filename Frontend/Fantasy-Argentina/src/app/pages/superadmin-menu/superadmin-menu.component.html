@@ -34,15 +34,23 @@
         <label *ngFor="let field of currentFields">
           {{ fieldLabels[field] }}
           <input
-            *ngIf="field !== 'kncokoutStage'"
+            *ngIf="field !== 'kncokoutStage' && field !== 'hasGroups' && field !== 'hasTwoLegKnockout' && field !== 'competitionFormat'"
             [type]="field === 'descripcion' || field === 'country' ? 'text' : 'number'"
             [formControlName]="field"
           >
           <input
-            *ngIf="field === 'kncokoutStage'"
+            *ngIf="field === 'kncokoutStage' || field === 'hasGroups' || field === 'hasTwoLegKnockout'"
             type="checkbox"
             [formControlName]="field"
           >
+          <select
+            *ngIf="field === 'competitionFormat'"
+            [formControlName]="field"
+          >
+            <option value="league_only">league_only</option>
+            <option value="knockout_only">knockout_only</option>
+            <option value="mixed">mixed</option>
+          </select>
         </label>
 
         <div class="modal-actions">

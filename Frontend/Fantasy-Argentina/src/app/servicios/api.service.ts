@@ -380,7 +380,16 @@ export class ApiService {
     return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/build`, payload);
   }
 
-  syncLeagueByIdEnApi(payload: { idEnApi: number; country?: string | null; kncokoutStage?: boolean; limiteMin?: number | null; limiteMax?: number | null }) {
+  syncLeagueByIdEnApi(payload: {
+    idEnApi: number;
+    country?: string | null;
+    kncokoutStage?: boolean;
+    competitionFormat?: 'league_only' | 'knockout_only' | 'mixed';
+    hasGroups?: boolean;
+    hasTwoLegKnockout?: boolean;
+    limiteMin?: number | null;
+    limiteMax?: number | null;
+  }) {
     return this.http.post<any>(`${this.url}/leagues/sync/by-id-en-api`, payload);
   }
 
@@ -430,7 +439,7 @@ export class ApiService {
     );
   }
 
-  postTournamentSumEndOfMatchdayPoints(payload: { leagueId: number; matchdayNumber: number; gameMatchId?: number }) {
+  postTournamentSumEndOfMatchdayPoints(payload: { leagueId: number; matchdayNumber: number; season?: string; gameMatchId?: number }) {
     return this.http.post<any>(`${this.url}/tournaments/sum-end-of-matchday-points`, payload);
   }
 

@@ -59,7 +59,14 @@ async function getLeagueFromTournamentInfo(competitionId: number): Promise<Unkno
 export async function persistNewLeagueService(
   competitionId: number,
   country?: string | null,
-  options?: { limiteMin?: number | null; limiteMax?: number | null; kncokoutStage?: boolean },
+  options?: {
+    limiteMin?: number | null;
+    limiteMax?: number | null;
+    kncokoutStage?: boolean;
+    competitionFormat?: 'league_only' | 'knockout_only' | 'mixed';
+    hasGroups?: boolean;
+    hasTwoLegKnockout?: boolean;
+  },
 ) {
   const normalizedCountry = typeof country === 'string' ? country.trim() : '';
   const hasCountry = normalizedCountry.length > 0;
@@ -76,6 +83,9 @@ export async function persistNewLeagueService(
 
   if (!league) {
     league = em.create(League, {
+      competitionFormat: options?.competitionFormat ?? 'league_only',
+      hasGroups: options?.hasGroups ?? false,
+      hasTwoLegKnockout: options?.hasTwoLegKnockout ?? false,
       name: externalName || `League ${competitionId}`,
       country: externalCountry || 'Unknown',
       sport: normalizedSport,
@@ -87,6 +97,15 @@ export async function persistNewLeagueService(
       updatedAt: new Date(),
     });
   } else {
+    if (options?.competitionFormat) {
+      league.competitionFormat = options.competitionFormat;
+    }
+    if (typeof options?.hasGroups === 'boolean') {
+      league.hasGroups = options.hasGroups;
+    }
+    if (typeof options?.hasTwoLegKnockout === 'boolean') {
+      league.hasTwoLegKnockout = options.hasTwoLegKnockout;
+    }
     league.name = externalName || league.name;
     league.country = externalCountry || league.country;
     league.sport = normalizedSport;
