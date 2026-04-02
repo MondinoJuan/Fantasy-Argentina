@@ -10,6 +10,7 @@ import { PlayerPointsBreakdown } from '../PlayerPointsBreakdown/playerPointsBrea
 import { ParticipantMatchdayPoints } from '../ParticipantMatchdayPoints/participantMatchdayPoints.entity.js';
 import { Negotiation } from '../Negotiation/negotiation.entity.js';
 import { Bid } from '../Bid/bid.entity.js';
+import { MatchdayMarket } from '../MatchdayMarket/matchdayMarket.entity.js';
 
 const em = orm.em;
 
@@ -165,6 +166,13 @@ async function leaveTournament(req: Request, res: Response) {
       if (!participant) {
         throw new Error('participant not found for user and tournament');
       }
+
+      await transactionalEm.nativeUpdate(MatchdayMarket, {
+        tournament: tournamentId,
+        sellerParticipant: participant.id,
+      } as any, {
+        sellerParticipant: null,
+      } as any);
 
       await transactionalEm.nativeDelete(ParticipantSquad, { participant: participant.id });
       await transactionalEm.nativeDelete(PlayerPointsBreakdown, { participant: participant.id });
