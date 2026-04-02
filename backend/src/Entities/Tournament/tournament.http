@@ -57,5 +57,6 @@ Content-Type: application/json
 {
   "leagueId": 1,
   "matchdayNumber": 1,
+  "season": "41087-knockout",
   "matchId": 1
 }

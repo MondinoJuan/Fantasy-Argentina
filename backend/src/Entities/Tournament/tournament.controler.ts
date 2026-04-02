@@ -734,6 +734,9 @@ async function sumEndOfMatchdayPoints(req: Request, res: Response) {
     const leagueId = toInt(req.body?.leagueId);
     const matchdayNumber = toInt(req.body?.matchdayNumber ?? req.body?.nroFecha);
     const matchId = toInt(req.body?.gameMatchId ?? req.body?.matchId ?? req.body?.idMatch);
+    const season = typeof req.body?.season === 'string' && req.body.season.trim().length > 0
+      ? req.body.season.trim()
+      : null;
 
     if (leagueId === null || matchdayNumber === null) {
       res.status(400).json({ message: 'leagueId and matchdayNumber (or nroFecha) are required numbers' });
@@ -746,9 +749,13 @@ async function sumEndOfMatchdayPoints(req: Request, res: Response) {
       return;
     }
 
-    const matchday = await em.findOne(Matchday, { league, matchdayNumber });
+    const matchdayWhere = season
+      ? { league, matchdayNumber, season }
+      : { league, matchdayNumber };
+    const matchday = await em.findOne(Matchday, matchdayWhere as any, season ? undefined : { orderBy: { startDate: 'desc' } as any });
     if (!matchday) {
-      res.status(404).json({ message: 'matchday not found for league and matchdayNumber' });
+      const seasonHint = season ? ` and season=${season}` : '';
+      res.status(404).json({ message: `matchday not found for league and matchdayNumber${seasonHint}` });
       return;
     }
 
@@ -877,6 +884,7 @@ async function sumEndOfMatchdayPoints(req: Request, res: Response) {
       data: {
         leagueId,
         matchdayNumber,
+        season: matchday.season,
         matchId: selectedMatch?.id ?? null,
         tournaments: tournaments.length,
         processedParticipants,
