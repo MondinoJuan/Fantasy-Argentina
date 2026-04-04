@@ -286,9 +286,14 @@ async function syncByIdEnApi(req: Request, res: Response) {
       hasGroups,
       hasTwoLegKnockout,
     });
-    await em.flush();
+    if (res.headersSent || res.locals.requestTimedOut) {
+      return;
+    }
     res.status(201).json({ message: 'league synced from sportsapipro', data: item });
   } catch (error: any) {
+    if (res.headersSent || res.locals.requestTimedOut) {
+      return;
+    }
     res.status(500).json({ message: error.message });
   }
 }

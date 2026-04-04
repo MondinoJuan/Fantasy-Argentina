@@ -137,9 +137,10 @@ function mutationRateLimitMiddleware(req: express.Request, res: express.Response
 
 function requestTimeoutMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
   const timeoutMsRaw = Number.parseInt(process.env.REQUEST_TIMEOUT_MS ?? '', 10);
-  const timeoutMs = Number.isFinite(timeoutMsRaw) && timeoutMsRaw > 0 ? timeoutMsRaw : 15_000;
+  const timeoutMs = Number.isFinite(timeoutMsRaw) && timeoutMsRaw > 0 ? timeoutMsRaw : 30_000;
 
   res.setTimeout(timeoutMs, () => {
+    res.locals.requestTimedOut = true;
     if (!res.headersSent) {
       res.status(503).json({ message: 'Request timeout exceeded. Please retry.' });
     }

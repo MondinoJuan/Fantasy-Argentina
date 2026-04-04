@@ -139,6 +139,39 @@ export interface SyncPlayedResultsJob {
   lastError: string | null;
 }
 
+export type BackgroundJobStatus = 'queued' | 'running' | 'completed' | 'failed';
+
+export interface SyncPlayersByLeagueJob {
+  jobId: string;
+  status: BackgroundJobStatus;
+  leagueId: number | null;
+  leagueIdEnApi: number | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  teamsTotal: number;
+  teamsProcessed: number;
+  rows: number;
+  created: number;
+  updated: number;
+  errors: Array<{ teamIdEnApi: number; message: string }>;
+  lastError: string | null;
+}
+
+export interface BuildCompetitionFixtureJob {
+  jobId: string;
+  status: BackgroundJobStatus;
+  competitionId: number;
+  seasonId: number;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  totalRounds: number;
+  totalMatches: number;
+  persistStats: any;
+  lastError: string | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -402,7 +435,13 @@ export class ApiService {
   }
 
   syncPlayersByLeagueIdEnApi(payload: { leagueId?: number; leagueIdEnApi?: number }) {
-    return this.http.post<any>(`${this.url}/real-players/sync/by-league-id-en-api`, payload);
+    return this.http.post<{ message: string; data: SyncPlayersByLeagueJob }>(`${this.url}/real-players/sync/by-league-id-en-api`, payload);
+  }
+
+  getSyncPlayersByLeagueJob(jobId: string) {
+    return this.http.get<{ message: string; data: SyncPlayersByLeagueJob }>(
+      `${this.url}/real-players/sync/by-league-id-en-api/${encodeURIComponent(jobId)}`,
+    );
   }
 
   syncTeamSquadByTeamIdEnApi(payload: { teamIdEnApi: number }) {
@@ -414,7 +453,16 @@ export class ApiService {
   }
 
   postExternalFixtureBuildCompetition(payload: { competitionId: number; seasonId: number }) {
-    return this.http.post<any>(`${this.url}/external/sportsapipro/fixture/build-competition`, payload);
+    return this.http.post<{ message: string; data: BuildCompetitionFixtureJob }>(
+      `${this.url}/external/sportsapipro/fixture/build-competition`,
+      payload,
+    );
+  }
+
+  getExternalFixtureBuildCompetitionJob(jobId: string) {
+    return this.http.get<{ message: string; data: BuildCompetitionFixtureJob }>(
+      `${this.url}/external/sportsapipro/fixture/build-competition/${encodeURIComponent(jobId)}`,
+    );
   }
 
 

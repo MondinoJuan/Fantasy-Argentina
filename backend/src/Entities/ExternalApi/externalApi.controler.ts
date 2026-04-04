@@ -48,8 +48,32 @@ interface SyncPlayedResultsJobState extends SyncPlayedResultsJobSnapshot {
   finishedAtDate: Date | null;
 }
 
+type BuildFixtureJobStatus = 'queued' | 'running' | 'completed' | 'failed';
+
+interface BuildCompetitionFixtureJobSnapshot {
+  jobId: string;
+  status: BuildFixtureJobStatus;
+  competitionId: number;
+  seasonId: number;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  totalRounds: number;
+  totalMatches: number;
+  persistStats: unknown | null;
+  lastError: string | null;
+}
+
+interface BuildCompetitionFixtureJobState extends BuildCompetitionFixtureJobSnapshot {
+  createdAtDate: Date;
+  startedAtDate: Date | null;
+  finishedAtDate: Date | null;
+}
+
 const syncPlayedResultsJobs = new Map<string, SyncPlayedResultsJobState>();
+const buildCompetitionFixtureJobs = new Map<string, BuildCompetitionFixtureJobState>();
 const MAX_SYNC_RESULTS_JOBS_TRACKED = 100;
+const MAX_BUILD_FIXTURE_JOBS_TRACKED = 50;
 const SYNC_RESULTS_CONCURRENCY = 4;
 
 function asRecord(value: unknown): UnknownRecord {
@@ -430,6 +454,22 @@ function buildSyncPlayedResultsJobSnapshot(job: SyncPlayedResultsJobState): Sync
   };
 }
 
+function buildCompetitionFixtureJobSnapshot(job: BuildCompetitionFixtureJobState): BuildCompetitionFixtureJobSnapshot {
+  return {
+    jobId: job.jobId,
+    status: job.status,
+    competitionId: job.competitionId,
+    seasonId: job.seasonId,
+    createdAt: job.createdAtDate.toISOString(),
+    startedAt: job.startedAtDate ? job.startedAtDate.toISOString() : null,
+    finishedAt: job.finishedAtDate ? job.finishedAtDate.toISOString() : null,
+    totalRounds: job.totalRounds,
+    totalMatches: job.totalMatches,
+    persistStats: job.persistStats,
+    lastError: job.lastError,
+  };
+}
+
 function pruneSyncPlayedResultsJobs(): void {
   if (syncPlayedResultsJobs.size <= MAX_SYNC_RESULTS_JOBS_TRACKED) {
     return;
@@ -447,9 +487,43 @@ function pruneSyncPlayedResultsJobs(): void {
   }
 }
 
+function pruneBuildCompetitionFixtureJobs(): void {
+  if (buildCompetitionFixtureJobs.size <= MAX_BUILD_FIXTURE_JOBS_TRACKED) {
+    return;
+  }
+
+  const ordered = [...buildCompetitionFixtureJobs.values()]
+    .sort((a, b) => a.createdAtDate.getTime() - b.createdAtDate.getTime());
+
+  while (ordered.length > MAX_BUILD_FIXTURE_JOBS_TRACKED) {
+    const oldest = ordered.shift();
+    if (!oldest) {
+      break;
+    }
+    buildCompetitionFixtureJobs.delete(oldest.jobId);
+  }
+}
+
 function getRunningSyncPlayedResultsJobByCompetition(competitionId: number): SyncPlayedResultsJobState | null {
   for (const job of syncPlayedResultsJobs.values()) {
     if (job.competitionId === competitionId && (job.status === 'queued' || job.status === 'running')) {
+      return job;
+    }
+  }
+
+  return null;
+}
+
+function getRunningBuildCompetitionFixtureJob(
+  competitionId: number,
+  seasonId: number,
+): BuildCompetitionFixtureJobState | null {
+  for (const job of buildCompetitionFixtureJobs.values()) {
+    if (
+      job.competitionId === competitionId
+      && job.seasonId === seasonId
+      && (job.status === 'queued' || job.status === 'running')
+    ) {
       return job;
     }
   }
@@ -616,6 +690,93 @@ async function postSportsApiProFixtureBuild(req: Request, res: Response) {
 
 
 
+async function buildCompetitionFixtureProcess(competitionId: number, seasonId: number) {
+  const roundsPayload = asRecord(await requestSportsApiPro(`/api/tournament/${competitionId}/season/${seasonId}/rounds`));
+  if (roundsPayload.success !== true) {
+    throw new Error(`La API devolvió success=false en rounds. Respuesta: ${JSON.stringify(roundsPayload)}`);
+  }
+
+  const roundNumbers = extractRoundNumbers(roundsPayload);
+  const fixture: UnknownRecord[] = [];
+  const roundsSummary: Array<{ round: number; matchCount: number; matches: UnknownRecord[] }> = [];
+
+  for (const roundNumber of roundNumbers) {
+    const roundPayload = asRecord(
+      await requestSportsApiPro(`/api/tournament/${competitionId}/season/${seasonId}/round/${roundNumber}`),
+    );
+    if (roundPayload.success !== true) {
+      throw new Error(`La API devolvió success=false en round=${roundNumber}. Respuesta: ${JSON.stringify(roundPayload)}`);
+    }
+    const roundFixture = mapV2RoundEventsToFixture(roundNumber, roundPayload);
+    fixture.push(...roundFixture);
+    roundsSummary.push({
+      round: roundNumber,
+      matchCount: roundFixture.length,
+      matches: roundFixture.map((match) => ({
+        id: match.gameId,
+        homeTeam: asRecord(match.home).name,
+        awayTeam: asRecord(match.away).name,
+        homeScore: asRecord(match.home).score,
+        awayScore: asRecord(match.away).score,
+        status: match.statusText,
+        startTimestamp: match.startTime,
+      })),
+    });
+  }
+
+  const uniqueTeamsCount = new Set(
+    fixture.flatMap((match) => {
+      const homeTeam = String(asRecord(match.home).name ?? '').trim();
+      const awayTeam = String(asRecord(match.away).name ?? '').trim();
+      return [homeTeam, awayTeam].filter((team) => team.length > 0);
+    }),
+  ).size;
+
+  const persistStats = await persistFixtureCompetitionInDb(
+    competitionId,
+    seasonId,
+    fixture,
+    uniqueTeamsCount,
+  );
+
+  return {
+    data: {
+      tournamentId: competitionId,
+      seasonId,
+      totalRounds: roundsSummary.length,
+      rounds: roundsSummary,
+    },
+    persistStats,
+    totalRounds: roundsSummary.length,
+    totalMatches: fixture.length,
+  };
+}
+
+async function runBuildCompetitionFixtureJob(jobId: string): Promise<void> {
+  const job = buildCompetitionFixtureJobs.get(jobId);
+  if (!job) {
+    return;
+  }
+
+  job.status = 'running';
+  job.startedAtDate = new Date();
+
+  try {
+    const result = await buildCompetitionFixtureProcess(job.competitionId, job.seasonId);
+    job.totalRounds = result.totalRounds;
+    job.totalMatches = result.totalMatches;
+    job.persistStats = result.persistStats;
+    job.status = 'completed';
+  } catch (error: any) {
+    job.status = 'failed';
+    job.lastError = error?.message ?? 'Unknown fixture build failure';
+  } finally {
+    job.finishedAtDate = new Date();
+    job.startedAt = job.startedAtDate ? job.startedAtDate.toISOString() : null;
+    job.finishedAt = job.finishedAtDate.toISOString();
+  }
+}
+
 async function postSportsApiProBuildCompetitionFixture(req: Request, res: Response) {
   const competitionId = Number.parseInt(String(req.body?.competitionId ?? ''), 10);
   const seasonId = Number.parseInt(String(req.body?.seasonId ?? ''), 10);
@@ -627,71 +788,57 @@ async function postSportsApiProBuildCompetitionFixture(req: Request, res: Respon
     return res.status(400).json({ message: 'seasonId is required number' });
   }
 
-  try {
-    const roundsPayload = asRecord(await requestSportsApiPro(`/api/tournament/${competitionId}/season/${seasonId}/rounds`));
-    if (roundsPayload.success !== true) {
-      return res.status(502).json({ message: `La API devolvió success=false en rounds. Respuesta: ${JSON.stringify(roundsPayload)}` });
-    }
-    const roundNumbers = extractRoundNumbers(roundsPayload);
-    const fixture: UnknownRecord[] = [];
-    const roundsSummary: Array<{ round: number; matchCount: number; matches: UnknownRecord[] }> = [];
-
-    for (const roundNumber of roundNumbers) {
-      const roundPayload = asRecord(
-        await requestSportsApiPro(`/api/tournament/${competitionId}/season/${seasonId}/round/${roundNumber}`),
-      );
-      if (roundPayload.success !== true) {
-        return res.status(502).json({
-          message: `La API devolvió success=false en round=${roundNumber}. Respuesta: ${JSON.stringify(roundPayload)}`,
-        });
-      }
-      const roundFixture = mapV2RoundEventsToFixture(roundNumber, roundPayload);
-      fixture.push(...roundFixture);
-      roundsSummary.push({
-        round: roundNumber,
-        matchCount: roundFixture.length,
-        matches: roundFixture.map((match) => ({
-          id: match.gameId,
-          homeTeam: asRecord(match.home).name,
-          awayTeam: asRecord(match.away).name,
-          homeScore: asRecord(match.home).score,
-          awayScore: asRecord(match.away).score,
-          status: match.statusText,
-          startTimestamp: match.startTime,
-        })),
-      });
-    }
-
-    const uniqueTeamsCount = new Set(
-      fixture.flatMap((match) => {
-        const homeTeam = String(asRecord(match.home).name ?? '').trim();
-        const awayTeam = String(asRecord(match.away).name ?? '').trim();
-        return [homeTeam, awayTeam].filter((team) => team.length > 0);
-      }),
-    ).size;
-
-    const persistStats = await persistFixtureCompetitionInDb(
-      competitionId,
-      seasonId,
-      fixture,
-      uniqueTeamsCount,
-    );
-
-    const data = {
-      tournamentId: competitionId,
-      seasonId,
-      totalRounds: roundsSummary.length,
-      rounds: roundsSummary,
-    };
-
-    return res.status(200).json({
-      message: 'sportsapipro competition fixture built and persisted',
-      data,
-      persistStats,
+  const existingRunningJob = getRunningBuildCompetitionFixtureJob(competitionId, seasonId);
+  if (existingRunningJob) {
+    return res.status(409).json({
+      message: 'fixture build already running for tournament/season',
+      data: buildCompetitionFixtureJobSnapshot(existingRunningJob),
     });
-  } catch (error: any) {
-    return res.status(500).json({ message: error.message });
   }
+
+  const createdAt = new Date();
+  const job: BuildCompetitionFixtureJobState = {
+    jobId: randomUUID(),
+    status: 'queued',
+    competitionId,
+    seasonId,
+    createdAt: createdAt.toISOString(),
+    startedAt: null,
+    finishedAt: null,
+    totalRounds: 0,
+    totalMatches: 0,
+    persistStats: null,
+    lastError: null,
+    createdAtDate: createdAt,
+    startedAtDate: null,
+    finishedAtDate: null,
+  };
+
+  buildCompetitionFixtureJobs.set(job.jobId, job);
+  pruneBuildCompetitionFixtureJobs();
+  void runBuildCompetitionFixtureJob(job.jobId);
+
+  return res.status(202).json({
+    message: 'fixture build job started',
+    data: buildCompetitionFixtureJobSnapshot(job),
+  });
+}
+
+async function getSportsApiProBuildCompetitionFixtureJob(req: Request, res: Response) {
+  const jobId = typeof req.params.jobId === 'string' ? req.params.jobId.trim() : '';
+  if (!jobId) {
+    return res.status(400).json({ message: 'jobId route param is required' });
+  }
+
+  const job = buildCompetitionFixtureJobs.get(jobId);
+  if (!job) {
+    return res.status(404).json({ message: 'fixture build job not found' });
+  }
+
+  return res.status(200).json({
+    message: 'fixture build job status',
+    data: buildCompetitionFixtureJobSnapshot(job),
+  });
 }
 /*
 async function getSportsApiProLocalPersistedFixture(req: Request, res: Response) {
@@ -1299,6 +1446,7 @@ export {
   postSportsApiProFixtureEventRefs,
   postSportsApiProFixtureBuild,
   postSportsApiProBuildCompetitionFixture,
+  getSportsApiProBuildCompetitionFixtureJob,
   getSportsApiProLocalPersistedFixture,
   getSportsApiProRankingsWithLocalPerformances,
   postSportsApiProSyncPlayedMatchesResults,

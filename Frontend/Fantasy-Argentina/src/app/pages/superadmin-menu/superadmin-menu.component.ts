@@ -4,7 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { forkJoin, interval } from 'rxjs';
 import { finalize, map, switchMap, takeWhile } from 'rxjs/operators';
-import { ApiService, SyncPlayedResultsJob } from '../../servicios/api.service';
+import { ApiService, BuildCompetitionFixtureJob, SyncPlayedResultsJob, SyncPlayersByLeagueJob } from '../../servicios/api.service';
 import { AuthService } from '../../servicios/auth.service';
 
 import { ActionField, SuperadminAction, SUPERADMIN_ACTION_CONFIG, SUPERADMIN_FIELD_LABELS } from './superadmin-actions.config';
@@ -112,6 +112,31 @@ export class SuperadminMenuComponent {
         return;
       }
       this.runSyncPlayedResults(competitionId);
+      return;
+    }
+
+    if (this.currentAction === 'persistPlayers') {
+      const leagueIdEnApi = Number(form.leagueIdEnApi);
+      if (!Number.isFinite(leagueIdEnApi) || leagueIdEnApi <= 0) {
+        this.errorMessage = 'Ingresá un leagueIdEnApi válido (> 0).';
+        return;
+      }
+      this.runPersistPlayersSync(leagueIdEnApi);
+      return;
+    }
+
+    if (this.currentAction === 'persistFixture') {
+      const competitionId = Number(form.competitionId);
+      const seasonId = Number(form.seasonId);
+      if (!Number.isFinite(competitionId) || competitionId <= 0) {
+        this.errorMessage = 'Ingresá un competitionId válido (> 0).';
+        return;
+      }
+      if (!Number.isFinite(seasonId) || seasonId <= 0) {
+        this.errorMessage = 'Ingresá un seasonId válido (> 0).';
+        return;
+      }
+      this.runPersistFixtureBuild(competitionId, seasonId);
       return;
     }
 
@@ -275,6 +300,98 @@ export class SuperadminMenuComponent {
       },
       error: (error: any) => {
         this.errorMessage = error?.error?.message ?? 'No se pudo ejecutar la sincronización.';
+      },
+    });
+  }
+
+  private runPersistPlayersSync(leagueIdEnApi: number): void {
+    this.isLoading = true;
+
+    this.apiService.syncPlayersByLeagueIdEnApi({ leagueIdEnApi }).pipe(
+      switchMap((response) => {
+        const job = response?.data;
+        if (!job?.jobId) {
+          throw new Error('No se recibió jobId de sincronización de jugadores.');
+        }
+
+        this.successMessage = 'Sincronización de jugadores iniciada. Consultando progreso...';
+        this.result = { ...response, polling: true };
+
+        return interval(3000).pipe(
+          switchMap(() => this.apiService.getSyncPlayersByLeagueJob(job.jobId)),
+          takeWhile((jobResponse) => {
+            const status = jobResponse?.data?.status;
+            return status === 'queued' || status === 'running';
+          }, true),
+        );
+      }),
+      finalize(() => {
+        this.isLoading = false;
+      }),
+    ).subscribe({
+      next: (jobResponse: { message: string; data: SyncPlayersByLeagueJob }) => {
+        this.result = jobResponse;
+
+        if (jobResponse.data.status === 'completed') {
+          this.successMessage = 'Sincronización de jugadores completada correctamente.';
+          return;
+        }
+
+        if (jobResponse.data.status === 'failed') {
+          this.errorMessage = jobResponse.data.lastError ?? 'La sincronización de jugadores falló.';
+          return;
+        }
+
+        this.successMessage = 'Sincronización de jugadores en progreso...';
+      },
+      error: (error: any) => {
+        this.errorMessage = error?.error?.message ?? 'No se pudo ejecutar la sincronización de jugadores.';
+      },
+    });
+  }
+
+  private runPersistFixtureBuild(competitionId: number, seasonId: number): void {
+    this.isLoading = true;
+
+    this.apiService.postExternalFixtureBuildCompetition({ competitionId, seasonId }).pipe(
+      switchMap((response) => {
+        const job = response?.data;
+        if (!job?.jobId) {
+          throw new Error('No se recibió jobId de persistencia de fixture.');
+        }
+
+        this.successMessage = 'Persistencia de fixture iniciada. Consultando progreso...';
+        this.result = { ...response, polling: true };
+
+        return interval(3000).pipe(
+          switchMap(() => this.apiService.getExternalFixtureBuildCompetitionJob(job.jobId)),
+          takeWhile((jobResponse) => {
+            const status = jobResponse?.data?.status;
+            return status === 'queued' || status === 'running';
+          }, true),
+        );
+      }),
+      finalize(() => {
+        this.isLoading = false;
+      }),
+    ).subscribe({
+      next: (jobResponse: { message: string; data: BuildCompetitionFixtureJob }) => {
+        this.result = jobResponse;
+
+        if (jobResponse.data.status === 'completed') {
+          this.successMessage = 'Persistencia de fixture completada correctamente.';
+          return;
+        }
+
+        if (jobResponse.data.status === 'failed') {
+          this.errorMessage = jobResponse.data.lastError ?? 'La persistencia de fixture falló.';
+          return;
+        }
+
+        this.successMessage = 'Persistencia de fixture en progreso...';
+      },
+      error: (error: any) => {
+        this.errorMessage = error?.error?.message ?? 'No se pudo ejecutar la persistencia de fixture.';
       },
     });
   }
