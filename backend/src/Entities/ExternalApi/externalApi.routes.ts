@@ -11,6 +11,7 @@ import {
   postSportsApiProFixtureEventRefs,
   postSportsApiProFixtureBuild,
   postSportsApiProBuildCompetitionFixture,
+  getSportsApiProBuildCompetitionFixtureJob,
   getSportsApiProLocalPersistedFixture,
   getSportsApiProRankingsWithLocalPerformances as postSportsApiProRankingsWithLocalPerformances,
   postSportsApiProSyncPlayedMatchesResults,
@@ -30,6 +31,7 @@ ExternalApiRouter.get('/sportsapipro/latest-matchday-ratings', getSportsApiProLa
 ExternalApiRouter.post('/sportsapipro/fixture/event-refs', postSportsApiProFixtureEventRefs);
 ExternalApiRouter.post('/sportsapipro/fixture/build', postSportsApiProFixtureBuild);
 ExternalApiRouter.post('/sportsapipro/fixture/build-competition', postSportsApiProBuildCompetitionFixture);
+ExternalApiRouter.get('/sportsapipro/fixture/build-competition/:jobId', getSportsApiProBuildCompetitionFixtureJob);
 ExternalApiRouter.get('/sportsapipro/fixture/local', getSportsApiProLocalPersistedFixture);
 ExternalApiRouter.post('/sportsapipro/rankings/player-performances', postSportsApiProRankingsWithLocalPerformances);
 ExternalApiRouter.post('/sportsapipro/fixture/sync-played-results', postSportsApiProSyncPlayedMatchesResults);

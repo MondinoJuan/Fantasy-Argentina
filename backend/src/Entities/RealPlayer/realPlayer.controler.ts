@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { randomUUID } from 'node:crypto';
 import { RealPlayer } from './realPlayer.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { RealTeam } from '../RealTeam/realTeam.entity.js';
@@ -6,6 +7,84 @@ import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipr
 import { PLAYER_POSITIONS, isEnumValue } from '../../shared/domain-enums.js';
 
 const em = orm.em;
+
+type SyncPlayersJobStatus = 'queued' | 'running' | 'completed' | 'failed';
+
+type SyncPlayersByLeagueJobState = {
+  jobId: string;
+  status: SyncPlayersJobStatus;
+  leagueId: number | null;
+  leagueIdEnApi: number | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  teamsTotal: number;
+  teamsProcessed: number;
+  rows: number;
+  created: number;
+  updated: number;
+  errors: Array<{ teamIdEnApi: number; message: string }>;
+  lastError: string | null;
+  createdAtDate: Date;
+  startedAtDate: Date | null;
+  finishedAtDate: Date | null;
+};
+
+const syncPlayersByLeagueJobs = new Map<string, SyncPlayersByLeagueJobState>();
+const MAX_SYNC_PLAYERS_JOBS_TRACKED = 50;
+
+function buildSyncPlayersJobSnapshot(job: SyncPlayersByLeagueJobState) {
+  return {
+    jobId: job.jobId,
+    status: job.status,
+    leagueId: job.leagueId,
+    leagueIdEnApi: job.leagueIdEnApi,
+    createdAt: job.createdAtDate.toISOString(),
+    startedAt: job.startedAtDate ? job.startedAtDate.toISOString() : null,
+    finishedAt: job.finishedAtDate ? job.finishedAtDate.toISOString() : null,
+    teamsTotal: job.teamsTotal,
+    teamsProcessed: job.teamsProcessed,
+    rows: job.rows,
+    created: job.created,
+    updated: job.updated,
+    errors: [...job.errors],
+    lastError: job.lastError,
+  };
+}
+
+function pruneSyncPlayersByLeagueJobs() {
+  if (syncPlayersByLeagueJobs.size <= MAX_SYNC_PLAYERS_JOBS_TRACKED) {
+    return;
+  }
+
+  const ordered = [...syncPlayersByLeagueJobs.values()].sort(
+    (a, b) => a.createdAtDate.getTime() - b.createdAtDate.getTime(),
+  );
+
+  while (ordered.length > MAX_SYNC_PLAYERS_JOBS_TRACKED) {
+    const oldest = ordered.shift();
+    if (!oldest) break;
+    syncPlayersByLeagueJobs.delete(oldest.jobId);
+  }
+}
+
+function getRunningSyncPlayersJobByLeague(leagueId: number | null, leagueIdEnApi: number | null) {
+  for (const job of syncPlayersByLeagueJobs.values()) {
+    if (job.status !== 'queued' && job.status !== 'running') {
+      continue;
+    }
+
+    if (leagueId !== null && job.leagueId === leagueId) {
+      return job;
+    }
+
+    if (leagueIdEnApi !== null && job.leagueIdEnApi === leagueIdEnApi) {
+      return job;
+    }
+  }
+
+  return null;
+}
 
 function parseId(idParam: string | string[] | undefined) {
   const rawId = Array.isArray(idParam) ? idParam[0] : idParam;
@@ -297,7 +376,7 @@ function normalizePersistedCurrency(valueCurrency: string | null, valueRaw: unkn
   return valueCurrency;
 }
 
-async function syncPlayersForTeam(team: RealTeam) {
+async function syncPlayersForTeam(team: RealTeam, localEm: typeof orm.em) {
   const payload = await requestSportsApiPro(`/api/teams/${team.idEnApi}/players`);
   const rows = extractPlayersRows(payload);
   let created = 0;
@@ -315,7 +394,7 @@ async function syncPlayersForTeam(team: RealTeam) {
     const valueCurrency = normalizePersistedCurrency(readPlayerValueCurrency(row), valueRaw);
     const value = normalizePersistedValue(readPlayerValue(row), valueRaw);
 
-    const existing = await em.findOne(RealPlayer, { idEnApi });
+    const existing = await localEm.findOne(RealPlayer, { idEnApi });
     if (existing) {
       existing.name = name;
       existing.position = position;
@@ -328,7 +407,7 @@ async function syncPlayersForTeam(team: RealTeam) {
       continue;
     }
 
-    em.create(RealPlayer, {
+    localEm.create(RealPlayer, {
       idEnApi,
       name,
       position,
@@ -383,7 +462,7 @@ async function syncTeamSquadByTeamIdEnApi(req: Request, res: Response) {
       return;
     }
 
-    const stats = await syncPlayersForTeam(team);
+    const stats = await syncPlayersForTeam(team, em);
     await em.flush();
     res.status(200).json({ message: 'team squad synced', data: stats });
   } catch (error: any) {
@@ -483,9 +562,17 @@ async function syncByLeagueIdEnApi(req: Request, res: Response) {
       return;
     }
 
-    const whereClause = leagueId !== null ? { league: { id: leagueId } } : { league: { idEnApi: leagueIdEnApi! } };
-    const teams = await em.find(RealTeam, whereClause as any, { populate: ['league'] });
+    const existingRunningJob = getRunningSyncPlayersJobByLeague(leagueId, leagueIdEnApi);
+    if (existingRunningJob) {
+      res.status(409).json({
+        message: 'sync players job already running for league',
+        data: buildSyncPlayersJobSnapshot(existingRunningJob),
+      });
+      return;
+    }
 
+    const whereClause = leagueId !== null ? { league: { id: leagueId } } : { league: { idEnApi: leagueIdEnApi! } };
+    const teams = await em.find(RealTeam, whereClause as any, { fields: ['id'] as any });
     if (teams.length === 0) {
       res.status(404).json({
         message: 'no local teams found for league. Sync teams first.',
@@ -494,26 +581,102 @@ async function syncByLeagueIdEnApi(req: Request, res: Response) {
       return;
     }
 
-    const perTeamStats = await mapWithConcurrency(teams, 6, async (team) => syncPlayersForTeam(team));
-    const rows = perTeamStats.reduce((acc, item) => acc + item.rows, 0);
-    const created = perTeamStats.reduce((acc, item) => acc + item.created, 0);
-    const updated = perTeamStats.reduce((acc, item) => acc + item.updated, 0);
+    const createdAt = new Date();
+    const job: SyncPlayersByLeagueJobState = {
+      jobId: randomUUID(),
+      status: 'queued',
+      leagueId,
+      leagueIdEnApi,
+      createdAt: createdAt.toISOString(),
+      startedAt: null,
+      finishedAt: null,
+      teamsTotal: teams.length,
+      teamsProcessed: 0,
+      rows: 0,
+      created: 0,
+      updated: 0,
+      errors: [],
+      lastError: null,
+      createdAtDate: createdAt,
+      startedAtDate: null,
+      finishedAtDate: null,
+    };
 
-    await em.flush();
-    res.status(200).json({
-      message: 'real players synced by league',
-      data: {
-        leagueId,
-        leagueIdEnApi,
-        teams: teams.length,
-        rows,
-        created,
-        updated,
-        teamsProcessed: perTeamStats,
-      },
+    syncPlayersByLeagueJobs.set(job.jobId, job);
+    pruneSyncPlayersByLeagueJobs();
+
+    void runSyncPlayersByLeagueJob(job.jobId);
+
+    res.status(202).json({
+      message: 'real players sync job started',
+      data: buildSyncPlayersJobSnapshot(job),
     });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
 }
-export { sanitizeRealPlayerInput, findAll, findByIdEnApi, findOne, add, update, remove, syncByLeagueIdEnApi, syncTeamSquadByTeamIdEnApi, translatePricesByLeague };
+
+async function runSyncPlayersByLeagueJob(jobId: string): Promise<void> {
+  const job = syncPlayersByLeagueJobs.get(jobId);
+  if (!job) {
+    return;
+  }
+
+  job.status = 'running';
+  job.startedAtDate = new Date();
+
+  try {
+    const jobEm = orm.em.fork();
+    const whereClause = job.leagueId !== null ? { league: { id: job.leagueId } } : { league: { idEnApi: job.leagueIdEnApi! } };
+    const teams = await jobEm.find(RealTeam, whereClause as any, { populate: ['league'] }) as RealTeam[];
+    job.teamsTotal = teams.length;
+
+    const perTeamStats = await mapWithConcurrency<RealTeam, { rows: number; created: number; updated: number; teamIdEnApi: number; teamName: string }>(teams, 6, async (team) => {
+      try {
+        const stats = await syncPlayersForTeam(team, jobEm);
+        job.teamsProcessed += 1;
+        return stats;
+      } catch (error: any) {
+        job.teamsProcessed += 1;
+        job.errors.push({
+          teamIdEnApi: Number(team.idEnApi),
+          message: error?.message ?? 'unknown team sync error',
+        });
+        return { rows: 0, created: 0, updated: 0, teamIdEnApi: team.idEnApi, teamName: team.name };
+      }
+    });
+
+    job.rows = perTeamStats.reduce((acc, item) => acc + item.rows, 0);
+    job.created = perTeamStats.reduce((acc, item) => acc + item.created, 0);
+    job.updated = perTeamStats.reduce((acc, item) => acc + item.updated, 0);
+
+    await jobEm.flush();
+    job.status = 'completed';
+  } catch (error: any) {
+    job.status = 'failed';
+    job.lastError = error?.message ?? 'Unknown sync players failure';
+  } finally {
+    job.finishedAtDate = new Date();
+    job.startedAt = job.startedAtDate ? job.startedAtDate.toISOString() : null;
+    job.finishedAt = job.finishedAtDate.toISOString();
+  }
+}
+
+async function getSyncPlayersByLeagueJob(req: Request, res: Response) {
+  const jobId = typeof req.params.jobId === 'string' ? req.params.jobId.trim() : '';
+  if (!jobId) {
+    return res.status(400).json({ message: 'jobId route param is required' });
+  }
+
+  const job = syncPlayersByLeagueJobs.get(jobId);
+  if (!job) {
+    return res.status(404).json({ message: 'sync players job not found' });
+  }
+
+  return res.status(200).json({
+    message: 'sync players job status',
+    data: buildSyncPlayersJobSnapshot(job),
+  });
+}
+
+export { sanitizeRealPlayerInput, findAll, findByIdEnApi, findOne, add, update, remove, syncByLeagueIdEnApi, syncTeamSquadByTeamIdEnApi, translatePricesByLeague, getSyncPlayersByLeagueJob };
