@@ -1,10 +1,11 @@
 import { Router } from 'express';
-import { sanitizeTournamentInput, findAll, findOne, findOneByPublicCode, add, update, remove, syncPostponedMatches, sumEndOfMatchdayPoints, settleMarketAndRefreshByLeague } from './tournament.controler.js';
+import { sanitizeTournamentInput, findAll, findOne, findOneByPublicCode, getMatchdayAutomationSchedule, add, update, remove, syncPostponedMatches, sumEndOfMatchdayPoints, settleMarketAndRefreshByLeague } from './tournament.controler.js';
 
 export const TournamentRouter = Router();
 
 TournamentRouter.get('/', findAll);
 TournamentRouter.get('/by-public-code/:publicCode', findOneByPublicCode);
+TournamentRouter.get('/matchday-automation-schedule', getMatchdayAutomationSchedule);
 TournamentRouter.get('/:id', findOne);
 TournamentRouter.post('/', sanitizeTournamentInput, add);
 TournamentRouter.post('/sum-end-of-matchday-points', sumEndOfMatchdayPoints);

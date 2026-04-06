@@ -12,13 +12,15 @@ function parseId(idParam: string | string[] | undefined) {
 
 function sanitizeMatchdayInput(req: Request, res: Response, next: NextFunction) {
   req.body.sanitizeMatchdayInput = {
-        league: req.body.league ?? req.body.leagueId,
+    league: req.body.league ?? req.body.leagueId,
     season: req.body.season,
     matchdayNumber: req.body.matchdayNumber,
     startDate: req.body.startDate,
     endDate: req.body.endDate,
+    autoUpdateAt: req.body.autoUpdateAt ?? req.body.auto_update_at,
+    nextPostponedCheckAt: req.body.nextPostponedCheckAt ?? req.body.next_postponed_check_at,
     status: req.body.status,
-    };
+  };
 
   Object.keys(req.body.sanitizeMatchdayInput).forEach((key) => {
     if (req.body.sanitizeMatchdayInput[key] === undefined) {
