@@ -1,4 +1,4 @@
-import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property, Unique, Rel } from '@mikro-orm/core';
+import { Cascade, Collection, DateTimeType, Entity, ManyToOne, OneToMany, Property, Unique, Rel } from '@mikro-orm/core';
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { League } from '../League/league.entity.js';
 import { GameMatch } from '../GameMatch/gameMatch.entity.js';
@@ -26,10 +26,10 @@ export class Matchday extends BaseEntity {
   @Property({ nullable: false })
   endDate!: Date;
 
-  @Property({ nullable: true })
+  @Property({ type: DateTimeType, nullable: true })
   autoUpdateAt?: Date | null;
 
-  @Property({ nullable: true })
+  @Property({ type: DateTimeType, nullable: true })
   nextPostponedCheckAt?: Date | null;
 
   @Property({ nullable: false })

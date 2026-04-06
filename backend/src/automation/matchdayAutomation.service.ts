@@ -29,6 +29,21 @@ function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + (days * 24 * 60 * 60 * 1000));
 }
 
+function toValidDate(value: unknown): Date | null {
+  if (value instanceof Date && Number.isFinite(value.getTime())) {
+    return value;
+  }
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsed = new Date(value);
+    if (Number.isFinite(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
 async function invokeController(handler: (req: Request, res: Response) => Promise<void>, body: Record<string, unknown>) {
   return await new Promise((resolve, reject) => {
     RequestContext.create(orm.em, async () => {
@@ -118,12 +133,13 @@ async function seedJobs() {
 
       for (const matchday of matchdays) {
         const isCompletedMatchday = matchday.status === 'completed';
-        if (!isCompletedMatchday && matchday.autoUpdateAt && matchday.autoUpdateAt.getTime() <= now.getTime()) {
+        const autoUpdateAt = toValidDate(matchday.autoUpdateAt);
+        if (!isCompletedMatchday && autoUpdateAt && autoUpdateAt.getTime() <= now.getTime()) {
           await ensureJob({
             league,
             matchday,
             step: 'matchday_closure',
-            runAt: matchday.autoUpdateAt,
+            runAt: autoUpdateAt,
             idempotencyKey: createIdempotencyKey('closure', [league.id, matchday.id]),
             payload: {
               leagueId: league.id,
@@ -143,7 +159,8 @@ async function seedJobs() {
             matchday.nextPostponedCheckAt = addDays(now, 7);
           }
 
-          if (matchday.nextPostponedCheckAt.getTime() <= now.getTime()) {
+          const nextPostponedCheckAt = toValidDate(matchday.nextPostponedCheckAt);
+          if (nextPostponedCheckAt && nextPostponedCheckAt.getTime() <= now.getTime()) {
             const weekBucket = `${now.getUTCFullYear()}-${now.getUTCMonth() + 1}-${now.getUTCDate()}`;
             await ensureJob({
               league,
@@ -229,7 +246,8 @@ async function executePostponedRecheckJob(job: MatchdayAutomationJob) {
       continue;
     }
 
-    const runAt = addHours(candidate.startDateTime, 8);
+    const candidateStartDateTime = toValidDate(candidate.startDateTime) ?? new Date();
+    const runAt = addHours(candidateStartDateTime, 8);
 
     await ensureJob({
       league: matchday.league as League,
