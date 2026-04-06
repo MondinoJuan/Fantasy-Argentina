@@ -6,5 +6,7 @@ export interface matchdayI {
   matchdayNumber: number;
   startDate: Date;
   endDate: Date;
+  autoUpdateAt?: Date | null;
+  nextPostponedCheckAt?: Date | null;
   status: MatchdayStatus;
 }

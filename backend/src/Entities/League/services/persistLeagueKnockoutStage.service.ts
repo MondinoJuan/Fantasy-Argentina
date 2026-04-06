@@ -143,12 +143,15 @@ export async function persistLeagueKnockoutStageByIdEnApi(leagueIdEnApi: number)
           matchdayNumber: roundOrder,
           startDate,
           endDate,
+          autoUpdateAt: new Date(endDate.getTime() + (8 * 60 * 60 * 1000)),
+          nextPostponedCheckAt: null,
           status: 'scheduled',
         } as any);
         createdMatchdays += 1;
       } else {
         matchday.startDate = startDate;
         matchday.endDate = endDate;
+        matchday.autoUpdateAt = new Date(endDate.getTime() + (8 * 60 * 60 * 1000));
         updatedMatchdays += 1;
       }
 

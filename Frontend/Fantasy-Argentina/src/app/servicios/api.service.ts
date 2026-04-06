@@ -496,6 +496,15 @@ export class ApiService {
     return this.http.post<any>(`${this.url}/tournaments/settle-market-and-refresh-by-league`, payload);
   }
 
+  getTournamentMatchdayAutomationSchedule(filters?: { leagueId?: number | string }) {
+    const params: string[] = [];
+    if (filters?.leagueId !== undefined && filters?.leagueId !== null) {
+      params.push(`leagueId=${filters.leagueId}`);
+    }
+    const query = params.length > 0 ? `?${params.join('&')}` : '';
+    return this.http.get<any>(`${this.url}/tournaments/matchday-automation-schedule${query}`);
+  }
+
   searchExternalLocalPersistedFixture(filters?: { competitionId?: number | string; leagueId?: number | string }) {
     const params: string[] = [];
 

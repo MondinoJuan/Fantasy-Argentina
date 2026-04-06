@@ -26,6 +26,12 @@ export class Matchday extends BaseEntity {
   @Property({ nullable: false })
   endDate!: Date;
 
+  @Property({ nullable: true })
+  autoUpdateAt?: Date | null;
+
+  @Property({ nullable: true })
+  nextPostponedCheckAt?: Date | null;
+
   @Property({ nullable: false })
   status!: MatchdayStatus;
 

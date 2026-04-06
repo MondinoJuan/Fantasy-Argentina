@@ -201,9 +201,18 @@ async function persistFixtureCompetitionInDb(
 
     const firstStart = String(orderedByStartTime[0]?.startTime ?? '');
     const lastStart = String(orderedByStartTime[orderedByStartTime.length - 1]?.startTime ?? '');
+    const nonPostponed = orderedByStartTime.filter((game) => {
+      const status = String(game.statusText ?? '').toLowerCase();
+      return !status.includes('postpon');
+    });
+    const lastNonPostponedStart = String(nonPostponed[nonPostponed.length - 1]?.startTime ?? '');
 
     const firstDate = firstStart ? new Date(firstStart) : new Date();
     const lastDate = lastStart ? new Date(lastStart) : firstDate;
+    const closureAnchor = lastNonPostponedStart
+      ? new Date(lastNonPostponedStart)
+      : lastDate;
+    const autoUpdateAt = new Date(closureAnchor.getTime() + (8 * 60 * 60 * 1000));
 
     const startDate = new Date(Date.UTC(firstDate.getUTCFullYear(), firstDate.getUTCMonth(), firstDate.getUTCDate(), 0, 0, 0, 0));
     const endDate = new Date(Date.UTC(lastDate.getUTCFullYear(), lastDate.getUTCMonth(), lastDate.getUTCDate(), 23, 59, 59, 999));
@@ -221,12 +230,15 @@ async function persistFixtureCompetitionInDb(
         matchdayNumber: group.roundNum,
         startDate,
         endDate,
+        autoUpdateAt,
+        nextPostponedCheckAt: null,
         status: MATCHDAY_STATUSES[0],
       } as any);
       createdMatchdays += 1;
     } else {
       matchday.startDate = startDate;
       matchday.endDate = endDate;
+      matchday.autoUpdateAt = autoUpdateAt;
     }
 
     if (expectedMatchesPerRound > 0 && group.games.length !== expectedMatchesPerRound) {
@@ -237,9 +249,14 @@ async function persistFixtureCompetitionInDb(
       });
     }
 
+    let hasPostponedMatches = false;
     for (const fixtureMatch of group.games) {
       const gameId = Number.parseInt(String(fixtureMatch.gameId ?? ''), 10);
       if (!Number.isFinite(gameId)) continue;
+      const statusText = String(fixtureMatch.statusText ?? '').toLowerCase();
+      if (statusText.includes('postpon')) {
+        hasPostponedMatches = true;
+      }
 
       const homeScore = toNullableScore(asRecord(fixtureMatch.home).score);
       const awayScore = toNullableScore(asRecord(fixtureMatch.away).score);
@@ -277,6 +294,13 @@ async function persistFixtureCompetitionInDb(
         awayScore,
       } as any);
       createdMatches += 1;
+    }
+
+    if (hasPostponedMatches) {
+      const fallbackAnchor = matchday.autoUpdateAt ?? new Date(endDate.getTime() + (8 * 60 * 60 * 1000));
+      matchday.nextPostponedCheckAt = new Date(fallbackAnchor.getTime() + (7 * 24 * 60 * 60 * 1000));
+    } else {
+      matchday.nextPostponedCheckAt = null;
     }
   }
 
@@ -1068,6 +1092,97 @@ async function runSyncPlayedResultsJob(jobId: string): Promise<void> {
   }
 }
 
+async function syncPlayedMatchesResultsForCompetition(competitionId: number): Promise<{
+  scannedMatches: number;
+  processedMatches: number;
+  updatedMatches: number;
+  missingPayloadData: number;
+  errors: Array<{ gameId: string; message: string }>;
+}> {
+  const jobEm = orm.em.fork();
+  const now = new Date();
+  const where = {
+    startDateTime: { $lt: now },
+    status: { $ne: 'finalizado' },
+    matchday: { league: { idEnApi: competitionId } },
+  };
+
+  const matches = await jobEm.find(GameMatch, where as any, { populate: ['matchday', 'matchday.league'] });
+  const result = {
+    scannedMatches: matches.length,
+    processedMatches: 0,
+    updatedMatches: 0,
+    missingPayloadData: 0,
+    errors: [] as Array<{ gameId: string; message: string }>,
+  };
+
+  const processMatch = async (match: GameMatch) => {
+    const gameId = Number.parseInt(String(match.externalApiId ?? ''), 10);
+
+    if (!Number.isFinite(gameId)) {
+      result.missingPayloadData += 1;
+      result.processedMatches += 1;
+      return;
+    }
+
+    try {
+      const apiPayload = asRecord(await requestSportsApiPro(`/api/match/${gameId}`));
+      const apiMatch = extractMatchNodeFromMatchPayload(apiPayload);
+
+      if (Object.keys(apiMatch).length === 0) {
+        result.missingPayloadData += 1;
+        result.processedMatches += 1;
+        return;
+      }
+
+      const homeTeam = asRecord(apiMatch.homeTeam);
+      const awayTeam = asRecord(apiMatch.awayTeam);
+      const homeScoreNode = asRecord(apiMatch.homeScore);
+      const awayScoreNode = asRecord(apiMatch.awayScore);
+      const statusNode = asRecord(apiMatch.status);
+
+      const homeScore = toNullableScore(homeScoreNode.current ?? homeScoreNode.display ?? homeScoreNode.normaltime);
+      const awayScore = toNullableScore(awayScoreNode.current ?? awayScoreNode.display ?? awayScoreNode.normaltime);
+      const hasValidScore = homeScore !== null && awayScore !== null;
+
+      const resolvedStartDateTime = toNullableDateFromIsoOrUnix(
+        apiPayload.startTime
+        ?? apiMatch.startTime
+        ?? apiMatch.startTimestamp
+        ?? apiMatch.currentPeriodStartTimestamp,
+      );
+
+      if (typeof homeTeam.name === 'string' && homeTeam.name.trim().length > 0) {
+        match.homeTeam = homeTeam.name.trim();
+      }
+      if (typeof awayTeam.name === 'string' && awayTeam.name.trim().length > 0) {
+        match.awayTeam = awayTeam.name.trim();
+      }
+      if (resolvedStartDateTime) {
+        match.startDateTime = resolvedStartDateTime;
+      }
+
+      match.homeScore = homeScore;
+      match.awayScore = awayScore;
+      match.status = normalizeMatchStatusFromApi(statusNode.type ?? statusNode.description ?? statusNode.code, hasValidScore);
+
+      result.updatedMatches += 1;
+    } catch (error: any) {
+      result.errors.push({ gameId: String(match.externalApiId), message: error?.message ?? 'unknown error' });
+    } finally {
+      result.processedMatches += 1;
+    }
+  };
+
+  for (let index = 0; index < matches.length; index += SYNC_RESULTS_CONCURRENCY) {
+    const chunk = matches.slice(index, index + SYNC_RESULTS_CONCURRENCY);
+    await Promise.all(chunk.map((match) => processMatch(match)));
+    await jobEm.flush();
+  }
+
+  return result;
+}
+
 async function postSportsApiProSyncPlayedMatchesResults(req: Request, res: Response) {
   const competitionId = parseOptionalNumber(req.body?.competitionId)
     ?? parseOptionalNumber(Array.isArray(req.query.competitionId) ? req.query.competitionId[0] : req.query.competitionId);
@@ -1434,6 +1549,11 @@ async function processRankingsInBackground(competitionId: number, localEm: typeo
   });
 }
 
+async function processRankingsForCompetition(competitionId: number): Promise<void> {
+  const localEm = orm.em.fork();
+  await processRankingsInBackground(competitionId, localEm);
+}
+
 export {
   getSportsApiProPlayerById,
   getSportsApiProPlayersByTeam,
@@ -1451,4 +1571,6 @@ export {
   getSportsApiProRankingsWithLocalPerformances,
   postSportsApiProSyncPlayedMatchesResults,
   getSportsApiProSyncPlayedMatchesResultsJob,
+  syncPlayedMatchesResultsForCompetition,
+  processRankingsForCompetition,
 };
