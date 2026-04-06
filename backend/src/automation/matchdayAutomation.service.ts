@@ -1,4 +1,5 @@
 import { orm } from '../shared/db/orm.js';
+import { RequestContext } from '@mikro-orm/mysql';
 import { Tournament } from '../Entities/Tournament/tournament.entity.js';
 import { Matchday } from '../Entities/Matchday/matchday.entity.js';
 import { MatchdayAutomationJob } from '../Entities/MatchdayAutomationJob/matchdayAutomationJob.entity.js';
@@ -29,28 +30,37 @@ function addDays(date: Date, days: number): Date {
 }
 
 async function invokeController(handler: (req: Request, res: Response) => Promise<void>, body: Record<string, unknown>) {
-  let statusCode = 200;
-  let jsonPayload: any;
+  return await new Promise((resolve, reject) => {
+    RequestContext.create(orm.em, async () => {
+      try {
+        let statusCode = 200;
+        let jsonPayload: any;
 
-  const req = { body, params: {}, query: {} } as Request;
-  const res = {
-    status(code: number) {
-      statusCode = code;
-      return this;
-    },
-    json(payload: any) {
-      jsonPayload = payload;
-      return this;
-    },
-  } as unknown as Response;
+        const req = { body, params: {}, query: {} } as Request;
+        const res = {
+          status(code: number) {
+            statusCode = code;
+            return this;
+          },
+          json(payload: any) {
+            jsonPayload = payload;
+            return this;
+          },
+        } as unknown as Response;
 
-  await handler(req, res);
+        await handler(req, res);
 
-  if (statusCode >= 400) {
-    throw new Error(jsonPayload?.message ?? `controller error with status ${statusCode}`);
-  }
+        if (statusCode >= 400) {
+          reject(new Error(jsonPayload?.message ?? `controller error with status ${statusCode}`));
+          return;
+        }
 
-  return jsonPayload;
+        resolve(jsonPayload);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
 }
 
 async function ensureJob(params: {
@@ -107,7 +117,8 @@ async function seedJobs() {
       const matchdays = await localEm.find(Matchday, { league }, { populate: ['league'], orderBy: { matchdayNumber: 'asc' } });
 
       for (const matchday of matchdays) {
-        if (matchday.autoUpdateAt && matchday.autoUpdateAt.getTime() <= now.getTime()) {
+        const isCompletedMatchday = matchday.status === 'completed';
+        if (!isCompletedMatchday && matchday.autoUpdateAt && matchday.autoUpdateAt.getTime() <= now.getTime()) {
           await ensureJob({
             league,
             matchday,
