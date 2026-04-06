@@ -72,6 +72,7 @@ interface BuildCompetitionFixtureJobState extends BuildCompetitionFixtureJobSnap
 
 const syncPlayedResultsJobs = new Map<string, SyncPlayedResultsJobState>();
 const buildCompetitionFixtureJobs = new Map<string, BuildCompetitionFixtureJobState>();
+const runningRankingsCompetitions = new Set<number>();
 const MAX_SYNC_RESULTS_JOBS_TRACKED = 100;
 const MAX_BUILD_FIXTURE_JOBS_TRACKED = 50;
 const SYNC_RESULTS_CONCURRENCY = 4;
@@ -1385,14 +1386,35 @@ async function getSportsApiProRankingsWithLocalPerformances(req: Request, res: R
     return res.status(400).json({ message: 'competitionId body param is required number' });
   }
 
+  if (runningRankingsCompetitions.has(competitionId)) {
+    return res.status(409).json({
+      message: 'rankings process already running for competition',
+      competitionId,
+    });
+  }
+
   // Responde inmediatamente
   res.status(202).json({ message: 'processing started', competitionId });
 
   // Procesa en background con su propio em forkeado
-  const forkedEm = orm.em.fork();
-  processRankingsInBackground(competitionId, forkedEm).catch((err) => {
+  void runRankingsProcessWithCompetitionLock(competitionId);
+}
+
+async function runRankingsProcessWithCompetitionLock(competitionId: number): Promise<void> {
+  if (runningRankingsCompetitions.has(competitionId)) {
+    return;
+  }
+
+  runningRankingsCompetitions.add(competitionId);
+  try {
+    const forkedEm = orm.em.fork();
+    await processRankingsInBackground(competitionId, forkedEm);
+  } catch (err: any) {
     console.error('[rankings-background] error:', err?.message ?? err);
-  });
+    throw err;
+  } finally {
+    runningRankingsCompetitions.delete(competitionId);
+  }
 }
 
 async function processRankingsInBackground(competitionId: number, localEm: typeof orm.em) {
@@ -1550,8 +1572,12 @@ async function processRankingsInBackground(competitionId: number, localEm: typeo
 }
 
 async function processRankingsForCompetition(competitionId: number): Promise<void> {
-  const localEm = orm.em.fork();
-  await processRankingsInBackground(competitionId, localEm);
+  if (runningRankingsCompetitions.has(competitionId)) {
+    console.log(`[rankings][competition=${competitionId}] ⏭️ Proceso ya en ejecución, se omite trigger duplicado`);
+    return;
+  }
+
+  await runRankingsProcessWithCompetitionLock(competitionId);
 }
 
 export {
