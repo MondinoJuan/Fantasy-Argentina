@@ -62,6 +62,8 @@ async function getOrCreateCurrentMatchday(tournament: Tournament, entityManager:
     matchdayNumber: 1,
     startDate: new Date(),
     endDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
+    autoUpdateAt: new Date(Date.now() + (6 * 24 * 60 * 60 * 1000) + (8 * 60 * 60 * 1000)),
+    nextPostponedCheckAt: null,
     status: MATCHDAY_STATUSES[1],
   } as any);
 

@@ -35,6 +35,7 @@ export class SuperadminMenuComponent {
     'getAllTournaments', 'getAllParticipants', 'getAllParticipantSquads', 'getAllMatchdays', 'getAllMatches',
     'getAllMatchdayMarkets', 'getAllBids', 'getAllNegotiations', 'getAllTransactions',
     'getAllPlayerPerformances', 'getAllPlayerPointsBreakdowns', 'getAllParticipantMatchdayPoints', 'getLeaguesTournamentCounts',
+    'getMatchdayAutomationSchedule',
   ];
 
   readonly updateActions: SuperadminAction[] = [
@@ -201,6 +202,7 @@ export class SuperadminMenuComponent {
       getAllPlayerPerformances: () => this.apiService.searchPlayerPerformances(),
       getAllPlayerPointsBreakdowns: () => this.apiService.searchPlayerPointsBreakdowns(),
       getAllParticipantMatchdayPoints: () => this.apiService.searchParticipantMatchdayPoints(),
+      getMatchdayAutomationSchedule: () => this.apiService.getTournamentMatchdayAutomationSchedule(),
       getLeaguesTournamentCounts: () => forkJoin({
         leaguesResponse: this.apiService.searchLeagues(),
         tournamentsResponse: this.apiService.searchTournaments(),
