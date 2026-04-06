@@ -17,6 +17,7 @@ import { ParticipantSquad } from '../ParticipantSquad/participantSquad.entity.js
 import { MatchdayMarket } from '../MatchdayMarket/matchdayMarket.entity.js';
 import { Bid } from '../Bid/bid.entity.js';
 import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
+import { MatchdayAutomationJob } from '../MatchdayAutomationJob/matchdayAutomationJob.entity.js';
 import { TOURNAMENT_STATUSES, MATCHDAY_STATUSES, MATCH_STATUSES, MARKET_ORIGINS, isEnumValue } from '../../shared/domain-enums.js';
 import { setupParticipantAfterJoin } from './tournament-participation.service.js';
 import { serverNow } from '../../shared/time/serverClock.js';
@@ -592,6 +593,91 @@ async function findOneByPublicCode(req: Request, res: Response) {
   }
 }
 
+async function getMatchdayAutomationSchedule(req: Request, res: Response) {
+  try {
+    const leagueIdFilter = toInt(req.query?.leagueId);
+    const tournaments = await em.find(Tournament, leagueIdFilter ? { league: { id: leagueIdFilter } } as any : {}, { populate: ['league'] });
+
+    const leagueById = new Map<number, League>();
+    for (const tournament of tournaments) {
+      const league = tournament.league as League;
+      const leagueId = Number(league?.id ?? 0);
+      if (Number.isFinite(leagueId) && leagueId > 0) {
+        leagueById.set(leagueId, league);
+      }
+    }
+
+    const leagueIds = [...leagueById.keys()];
+    if (leagueIds.length === 0) {
+      res.status(200).json({ message: 'no leagues with tournaments found', data: [] });
+      return;
+    }
+
+    const matchdays = await em.find(Matchday, { league: { $in: leagueIds } } as any, {
+      populate: ['league'],
+      orderBy: [{ league: 'asc' }, { season: 'desc' }, { matchdayNumber: 'asc' }],
+    });
+
+    const matchdayIds = matchdays
+      .map((matchday) => Number(matchday.id ?? 0))
+      .filter((id) => Number.isFinite(id) && id > 0);
+
+    const jobs = matchdayIds.length > 0
+      ? await em.find(MatchdayAutomationJob, {
+        matchday: { $in: matchdayIds },
+        step: { $in: ['matchday_closure', 'postponed_match_sum'] },
+      } as any, {
+        populate: ['matchday'],
+        orderBy: [{ runAt: 'desc' }, { id: 'desc' }],
+      })
+      : [];
+
+    const jobsByMatchday = jobs.reduce((acc, job) => {
+      const matchdayId = Number((job.matchday as any)?.id ?? job.matchday ?? 0);
+      if (!Number.isFinite(matchdayId) || matchdayId <= 0) {
+        return acc;
+      }
+
+      const list = acc.get(matchdayId) ?? [];
+      list.push(job);
+      acc.set(matchdayId, list);
+      return acc;
+    }, new Map<number, MatchdayAutomationJob[]>());
+
+    const rows = matchdays.map((matchday) => {
+      const matchdayId = Number(matchday.id ?? 0);
+      const jobsForMatchday = jobsByMatchday.get(matchdayId) ?? [];
+
+      const latestClosure = jobsForMatchday.find((job) => job.step === 'matchday_closure');
+      const latestCompletedClosure = jobsForMatchday.find((job) => job.step === 'matchday_closure' && job.status === 'completed');
+      const latestCompletedPostponedSum = jobsForMatchday.find((job) => job.step === 'postponed_match_sum' && job.status === 'completed');
+
+      return {
+        leagueId: Number(matchday.league?.id ?? 0),
+        leagueName: String((matchday.league as any)?.name ?? '-'),
+        season: matchday.season,
+        matchdayId,
+        matchdayNumber: matchday.matchdayNumber,
+        status: matchday.status,
+        startDate: matchday.startDate,
+        endDate: matchday.endDate,
+        closureScheduledAt: matchday.autoUpdateAt ?? null,
+        nextPostponedCheckAt: matchday.nextPostponedCheckAt ?? null,
+        closureJobStatus: latestClosure?.status ?? null,
+        pointsAndMarketUpdatedAt: latestCompletedClosure?.finishedAt ?? null,
+        latestPostponedPointsUpdateAt: latestCompletedPostponedSum?.finishedAt ?? null,
+      };
+    });
+
+    res.status(200).json({
+      message: 'matchday automation schedule',
+      data: rows,
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
 async function add(req: Request, res: Response) {
   try {
     const {
@@ -1109,6 +1195,8 @@ async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
             matchdayNumber: 1,
             startDate: now,
             endDate: new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000),
+            autoUpdateAt: new Date(now.getTime() + (6 * 24 * 60 * 60 * 1000) + (8 * 60 * 60 * 1000)),
+            nextPostponedCheckAt: null,
             status: MATCHDAY_STATUSES[1],
           } as any);
 
@@ -1328,4 +1416,4 @@ async function remove(req: Request, res: Response) {
   }
 }
 
-export { sanitizeTournamentInput, findAll, findOne, findOneByPublicCode, add, update, remove, syncPostponedMatches, syncPostponedMatchesAndPersistPlayerRatings, sumEndOfMatchdayPoints, settleMarketAndRefreshByLeague };
+export { sanitizeTournamentInput, findAll, findOne, findOneByPublicCode, getMatchdayAutomationSchedule, add, update, remove, syncPostponedMatches, syncPostponedMatchesAndPersistPlayerRatings, sumEndOfMatchdayPoints, settleMarketAndRefreshByLeague, translateLeagueRealPlayersValues };

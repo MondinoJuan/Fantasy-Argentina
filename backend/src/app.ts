@@ -28,6 +28,7 @@ import { AuthRouter } from './Entities/Auth/auth.routes.js';
 import "dotenv/config";
 import { requireAuth } from './shared/http/auth.middleware.js';
 import { serverNow, serverNowMs } from './shared/time/serverClock.js';
+import { startMatchdayAutomationScheduler } from './automation/matchdayAutomation.service.js';
 
 function getAllowedCorsOrigins(): string[] {
   const raw = process.env.CORS_ALLOWED_ORIGINS ?? '';
@@ -220,6 +221,8 @@ app.listen(3000, '0.0.0.0', () => {
 
 const PORT = Number(process.env.PORT ?? 3000);
 const HOST = process.env.HOST ?? '0.0.0.0';
+
+startMatchdayAutomationScheduler();
 
 app.listen(PORT, HOST, () => {
   console.log(`Listening on http://${HOST}:${PORT}`);

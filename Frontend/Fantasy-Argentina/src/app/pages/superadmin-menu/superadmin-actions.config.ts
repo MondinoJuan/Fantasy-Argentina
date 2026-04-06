@@ -25,6 +25,7 @@ export type SuperadminAction =
   | 'getAllPlayerPointsBreakdowns'
   | 'getAllParticipantMatchdayPoints'
   | 'getLeaguesTournamentCounts'
+  | 'getMatchdayAutomationSchedule'
   | 'rankingsByDate'
   | 'updateTeamSquad'
   | 'syncPlayedMatchResults'
@@ -105,6 +106,7 @@ export const SUPERADMIN_ACTION_CONFIG: Record<SuperadminAction, { title: string;
   getAllPlayerPointsBreakdowns: { title: 'Get all player points breakdowns', fields: [] },
   getAllParticipantMatchdayPoints: { title: 'Get all participant matchday points', fields: [] },
   getLeaguesTournamentCounts: { title: 'Leagues persistidas + cantidad de tournaments', fields: [] },
+  getMatchdayAutomationSchedule: { title: 'Ver fecha actualización puntos/market por fecha', fields: [] },
 
   rankingsByDate: { title: 'Recuperar rankings por jugador/fecha', fields: ['competitionId'] },
   updateTeamSquad: { title: 'Actualizar plantilla de equipos por League ID', fields: ['leagueId'] },

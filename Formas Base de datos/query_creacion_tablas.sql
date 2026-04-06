@@ -185,6 +185,8 @@ CREATE TABLE matchday (
   matchday_number  INT NOT NULL,
   start_date       DATE NOT NULL,
   end_date         DATE NOT NULL,
+  auto_update_at   DATETIME NULL,
+  next_postponed_check_at DATETIME NULL,
   status           VARCHAR(30) NOT NULL,
   created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

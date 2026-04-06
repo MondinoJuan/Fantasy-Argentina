@@ -58,12 +58,12 @@ INSERT INTO Participant_Squad (id, participant_id, real_player_id, acquisition_d
   (5, 5, 5, NOW(), NULL, 25000000.00, 'INITIAL', NOW(), NOW());
 
 -- 8) Matchday
-INSERT INTO Matchday (id, league_id, season, matchday_number, start_date, end_date, status, created_at, updated_at) VALUES
-  (1, 1, '2026', 1, DATE_ADD(CURDATE(), INTERVAL 1 DAY), DATE_ADD(CURDATE(), INTERVAL 2 DAY), 'FINISHED', NOW(), NOW()),
-  (2, 1, '2026', 2, DATE_ADD(CURDATE(), INTERVAL 3 DAY), DATE_ADD(CURDATE(), INTERVAL 4 DAY), 'FINISHED', NOW(), NOW()),
-  (3, 1, '2026', 3, DATE_ADD(CURDATE(), INTERVAL 5 DAY), DATE_ADD(CURDATE(), INTERVAL 6 DAY), 'FINISHED', NOW(), NOW()),
-  (4, 1, '2026', 4, DATE_ADD(CURDATE(), INTERVAL 7 DAY), DATE_ADD(CURDATE(), INTERVAL 8 DAY), 'FINISHED', NOW(), NOW()),
-  (5, 1, '2026', 5, DATE_ADD(CURDATE(), INTERVAL 9 DAY), DATE_ADD(CURDATE(), INTERVAL 10 DAY), 'FINISHED', NOW(), NOW());
+INSERT INTO Matchday (id, league_id, season, matchday_number, start_date, end_date, auto_update_at, next_postponed_check_at, status, created_at, updated_at) VALUES
+  (1, 1, '2026', 1, DATE_ADD(CURDATE(), INTERVAL 1 DAY), DATE_ADD(CURDATE(), INTERVAL 2 DAY), DATE_ADD(NOW(), INTERVAL 2 DAY), NULL, 'FINISHED', NOW(), NOW()),
+  (2, 1, '2026', 2, DATE_ADD(CURDATE(), INTERVAL 3 DAY), DATE_ADD(CURDATE(), INTERVAL 4 DAY), DATE_ADD(NOW(), INTERVAL 4 DAY), NULL, 'FINISHED', NOW(), NOW()),
+  (3, 1, '2026', 3, DATE_ADD(CURDATE(), INTERVAL 5 DAY), DATE_ADD(CURDATE(), INTERVAL 6 DAY), DATE_ADD(NOW(), INTERVAL 6 DAY), NULL, 'FINISHED', NOW(), NOW()),
+  (4, 1, '2026', 4, DATE_ADD(CURDATE(), INTERVAL 7 DAY), DATE_ADD(CURDATE(), INTERVAL 8 DAY), DATE_ADD(NOW(), INTERVAL 8 DAY), NULL, 'FINISHED', NOW(), NOW()),
+  (5, 1, '2026', 5, DATE_ADD(CURDATE(), INTERVAL 9 DAY), DATE_ADD(CURDATE(), INTERVAL 10 DAY), DATE_ADD(NOW(), INTERVAL 10 DAY), NULL, 'FINISHED', NOW(), NOW());
 
 -- 9) Match
 INSERT INTO `Match` (id, matchday_id, league_id, external_api_id, home_team, away_team, start_date_time, status, created_at, updated_at) VALUES

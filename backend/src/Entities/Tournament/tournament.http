@@ -60,3 +60,17 @@ Content-Type: application/json
   "season": "41087-knockout",
   "matchId": 1
 }
+
+### cerrar pujas y renovar market por league
+POST http://127.0.0.1:3000/api/tournaments/settle-market-and-refresh-by-league
+Content-Type: application/json
+
+{
+  "leagueId": 1
+}
+
+### ver cronograma/actualización de puntos y market por fecha (ligas con tournaments)
+GET http://127.0.0.1:3000/api/tournaments/matchday-automation-schedule
+
+### ver cronograma filtrando por league local
+GET http://127.0.0.1:3000/api/tournaments/matchday-automation-schedule?leagueId=1
