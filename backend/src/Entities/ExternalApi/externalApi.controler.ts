@@ -76,6 +76,7 @@ const runningRankingsCompetitions = new Set<number>();
 const MAX_SYNC_RESULTS_JOBS_TRACKED = 100;
 const MAX_BUILD_FIXTURE_JOBS_TRACKED = 50;
 const SYNC_RESULTS_CONCURRENCY = 4;
+const rankingsProcessEnabled = (process.env.RANKINGS_PROCESS_ENABLED ?? 'true').toLowerCase() !== 'false';
 
 function asRecord(value: unknown): UnknownRecord {
   return value && typeof value === 'object' ? (value as UnknownRecord) : {};
@@ -88,6 +89,23 @@ function toInt(value: unknown): number | null {
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
+}
+
+function readPositiveIntEnv(varName: string, fallback: number): number {
+  const raw = Number.parseInt(process.env[varName] ?? '', 10);
+  if (!Number.isFinite(raw) || raw < 1) {
+    return fallback;
+  }
+
+  return raw;
+}
+
+const RANKINGS_CONCURRENCY = readPositiveIntEnv('RANKINGS_CONCURRENCY', 5);
+const RANKINGS_MAX_RATE_LIMIT_ERRORS = readPositiveIntEnv('RANKINGS_MAX_RATE_LIMIT_ERRORS', 5);
+
+function isRateLimitError(error: unknown): boolean {
+  const message = String((error as any)?.message ?? error ?? '').toLowerCase();
+  return message.includes('429') || message.includes('rate limit') || message.includes('too many requests');
 }
 
 
@@ -1385,6 +1403,19 @@ async function getSportsApiProRankingsWithLocalPerformances(req: Request, res: R
   if (!competitionId) {
     return res.status(400).json({ message: 'competitionId body param is required number' });
   }
+  if (!rankingsProcessEnabled) {
+    return res.status(503).json({
+      message: 'rankings process disabled by env (RANKINGS_PROCESS_ENABLED=false)',
+      competitionId,
+    });
+  }
+
+  if (runningRankingsCompetitions.has(competitionId)) {
+    return res.status(409).json({
+      message: 'rankings process already running for competition',
+      competitionId,
+    });
+  }
 
   if (runningRankingsCompetitions.has(competitionId)) {
     return res.status(409).json({
@@ -1397,7 +1428,9 @@ async function getSportsApiProRankingsWithLocalPerformances(req: Request, res: R
   res.status(202).json({ message: 'processing started', competitionId });
 
   // Procesa en background con su propio em forkeado
-  void runRankingsProcessWithCompetitionLock(competitionId);
+  void runRankingsProcessWithCompetitionLock(competitionId).catch((err: any) => {
+    console.error(`[rankings][competition=${competitionId}] background run failed:`, err?.message ?? err);
+  });
 }
 
 async function runRankingsProcessWithCompetitionLock(competitionId: number): Promise<void> {
@@ -1469,11 +1502,15 @@ async function processRankingsInBackground(competitionId: number, localEm: typeo
   let createdPerformances = 0;
   let updatedPerformances = 0;
   let missingLocalPlayers = 0;
+  let rateLimitErrors = 0;
+  let abortedByRateLimit = false;
   const errors: Array<{ matchId: number; message: string }> = [];
 
-  console.log(`${tag} 🌐 Iniciando requests a la API externa (máx 5 en paralelo)...`);
+  console.log(`${tag} 🌐 Iniciando requests a la API externa (máx ${RANKINGS_CONCURRENCY} en paralelo)...`);
 
-  await runWithConcurrency(matches, 5, async (match, index) => {
+  await runWithConcurrency(matches, RANKINGS_CONCURRENCY, async (match, index) => {
+    if (abortedByRateLimit) return;
+
     const apiMatchId = Number.parseInt(String(match.externalApiId ?? ''), 10);
     if (!Number.isFinite(apiMatchId)) return;
 
@@ -1547,6 +1584,15 @@ async function processRankingsInBackground(competitionId: number, localEm: typeo
     } catch (error: any) {
       console.error(`${tag}   ❌ ${matchLabel}: ${error?.message ?? 'unknown error'}`);
       errors.push({ matchId: apiMatchId, message: error?.message ?? 'unknown error' });
+      if (isRateLimitError(error)) {
+        rateLimitErrors += 1;
+        if (rateLimitErrors >= RANKINGS_MAX_RATE_LIMIT_ERRORS) {
+          abortedByRateLimit = true;
+          console.error(
+            `${tag} 🛑 Corte preventivo: se alcanzó el límite de errores 429 (${rateLimitErrors}/${RANKINGS_MAX_RATE_LIMIT_ERRORS}).`,
+          );
+        }
+      }
     }
   });
 
@@ -1567,11 +1613,18 @@ async function processRankingsInBackground(competitionId: number, localEm: typeo
     createdPerformances,
     updatedPerformances,
     missingLocalPlayers,
+    rateLimitErrors,
+    abortedByRateLimit,
     errors: errors.length > 0 ? errors : 'ninguno',
   });
 }
 
 async function processRankingsForCompetition(competitionId: number): Promise<void> {
+  if (!rankingsProcessEnabled) {
+    console.log(`[rankings][competition=${competitionId}] ⏸️ Proceso deshabilitado por env (RANKINGS_PROCESS_ENABLED=false)`);
+    return;
+  }
+
   if (runningRankingsCompetitions.has(competitionId)) {
     console.log(`[rankings][competition=${competitionId}] ⏭️ Proceso ya en ejecución, se omite trigger duplicado`);
     return;
