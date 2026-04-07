@@ -76,8 +76,6 @@ const runningRankingsCompetitions = new Set<number>();
 const MAX_SYNC_RESULTS_JOBS_TRACKED = 100;
 const MAX_BUILD_FIXTURE_JOBS_TRACKED = 50;
 const SYNC_RESULTS_CONCURRENCY = 4;
-const RANKINGS_CONCURRENCY = Number.parseInt(process.env.RANKINGS_CONCURRENCY ?? '', 10) || 5;
-const RANKINGS_MAX_RATE_LIMIT_ERRORS = Number.parseInt(process.env.RANKINGS_MAX_RATE_LIMIT_ERRORS ?? '', 10) || 5;
 const rankingsProcessEnabled = (process.env.RANKINGS_PROCESS_ENABLED ?? 'true').toLowerCase() !== 'false';
 
 function asRecord(value: unknown): UnknownRecord {
@@ -92,6 +90,18 @@ function toInt(value: unknown): number | null {
   }
   return null;
 }
+
+function readPositiveIntEnv(varName: string, fallback: number): number {
+  const raw = Number.parseInt(process.env[varName] ?? '', 10);
+  if (!Number.isFinite(raw) || raw < 1) {
+    return fallback;
+  }
+
+  return raw;
+}
+
+const RANKINGS_CONCURRENCY = readPositiveIntEnv('RANKINGS_CONCURRENCY', 5);
+const RANKINGS_MAX_RATE_LIMIT_ERRORS = readPositiveIntEnv('RANKINGS_MAX_RATE_LIMIT_ERRORS', 5);
 
 function isRateLimitError(error: unknown): boolean {
   const message = String((error as any)?.message ?? error ?? '').toLowerCase();
@@ -1411,7 +1421,9 @@ async function getSportsApiProRankingsWithLocalPerformances(req: Request, res: R
   res.status(202).json({ message: 'processing started', competitionId });
 
   // Procesa en background con su propio em forkeado
-  void runRankingsProcessWithCompetitionLock(competitionId);
+  void runRankingsProcessWithCompetitionLock(competitionId).catch((err: any) => {
+    console.error(`[rankings][competition=${competitionId}] background run failed:`, err?.message ?? err);
+  });
 }
 
 async function runRankingsProcessWithCompetitionLock(competitionId: number): Promise<void> {
