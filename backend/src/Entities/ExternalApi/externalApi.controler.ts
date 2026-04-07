@@ -1417,6 +1417,13 @@ async function getSportsApiProRankingsWithLocalPerformances(req: Request, res: R
     });
   }
 
+  if (runningRankingsCompetitions.has(competitionId)) {
+    return res.status(409).json({
+      message: 'rankings process already running for competition',
+      competitionId,
+    });
+  }
+
   // Responde inmediatamente
   res.status(202).json({ message: 'processing started', competitionId });
 
