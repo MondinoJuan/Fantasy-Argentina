@@ -208,7 +208,11 @@ async function executeClosureJob(job: MatchdayAutomationJob) {
     season: matchday.season,
   });
 
-  await invokeController(settleMarketAndRefreshByLeague as any, { leagueId });
+  await invokeController(settleMarketAndRefreshByLeague as any, {
+    leagueId,
+    matchdayNumber: matchday.matchdayNumber,
+    season: matchday.season,
+  });
   await translateLeagueRealPlayersValues(leagueId);
 
   const localEm = orm.em.fork();

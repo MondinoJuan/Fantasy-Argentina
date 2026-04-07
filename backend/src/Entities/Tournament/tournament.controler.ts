@@ -130,11 +130,14 @@ function pickRandom<T>(values: T[], limit: number): T[] {
   return selected;
 }
 
-function sortParticipantsByScoreWithRandomTieBreak(participants: Participant[]): Participant[] {
+function sortParticipantsByScoreWithRandomTieBreak(
+  participants: Participant[],
+  scoreResolver: (participant: Participant) => number = (participant) => Number(participant.totalScore ?? 0),
+): Participant[] {
   const byScore = new Map<number, Participant[]>();
 
   for (const participant of participants) {
-    const score = Number(participant.totalScore ?? 0);
+    const score = Number(scoreResolver(participant) ?? 0);
     const bucket = byScore.get(score) ?? [];
     bucket.push(participant);
     byScore.set(score, bucket);
@@ -1147,6 +1150,10 @@ async function sumEndOfMatchdayPoints(req: Request, res: Response) {
 async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
   try {
     const leagueId = toInt(req.body?.leagueId);
+    const rewardMatchdayNumber = toInt(req.body?.matchdayNumber ?? req.body?.nroFecha);
+    const rewardSeason = typeof req.body?.season === 'string' && req.body.season.trim().length > 0
+      ? req.body.season.trim()
+      : null;
 
     if (leagueId === null) {
       res.status(400).json({ message: 'leagueId is required number' });
@@ -1168,10 +1175,27 @@ async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
     let createdMarketEntries = 0;
     let rewardedParticipants = 0;
     let distributedReward = 0;
+    let rewardBasedOnMatchday: number | null = null;
+    let rewardBasedOnSeason: string | null = null;
 
     await em.transactional(async (transactionalEm) => {
       const tournaments = await transactionalEm.find(Tournament, { league });
       tournamentsCount = tournaments.length;
+
+      const rewardMatchdayWhere = rewardMatchdayNumber !== null
+        ? (rewardSeason
+          ? { league, matchdayNumber: rewardMatchdayNumber, season: rewardSeason }
+          : { league, matchdayNumber: rewardMatchdayNumber })
+        : null;
+      const rewardMatchday = rewardMatchdayWhere
+        ? await transactionalEm.findOne(
+          Matchday,
+          rewardMatchdayWhere as any,
+          rewardSeason ? undefined : { orderBy: { startDate: 'desc' } as any },
+        )
+        : null;
+      rewardBasedOnMatchday = rewardMatchday?.matchdayNumber ?? null;
+      rewardBasedOnSeason = rewardMatchday?.season ?? null;
 
       for (const tournament of tournaments) {
         const tournamentId = tournament.id;
@@ -1354,7 +1378,28 @@ async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
           }
         }
 
-        const rankedParticipants = sortParticipantsByScoreWithRandomTieBreak(participants);
+        const participantMatchdayRows = rewardMatchday && participantIds.length > 0
+          ? await transactionalEm.find(ParticipantMatchdayPoints, {
+            participant: { $in: participantIds },
+            matchday: rewardMatchday,
+          })
+          : [];
+        const matchdayPointsByParticipantId = new Map<number, number>();
+        for (const row of participantMatchdayRows) {
+          const participantId = Number((row.participant as any)?.id ?? row.participant);
+          if (!Number.isFinite(participantId) || participantId <= 0) {
+            continue;
+          }
+          matchdayPointsByParticipantId.set(participantId, Number(row.matchdayPoints ?? 0));
+        }
+
+        const rankedParticipants = rewardMatchday
+          ? sortParticipantsByScoreWithRandomTieBreak(
+            participants,
+            (participant) => Number(matchdayPointsByParticipantId.get(Number(participant.id ?? 0)) ?? 0),
+          )
+          : sortParticipantsByScoreWithRandomTieBreak(participants);
+
         rankedParticipants.forEach((participant, index) => {
           const position = index + 1;
           const reward = rewardAmountByPosition(position);
@@ -1379,6 +1424,8 @@ async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
         createdMarketEntries,
         rewardedParticipants,
         distributedReward,
+        rewardBasedOnMatchday,
+        rewardBasedOnSeason,
       },
     });
   } catch (error: any) {
