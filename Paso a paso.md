@@ -97,13 +97,15 @@ Si quiero hacerlo en base a los ultimos partidos, no en base al ultimo, debo usa
 * Posibilidad de eliminar un tournament (solo para el que lo creo).
 * Hacer que el tiempo de espera hasta que se pueda usar la clausula se defina en el forms de creacion de tournament.
 * Mantener esta modalidad de tournament, pero tambien incluir la opcion de draft. Esta modalidad de tournament consiste en que al crear un tournament se invita a los Users que participarán, estos eligirán los realPlayers por turnos hasta completar un 11 (previamente se elige la formación que utilizarán). Además, al final de cada fecha se otorga la posibilidad de elegir un realPlayer a cada participant por turnos, yendo desde el último en el ranking de puntos hasta el primero. Los turnos del draft pueden ser intercambiables, pero no se a cambio de qué.
+* Agregar entity de squad por matchday.
+* Bloquear el cambio de squad durante una fecha.
 
 ## Listado ligas
 SPORTSAPIPRO V2:
 7 - UEFA champions league
 8 - La liga
 16 - World Cup
-17 - Premier League
+17 - Premier League - season ID: 76986
 23 - Serie A
 155 - Liga Profesional de Fútbol - season ID: 87913
 35 - Bundesliga
