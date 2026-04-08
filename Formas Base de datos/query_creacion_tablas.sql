@@ -351,6 +351,7 @@ CREATE TABLE player_clause (
   additional_shielding_clause DOUBLE NOT NULL DEFAULT 0,
   total_clause               DOUBLE NOT NULL,
   update_date                DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  clause_disabled_until      DATETIME NULL,
   created_at                 DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at                 DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),

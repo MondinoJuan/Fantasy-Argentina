@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { RealPlayer } from './realPlayer.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { RealTeam } from '../RealTeam/realTeam.entity.js';
+import { League } from '../League/league.entity.js';
 import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
 import { PLAYER_POSITIONS, isEnumValue } from '../../shared/domain-enums.js';
 
@@ -480,8 +481,22 @@ async function translatePricesByLeague(req: Request, res: Response) {
       return;
     }
 
-    const limiteMin = 1_000_000;
-    const limiteMax = 7_000_000;
+    const league = await em.findOne(League, { id: leagueId });
+    if (!league) {
+      res.status(404).json({ message: 'league not found', data: { leagueId } });
+      return;
+    }
+
+    const defaultMin = 1_000_000;
+    const defaultMax = 7_000_000;
+    const hasValidConfiguredLimits = typeof league.limiteMin === 'number'
+      && Number.isFinite(league.limiteMin)
+      && typeof league.limiteMax === 'number'
+      && Number.isFinite(league.limiteMax)
+      && league.limiteMax > league.limiteMin;
+
+    const limiteMin = hasValidConfiguredLimits ? Number(league.limiteMin) : defaultMin;
+    const limiteMax = hasValidConfiguredLimits ? Number(league.limiteMax) : defaultMax;
 
     const realTeams = await em.find(RealTeam, { league: { id: leagueId } } as any, { fields: ['id'] as any });
     const realTeamsIds = realTeams.map((team: any) => Number(team.id)).filter((id) => Number.isFinite(id));
@@ -538,8 +553,10 @@ async function translatePricesByLeague(req: Request, res: Response) {
       message: 'real player prices translated by league',
       data: {
         leagueId,
+        leagueName: league.name,
         limiteMin,
         limiteMax,
+        usedLeagueConfiguredLimits: hasValidConfiguredLimits,
         valueReal_MinDeLeague,
         valueReal_MaxDeLeague,
         realTeamsIds,
