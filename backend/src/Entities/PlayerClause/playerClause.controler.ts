@@ -245,8 +245,11 @@ async function executeClausePurchase(req: Request, res: Response) {
       }
 
       const now = serverNow();
-      if (playerClause?.clauseDisabledUntil && playerClause.clauseDisabledUntil.getTime() > now.getTime()) {
-        throw new Error(`clause disabled until ${playerClause.clauseDisabledUntil.toISOString()}`);
+      const currentClauseDisabledUntil = playerClause?.clauseDisabledUntil
+        ? new Date(playerClause.clauseDisabledUntil as unknown as string | number | Date)
+        : null;
+      if (currentClauseDisabledUntil && Number.isFinite(currentClauseDisabledUntil.getTime()) && currentClauseDisabledUntil.getTime() > now.getTime()) {
+        throw new Error(`clause disabled until ${currentClauseDisabledUntil.toISOString()}`);
       }
 
       const translatedValue = Number((dependantPlayer.realPlayer as any)?.translatedValue ?? 0);
