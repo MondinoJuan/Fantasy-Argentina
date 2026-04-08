@@ -269,6 +269,9 @@ async function persistFixtureCompetitionInDb(
     }
 
     let hasPostponedMatches = false;
+    let hasInProgressMatches = false;
+    let hasScheduledMatches = false;
+    let allMatchesCompleted = group.games.length > 0;
     for (const fixtureMatch of group.games) {
       const gameId = Number.parseInt(String(fixtureMatch.gameId ?? ''), 10);
       if (!Number.isFinite(gameId)) continue;
@@ -276,9 +279,20 @@ async function persistFixtureCompetitionInDb(
       if (statusText.includes('postpon')) {
         hasPostponedMatches = true;
       }
+      if (statusText.includes('progress') || statusText.includes('live')) {
+        hasInProgressMatches = true;
+      }
+      if (statusText.includes('schedul') || statusText.includes('not started') || statusText.includes('ns')) {
+        hasScheduledMatches = true;
+      }
 
       const homeScore = toNullableScore(asRecord(fixtureMatch.home).score);
       const awayScore = toNullableScore(asRecord(fixtureMatch.away).score);
+      const hasFinalScore = homeScore !== null && awayScore !== null;
+      const hasFinalStatus = statusText.includes('final');
+      if (!hasFinalScore && !hasFinalStatus) {
+        allMatchesCompleted = false;
+      }
 
       const existing = await em.findOne(GameMatch, { externalApiId: String(gameId) });
       if (existing) {
@@ -321,10 +335,33 @@ async function persistFixtureCompetitionInDb(
     } else {
       matchday.nextPostponedCheckAt = null;
     }
+
+    if (allMatchesCompleted) {
+      matchday.status = 'completed';
+    } else if (hasPostponedMatches) {
+      matchday.status = 'postponed';
+    } else if (hasInProgressMatches) {
+      matchday.status = 'in_progress';
+    } else if (hasScheduledMatches) {
+      matchday.status = 'scheduled';
+    } else {
+      matchday.status = MATCHDAY_STATUSES[0];
+    }
   }
 
   await em.flush();
   return { createdMatchdays, createdMatches, expectedMatchesPerRound, roundsWithUnexpectedMatchCount };
+}
+
+function shouldSkipRoundFetch(matchday: Matchday | null, now: Date): boolean {
+  if (!matchday) return false;
+  if (matchday.status !== 'completed') return false;
+  if (matchday.nextPostponedCheckAt && matchday.nextPostponedCheckAt.getTime() > now.getTime()) return false;
+
+  const refreshWindowStart = new Date(now.getTime() - (3 * 24 * 60 * 60 * 1000));
+  if (matchday.endDate.getTime() >= refreshWindowStart.getTime()) return false;
+
+  return true;
 }
 
 
@@ -739,59 +776,104 @@ async function buildCompetitionFixtureProcess(competitionId: number, seasonId: n
     throw new Error(`La API devolvió success=false en rounds. Respuesta: ${JSON.stringify(roundsPayload)}`);
   }
 
-  const roundNumbers = extractRoundNumbers(roundsPayload);
-  const fixture: UnknownRecord[] = [];
-  const roundsSummary: Array<{ round: number; matchCount: number; matches: UnknownRecord[] }> = [];
-
-  for (const roundNumber of roundNumbers) {
-    const roundPayload = asRecord(
-      await requestSportsApiPro(`/api/tournament/${competitionId}/season/${seasonId}/round/${roundNumber}`),
-    );
-    if (roundPayload.success !== true) {
-      throw new Error(`La API devolvió success=false en round=${roundNumber}. Respuesta: ${JSON.stringify(roundPayload)}`);
-    }
-    const roundFixture = mapV2RoundEventsToFixture(roundNumber, roundPayload);
-    fixture.push(...roundFixture);
-    roundsSummary.push({
-      round: roundNumber,
-      matchCount: roundFixture.length,
-      matches: roundFixture.map((match) => ({
-        id: match.gameId,
-        homeTeam: asRecord(match.home).name,
-        awayTeam: asRecord(match.away).name,
-        homeScore: asRecord(match.home).score,
-        awayScore: asRecord(match.away).score,
-        status: match.statusText,
-        startTimestamp: match.startTime,
-      })),
-    });
+  const league = await em.findOne(League, { idEnApi: competitionId });
+  if (!league) {
+    throw new Error('league must exist locally. Use superadmin sync first.');
   }
 
-  const uniqueTeamsCount = new Set(
-    fixture.flatMap((match) => {
-      const homeTeam = String(asRecord(match.home).name ?? '').trim();
-      const awayTeam = String(asRecord(match.away).name ?? '').trim();
-      return [homeTeam, awayTeam].filter((team) => team.length > 0);
-    }),
-  ).size;
+  const roundNumbers = extractRoundNumbers(roundsPayload);
+  const roundsSummary: Array<{ round: number; matchCount: number; matches: UnknownRecord[]; skipped?: boolean; error?: string }> = [];
+  const roundsFailed: Array<{ round: number; error: string }> = [];
+  const roundsWithUnexpectedMatchCount: Array<{ roundNum: number; totalMatches: number; expectedMatches: number }> = [];
+  let createdMatchdays = 0;
+  let createdMatches = 0;
+  let totalRoundsPersisted = 0;
+  let totalMatchesPersisted = 0;
+  const now = new Date();
 
-  const persistStats = await persistFixtureCompetitionInDb(
-    competitionId,
-    seasonId,
-    fixture,
-    uniqueTeamsCount,
-  );
+  for (const roundNumber of roundNumbers) {
+    const existingMatchday = await em.findOne(Matchday, {
+      league,
+      season: String(seasonId),
+      matchdayNumber: roundNumber,
+    });
+
+    if (shouldSkipRoundFetch(existingMatchday, now)) {
+      roundsSummary.push({ round: roundNumber, matchCount: 0, matches: [], skipped: true });
+      continue;
+    }
+
+    try {
+      const roundPayload = asRecord(
+        await requestSportsApiPro(`/api/tournament/${competitionId}/season/${seasonId}/round/${roundNumber}`),
+      );
+      if (roundPayload.success !== true) {
+        throw new Error(`La API devolvió success=false en round=${roundNumber}. Respuesta: ${JSON.stringify(roundPayload)}`);
+      }
+
+      const roundFixture = mapV2RoundEventsToFixture(roundNumber, roundPayload);
+      const uniqueTeamsInRound = new Set(
+        roundFixture.flatMap((match) => {
+          const homeTeam = String(asRecord(match.home).name ?? '').trim();
+          const awayTeam = String(asRecord(match.away).name ?? '').trim();
+          return [homeTeam, awayTeam].filter((team) => team.length > 0);
+        }),
+      ).size;
+
+      const persistStats = await persistFixtureCompetitionInDb(
+        competitionId,
+        seasonId,
+        roundFixture,
+        uniqueTeamsInRound,
+      );
+
+      createdMatchdays += Number(persistStats.createdMatchdays ?? 0);
+      createdMatches += Number(persistStats.createdMatches ?? 0);
+      roundsWithUnexpectedMatchCount.push(...(persistStats.roundsWithUnexpectedMatchCount ?? []));
+      totalRoundsPersisted += 1;
+      totalMatchesPersisted += roundFixture.length;
+
+      roundsSummary.push({
+        round: roundNumber,
+        matchCount: roundFixture.length,
+        matches: roundFixture.map((match) => ({
+          id: match.gameId,
+          homeTeam: asRecord(match.home).name,
+          awayTeam: asRecord(match.away).name,
+          homeScore: asRecord(match.home).score,
+          awayScore: asRecord(match.away).score,
+          status: match.statusText,
+          startTimestamp: match.startTime,
+        })),
+      });
+    } catch (error: any) {
+      const errorMessage = error?.message ?? `Error desconocido en round=${roundNumber}`;
+      roundsFailed.push({ round: roundNumber, error: errorMessage });
+      roundsSummary.push({
+        round: roundNumber,
+        matchCount: 0,
+        matches: [],
+        error: errorMessage,
+      });
+    }
+  }
 
   return {
     data: {
       tournamentId: competitionId,
       seasonId,
-      totalRounds: roundsSummary.length,
+      totalRounds: totalRoundsPersisted,
       rounds: roundsSummary,
     },
-    persistStats,
-    totalRounds: roundsSummary.length,
-    totalMatches: fixture.length,
+    persistStats: {
+      createdMatchdays,
+      createdMatches,
+      roundsWithUnexpectedMatchCount,
+      roundsFailed,
+    },
+    totalRounds: totalRoundsPersisted,
+    totalMatches: totalMatchesPersisted,
+    hasErrors: roundsFailed.length > 0,
   };
 }
 
@@ -809,7 +891,10 @@ async function runBuildCompetitionFixtureJob(jobId: string): Promise<void> {
     job.totalRounds = result.totalRounds;
     job.totalMatches = result.totalMatches;
     job.persistStats = result.persistStats;
-    job.status = 'completed';
+    job.status = result.hasErrors ? 'failed' : 'completed';
+    job.lastError = result.hasErrors
+      ? 'Fixture persistido parcialmente. Revisar persistStats.roundsFailed para los rounds con error.'
+      : null;
   } catch (error: any) {
     job.status = 'failed';
     job.lastError = error?.message ?? 'Unknown fixture build failure';
