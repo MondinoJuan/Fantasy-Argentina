@@ -1,4 +1,4 @@
-import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property, Unique, Rel } from '@mikro-orm/core';
+import { Cascade, Collection, DateTimeType, Entity, ManyToOne, OneToMany, Property, Unique, Rel } from '@mikro-orm/core';
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { Tournament } from '../Tournament/tournament.entity.js';
 import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
@@ -29,7 +29,7 @@ export class PlayerClause extends BaseEntity {
   @Property({ nullable: false })
   updateDate: Date = new Date();
 
-  @Property({ nullable: true })
+  @Property({ type: DateTimeType, nullable: true })
   clauseDisabledUntil?: Date | null = null;
 
   @OneToMany(() => Shielding, (shielding) => shielding.playerClause, {
