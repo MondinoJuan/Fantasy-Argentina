@@ -102,17 +102,17 @@ Si quiero hacerlo en base a los ultimos partidos, no en base al ultimo, debo usa
 
 ## Listado ligas
 SPORTSAPIPRO V2:
-7 - UEFA champions league
-8 - La liga
-16 - World Cup
 17 - Premier League - season ID: 76986
-23 - Serie A
+480 - CONMEBOL Sudamericana - season ID: 87770
+384 - CONMEBOL Libertadores - season ID: 87760
+8 - La liga - season ID: 77559
 155 - Liga Profesional de Fútbol - season ID: 87913
-35 - Bundesliga
+7 - UEFA champions league
+16 - World Cup
 679 - UEFA Europa league
 17015 - UEFA conference league
 357 - FIFA Club World Cup
-34 - Ligue 1
-384 - CONMEBOL Libertadores - season ID: 87760
-480 - CONMEBOL Sudamericana - season ID: 87770
 295 - World Cup Qual. CONMEBOL
+35 - Bundesliga - season ID:
+23 - Serie A - season ID:
+34 - Ligue 1 - season ID:
