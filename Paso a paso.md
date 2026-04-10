@@ -107,7 +107,6 @@ SPORTSAPIPRO V2:
 384 - CONMEBOL Libertadores - season ID: 87760
 8 - La liga - season ID: 77559
 155 - Liga Profesional de Fútbol - season ID: 87913
-7 - UEFA champions league
 16 - World Cup
 679 - UEFA Europa league
 17015 - UEFA conference league
@@ -116,3 +115,4 @@ SPORTSAPIPRO V2:
 35 - Bundesliga - season ID:
 23 - Serie A - season ID:
 34 - Ligue 1 - season ID:
+7 - UEFA champions league - season ID: 76953
