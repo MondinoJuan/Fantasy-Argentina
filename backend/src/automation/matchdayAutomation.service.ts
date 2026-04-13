@@ -90,6 +90,14 @@ async function ensureJob(params: {
   const localEm = orm.em.fork();
   const existing = await localEm.findOne(MatchdayAutomationJob, { idempotencyKey: params.idempotencyKey });
   if (existing) {
+    // Si el job anterior falló, lo reseteamos a pending para que reintente.
+    // Si está completed/running/pending lo dejamos como está.
+    if (existing.status === 'failed') {
+      existing.status = 'pending';
+      existing.runAt = params.runAt;
+      existing.lastError = null;
+      await localEm.flush();
+    }
     return existing;
   }
 
@@ -129,12 +137,22 @@ async function seedJobs() {
     }
 
     for (const league of leagueMap.values()) {
-      const matchdays = await localEm.find(Matchday, { league }, { populate: ['league'], orderBy: { matchdayNumber: 'asc' } });
+      // Más reciente primero: al encontrar el primer 'completed' sabemos que todo
+      // lo anterior también está procesado y cortamos el loop.
+      const matchdays = await localEm.find(Matchday, { league }, { populate: ['league'], orderBy: { matchdayNumber: 'desc' } });
 
       for (const matchday of matchdays) {
         const isCompletedMatchday = matchday.status === 'completed';
+
+        // Primera fecha completada encontrada (yendo de reciente a antigua) → no
+        // hay nada más que encolar hacia atrás.
+        if (isCompletedMatchday) {
+          break;
+        }
+
         const autoUpdateAt = toValidDate(matchday.autoUpdateAt);
-        if (!isCompletedMatchday && autoUpdateAt && autoUpdateAt.getTime() <= now.getTime()) {
+
+        if (autoUpdateAt && autoUpdateAt.getTime() <= now.getTime()) {
           await ensureJob({
             league,
             matchday,
@@ -219,6 +237,7 @@ async function executeClosureJob(job: MatchdayAutomationJob) {
   const freshMatchday = await localEm.findOne(Matchday, { id: matchday.id });
   if (freshMatchday) {
     freshMatchday.status = 'completed';
+    (freshMatchday as any).autoUpdateAt = null; // evita que seedJobs lo vuelva a encolar
     await localEm.flush();
   }
 }
@@ -329,9 +348,22 @@ async function processDueJobs() {
         job.finishedAt = new Date();
         await localEm.flush();
       } catch (error: any) {
-        job.status = 'failed';
-        job.lastError = error?.message ?? 'unknown automation failure';
-        job.finishedAt = new Date();
+        const message: string = error?.message ?? 'unknown automation failure';
+        const isRateLimit = /429|rate.?limit|too.?many.?requests|quota.?exceeded/i.test(message);
+
+        if (isRateLimit) {
+          // Todas las API keys agotadas → reprogramar en 24 hs (se recargan al día siguiente).
+          job.status = 'pending';
+          job.runAt = addHours(new Date(), 24);
+          job.lastError = `[rate-limit] reprogramado +24h: ${message}`;
+          job.finishedAt = null;
+          console.warn(`[matchday-automation] job=${job.id} step=${job.step} rate-limit agotado → retry en 24 hs`);
+        } else {
+          job.status = 'failed';
+          job.lastError = message;
+          job.finishedAt = new Date();
+        }
+
         await localEm.flush();
       }
     }
