@@ -177,6 +177,9 @@ async function seedJobs() {
         const { matchday, league } = entry;
         const autoUpdateAt = toValidDate(matchday.autoUpdateAt);
 
+        // isLatest: true solo si es la última fecha pendiente de la cola (la más reciente).
+        const isLatest = queue.length === 0;
+
         if (autoUpdateAt && autoUpdateAt.getTime() <= now.getTime()) {
           await ensureJob({
             league,
@@ -188,6 +191,7 @@ async function seedJobs() {
               leagueId: league.id,
               matchdayNumber: matchday.matchdayNumber,
               season: matchday.season,
+              isLatest,
             },
           });
         }
@@ -245,18 +249,23 @@ async function executeClosureJob(job: MatchdayAutomationJob) {
     await processRankingsForCompetition(competitionId);
   }
 
-  await invokeController(sumEndOfMatchdayPoints as any, {
-    leagueId,
-    matchdayNumber: matchday.matchdayNumber,
-    season: matchday.season,
-  });
+  // Solo la fecha más reciente (isLatest) cierra el mercado y suma puntos.
+  // Las fechas históricas solo necesitaban sincronizar resultados y rankings.
+  const isLatest = (job.payload as any)?.isLatest !== false;
+  if (isLatest) {
+    await invokeController(sumEndOfMatchdayPoints as any, {
+      leagueId,
+      matchdayNumber: matchday.matchdayNumber,
+      season: matchday.season,
+    });
 
-  await invokeController(settleMarketAndRefreshByLeague as any, {
-    leagueId,
-    matchdayNumber: matchday.matchdayNumber,
-    season: matchday.season,
-  });
-  await translateLeagueRealPlayersValues(leagueId);
+    await invokeController(settleMarketAndRefreshByLeague as any, {
+      leagueId,
+      matchdayNumber: matchday.matchdayNumber,
+      season: matchday.season,
+    });
+    await translateLeagueRealPlayersValues(leagueId);
+  }
 
   const localEm = orm.em.fork();
   const freshMatchday = await localEm.findOne(Matchday, { id: matchday.id });

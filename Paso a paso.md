@@ -98,7 +98,9 @@ Si quiero hacerlo en base a los ultimos partidos, no en base al ultimo, debo usa
 * Agregar entity de squad por matchday.
 * Bloquear el cambio de squad durante una fecha.
 * Que al apretar 'Recuperar rankings por jugador/fecha' no busque de todas las fechas, ya que al efectuarse cada fecha no hace falta las anteriores.
-* 
+* Resolver error:
+	[rankings-background] error: Using global EntityManager instance methods for context specific actions is disallowed. If you need to work with the global instance's identity map, use `allowGlobalContext` configuration option or `fork()` instead.
+
 
 ## Listado ligas
 SPORTSAPIPRO V2:
