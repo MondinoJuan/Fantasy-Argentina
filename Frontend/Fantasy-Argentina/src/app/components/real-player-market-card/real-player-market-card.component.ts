@@ -57,7 +57,14 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['dependantPlayersById'] || changes['realPlayersById'] || changes['performancesByRealPlayerId'] || changes['bidsByRealPlayerId']) {
+    if (
+      changes['dependantPlayerId']
+      || changes['leagueId']
+      || changes['dependantPlayersById']
+      || changes['realPlayersById']
+      || changes['performancesByRealPlayerId']
+      || changes['bidsByRealPlayerId']
+    ) {
       this.resolvePlayer();
     }
   }

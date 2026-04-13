@@ -54,7 +54,7 @@ export class RivalsRealPlayerListComponent implements OnChanges {
   constructor(private readonly apiService: ApiService) {}
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['leagueId']) {
+    if (changes['leagueId'] || changes['participantSquad'] || changes['realPlayerById']) {
       this.loadTranslatedValues();
     }
   }
@@ -366,9 +366,15 @@ export class RivalsRealPlayerListComponent implements OnChanges {
         const rows = Array.isArray(response?.data) ? response.data : [];
         const nextMap: Record<number, number | null> = {};
         for (const row of rows) {
-          const realPlayerId = Number(row?.realPlayerId);
+          const realPlayerId = Number(
+            row?.realPlayerId
+            ?? row?.real_player_id
+            ?? this.extractId(row?.realPlayer)
+            ?? this.extractId(row?.real_player)
+          );
           if (!Number.isFinite(realPlayerId) || realPlayerId <= 0) continue;
-          nextMap[realPlayerId] = row?.translatedValue ?? null;
+          const translatedValue = Number(row?.translatedValue ?? row?.translated_value);
+          nextMap[realPlayerId] = Number.isFinite(translatedValue) ? translatedValue : null;
         }
         this.translatedValuesByRealPlayerId = nextMap;
       },
@@ -430,6 +436,12 @@ export class RivalsRealPlayerListComponent implements OnChanges {
       const record = value as Record<string, unknown>;
       if (record['id'] !== undefined) {
         return this.extractId(record['id']);
+      }
+      if (record['realPlayerId'] !== undefined) {
+        return this.extractId(record['realPlayerId']);
+      }
+      if (record['real_player_id'] !== undefined) {
+        return this.extractId(record['real_player_id']);
       }
     }
 
