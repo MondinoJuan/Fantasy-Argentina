@@ -291,6 +291,20 @@ export class InsideTournamentComponent implements OnInit {
     return [];
   }
 
+  private normalizeDependantIdCollection(value: unknown): number[] {
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => this.extractId(item))
+        .filter((item): item is number => Number.isFinite(item) && (item ?? 0) > 0);
+    }
+
+    const normalized = this.normalizeIdCollection(value);
+    if (normalized.length > 0) return normalized;
+
+    const single = this.extractId(value);
+    return single && single > 0 ? [single] : [];
+  }
+
   private rebuildSquadFromFormation(): void {
     const participantId = this.extractId(this.participant);
     if (!participantId) {
@@ -351,11 +365,13 @@ export class InsideTournamentComponent implements OnInit {
   private rebuildMarketFromDatabase(): void {
     this.marketDependantIds = this.existingMarketEntries.flatMap((entry: any) => {
       const marketId = this.extractId(entry) ?? 0;
-      const dependantIds = this.normalizeIdCollection(
+      const dependantIds = this.normalizeDependantIdCollection(
         entry.dependantPlayerIds
         ?? entry.dependant_player_ids
         ?? entry.dependantPlayersIds
         ?? entry.dependant_players_ids
+        ?? entry.dependantPlayers
+        ?? entry.dependant_players
         ?? entry.dependantPlayerId
         ?? entry.dependant_player_id
         ?? entry.dependantPlayer
