@@ -2,6 +2,7 @@ import { Cascade, Collection, Entity, ManyToOne, OneToMany, Property, Rel } from
 import { BaseEntity } from '../../shared/db/base.entity.js';
 import { League } from '../League/league.entity.js';
 import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
+import { RealTeamLeagueParticipation } from '../RealTeamLeagueParticipation/realTeamLeagueParticipation.entity.js';
 
 @Entity()
 export class RealTeam extends BaseEntity {
@@ -18,4 +19,9 @@ export class RealTeam extends BaseEntity {
     cascade: [Cascade.ALL],
   })
   players = new Collection<RealPlayer>(this);
+
+  @OneToMany(() => RealTeamLeagueParticipation, (participation) => participation.realTeam, {
+    cascade: [Cascade.ALL],
+  })
+  leagueParticipations = new Collection<RealTeamLeagueParticipation>(this);
 }

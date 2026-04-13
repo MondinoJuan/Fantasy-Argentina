@@ -31,7 +31,7 @@ export class SuperadminMenuComponent {
   ];
 
   readonly getAllActions: SuperadminAction[] = [
-    'getAllUsers', 'getAllSports', 'getAllLeagues', 'getAllRealTeams', 'getAllRealPlayers',
+    'getAllUsers', 'getAllSports', 'getAllLeagues', 'getAllRealTeams', 'getAllRealTeamLeagueParticipations', 'getAllRealPlayers',
     'getAllTournaments', 'getAllParticipants', 'getAllParticipantSquads', 'getAllMatchdays', 'getAllMatches',
     'getAllMatchdayMarkets', 'getAllBids', 'getAllNegotiations', 'getAllTransactions',
     'getAllPlayerPerformances', 'getAllPlayerPointsBreakdowns', 'getAllParticipantMatchdayPoints', 'getLeaguesTournamentCounts',
@@ -189,6 +189,7 @@ export class SuperadminMenuComponent {
       getAllSports: () => this.apiService.searchSports(),
       getAllLeagues: () => this.apiService.searchLeagues(),
       getAllRealTeams: () => this.apiService.searchRealTeams(),
+      getAllRealTeamLeagueParticipations: () => this.apiService.searchRealTeamLeagueParticipations(),
       getAllRealPlayers: () => this.apiService.searchRealPlayers(),
       getAllTournaments: () => this.apiService.searchTournaments(),
       getAllParticipants: () => this.apiService.searchParticipants(),

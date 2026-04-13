@@ -5,6 +5,7 @@ import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity
 import { PlayerPointsBreakdown } from '../PlayerPointsBreakdown/playerPointsBreakdown.entity.js';
 import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
 import { PlayerPosition } from '../../shared/domain-enums.js';
+import { RealPlayerLeagueValue } from '../RealPlayerLeagueValue/realPlayerLeagueValue.entity.js';
 
 @Entity()
 export class RealPlayer extends BaseEntity {
@@ -26,8 +27,8 @@ export class RealPlayer extends BaseEntity {
   @Property({ type: 'float', nullable: true })
   value?: number | null = null;
 
-  @Property({ type: 'float', nullable: true })
-  translatedValue?: number | null = null;
+  @ManyToOne(() => RealPlayerLeagueValue, { nullable: true, deleteRule: 'set null' })
+  translatedValue?: Rel<RealPlayerLeagueValue> | null = null;
 
   @Property({ nullable: false, default: true })
   active: boolean = true;
@@ -49,4 +50,9 @@ export class RealPlayer extends BaseEntity {
     cascade: [Cascade.ALL],
   })
   dependantPlayers = new Collection<DependantPlayer>(this);
+
+  @OneToMany(() => RealPlayerLeagueValue, (leagueValue) => leagueValue.realPlayer, {
+    cascade: [Cascade.ALL],
+  })
+  leagueValues = new Collection<RealPlayerLeagueValue>(this);
 }

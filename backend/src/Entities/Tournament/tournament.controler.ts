@@ -21,6 +21,8 @@ import { MatchdayAutomationJob } from '../MatchdayAutomationJob/matchdayAutomati
 import { TOURNAMENT_STATUSES, MATCHDAY_STATUSES, MATCH_STATUSES, MARKET_ORIGINS, isEnumValue } from '../../shared/domain-enums.js';
 import { setupParticipantAfterJoin } from './tournament-participation.service.js';
 import { serverNow } from '../../shared/time/serverClock.js';
+import { getTeamIdsByLeague } from '../RealTeamLeagueParticipation/realTeamLeagueParticipation.service.js';
+import { upsertRealPlayerLeagueTranslatedValue } from '../RealPlayerLeagueValue/realPlayerLeagueValue.service.js';
 
 const em = orm.em;
 const POSTPONED_MATCHES_PATH = 'src/Entities/Tournament/data/postponedMatches.json';
@@ -478,8 +480,12 @@ async function syncPostponedMatchesAndPersistPlayerRatings(tournamentId: number)
 }
 
 async function translateLeagueRealPlayersValues(leagueId: number): Promise<void> {
-  const realTeams = await em.find(RealTeam, { league: { id: leagueId } } as any, { fields: ['id'] as any });
-  const realTeamsIds = realTeams.map((team: any) => Number(team.id)).filter((id) => Number.isFinite(id));
+  const league = await em.findOne(League, { id: leagueId });
+  if (!league) {
+    return;
+  }
+
+  const realTeamsIds = await getTeamIdsByLeague(em as any, leagueId);
 
   if (realTeamsIds.length === 0) {
     return;
@@ -503,19 +509,31 @@ async function translateLeagueRealPlayersValues(leagueId: number): Promise<void>
     const playerValue = typeof player.value === 'number' && Number.isFinite(player.value) ? Number(player.value) : null;
 
     if (playerValue === null) {
-      player.translatedValue = null;
+      await upsertRealPlayerLeagueTranslatedValue(em as any, {
+        realPlayer: player,
+        league,
+        translatedValue: null,
+      });
       continue;
     }
 
     if (maxValue === minValue || playerValue === minValue) {
-      player.translatedValue = FIXED_TRANSLATED_MIN;
+      await upsertRealPlayerLeagueTranslatedValue(em as any, {
+        realPlayer: player,
+        league,
+        translatedValue: FIXED_TRANSLATED_MIN,
+      });
       continue;
     }
 
     const normalized = (playerValue - minValue) / (maxValue - minValue);
     const translated = FIXED_TRANSLATED_MIN + (normalized * (FIXED_TRANSLATED_MAX - FIXED_TRANSLATED_MIN));
     const clamped = Math.max(FIXED_TRANSLATED_MIN, Math.min(FIXED_TRANSLATED_MAX, translated));
-    player.translatedValue = Number.isFinite(clamped) ? clamped : FIXED_TRANSLATED_MIN;
+    await upsertRealPlayerLeagueTranslatedValue(em as any, {
+      realPlayer: player,
+      league,
+      translatedValue: Number.isFinite(clamped) ? clamped : FIXED_TRANSLATED_MIN,
+    });
   }
 }
 

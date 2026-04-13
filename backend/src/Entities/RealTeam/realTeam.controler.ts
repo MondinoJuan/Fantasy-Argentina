@@ -3,6 +3,7 @@ import { RealTeam } from './realTeam.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { League } from '../League/league.entity.js';
 import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
+import { ensureLeagueParticipation } from '../RealTeamLeagueParticipation/realTeamLeagueParticipation.service.js';
 
 const em = orm.em;
 
@@ -65,6 +66,7 @@ async function findOne(req: Request, res: Response) {
 async function add(req: Request, res: Response) {
   try {
     const item = em.create(RealTeam, req.body.sanitizeRealTeamInput);
+    await ensureLeagueParticipation(em, item, item.league as League);
     await em.flush();
     res.status(201).json({ message: 'real team created', data: item });
   } catch (error: any) {
@@ -77,6 +79,9 @@ async function update(req: Request, res: Response) {
     const id = parseId(req.params.id);
     const itemToUpdate = await em.getReference(RealTeam, id);
     em.assign(itemToUpdate, req.body.sanitizeRealTeamInput);
+    if (req.body.sanitizeRealTeamInput.league !== undefined) {
+      await ensureLeagueParticipation(em, itemToUpdate, itemToUpdate.league as League);
+    }
     await em.flush();
     res.status(200).json({ message: 'real team updated', data: itemToUpdate });
   } catch (error: any) {
@@ -206,12 +211,13 @@ async function syncByLeagueIdEnApi(req: Request, res: Response) {
       const existing = await em.findOne(RealTeam, { idEnApi });
       if (existing) {
         existing.name = name;
-        existing.league = league;
+        await ensureLeagueParticipation(em, existing, league);
         updated += 1;
         continue;
       }
 
-      em.create(RealTeam, { idEnApi, name, league } as any);
+      const createdTeam = em.create(RealTeam, { idEnApi, name, league } as any);
+      await ensureLeagueParticipation(em, createdTeam, league);
       created += 1;
     }
 
