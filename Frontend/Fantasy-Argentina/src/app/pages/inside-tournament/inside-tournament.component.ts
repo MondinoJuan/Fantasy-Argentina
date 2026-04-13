@@ -3,7 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError, switchMap } from 'rxjs/operators';
 import { ApiService } from '../../servicios/api.service';
 import { RequestCacheService } from '../../servicios/request-cache.service';
 import { FootballPitchComponent, PitchPlayer } from '../../components/football-pitch/football-pitch.component';
@@ -72,6 +72,7 @@ export class InsideTournamentComponent implements OnInit {
   allPlayerPerformances: any[] = [];
   allDependantPlayers: any[] = [];
   allPlayerClauses: any[] = [];
+  private allRealPlayerLeagueValues: any[] = [];
 
   participantById = new Map<number, any>();
   realPlayerById = new Map<number, any>();
@@ -194,8 +195,20 @@ export class InsideTournamentComponent implements OnInit {
       participantMatchdayPoints: this.requestCacheService.getOrSet('participant-matchday-points', () => this.apiService.searchParticipantMatchdayPoints(), 20_000),
       playerPerformances: this.requestCacheService.getOrSet('player-performances', () => this.apiService.searchPlayerPerformances(), 20_000),
       serverTime: this.apiService.getServerTime().pipe(catchError(() => of(null))),
-    }).subscribe({
-      next: (response) => {
+    }).pipe(
+      switchMap((response) => {
+        const tournament = (response.tournaments as any)?.data?.find((item: any) => this.extractId(item) === this.tournamentId) ?? null;
+        const leagueId = this.extractId(tournament?.league);
+        return forkJoin({
+          base: of(response),
+          realPlayerLeagueValues: leagueId
+            ? this.apiService.searchRealPlayerLeagueValuesByLeagueId(leagueId).pipe(catchError(() => of({ data: [] })))
+            : of({ data: [] }),
+        });
+      }),
+    ).subscribe({
+      next: ({ base: response, realPlayerLeagueValues }) => {
+        this.allRealPlayerLeagueValues = (realPlayerLeagueValues as any)?.data ?? [];
         const serverNowMs = Number(response.serverTime?.data?.nowMs);
         if (Number.isFinite(serverNowMs) && serverNowMs > 0) {
           this.serverClockSkewMs = serverNowMs - Date.now();
@@ -370,7 +383,8 @@ export class InsideTournamentComponent implements OnInit {
     for (const player of this.allRealPlayers) {
       const playerId = this.extractId(player);
       if (playerId) {
-        realPlayerById[playerId] = player;
+        const leagueValue = this.allRealPlayerLeagueValues.find((lv: any) => Number(lv.realPlayerId) === playerId);
+        realPlayerById[playerId] = { ...player, translatedValue: leagueValue?.translatedValue ?? null };
       }
     }
 
@@ -776,7 +790,8 @@ export class InsideTournamentComponent implements OnInit {
       const totalScore = this.allPlayerPerformances
         .filter((perf: any) => this.extractId(perf?.realPlayer) === playerId)
         .reduce((sum: number, perf: any) => sum + Number(perf?.pointsObtained ?? 0), 0);
-      this.realPlayerById.set(playerId, { ...player, totalScore });
+      const leagueValue = this.allRealPlayerLeagueValues.find((lv: any) => Number(lv.realPlayerId) === playerId);
+      this.realPlayerById.set(playerId, { ...player, totalScore, translatedValue: leagueValue?.translatedValue ?? null });
     }
 
     this.dependantByRealPlayerId = new Map<number, any>();

@@ -293,6 +293,13 @@ export class ApiService {
   patchRealPlayer(realPlayer: realPlayerPatchI) { return this.http.patch<responseRealPlayerI>(`${this.url}/real-players/${realPlayer.id}`, realPlayer); }
   removeRealPlayer(id: number | string) { return this.http.delete<responseRealPlayerI>(`${this.url}/real-players/${id}`); }
 
+  // Real Player League Values
+  searchRealPlayerLeagueValuesByLeagueId(leagueId: number | string) {
+    return this.http.get<{ message: string; data: Array<{ id: number; realPlayerId: number; leagueId: number; translatedValue: number | null }> }>(
+      `${this.url}/real-player-league-values?leagueId=${leagueId}`,
+    );
+  }
+
   // Real Teams
   searchRealTeams() { return this.http.get<realTeamCollectionI>(`${this.url}/real-teams`); }
   searchRealTeamById(id: number | string) { return this.http.get<responseRealTeamI>(`${this.url}/real-teams/${id}`); }
