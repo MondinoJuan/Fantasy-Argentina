@@ -152,6 +152,16 @@ export class InsideTournamentComponent implements OnInit {
       });
   }
 
+  get translatedValuesByRealPlayerId(): Record<number, number | null> {
+    const byRealPlayerId: Record<number, number | null> = {};
+    for (const value of this.allRealPlayerLeagueValues) {
+      const realPlayerId = Number((value as any)?.realPlayerId);
+      if (!Number.isFinite(realPlayerId) || realPlayerId <= 0) continue;
+      byRealPlayerId[realPlayerId] = (value as any)?.translatedValue ?? null;
+    }
+    return byRealPlayerId;
+  }
+
   onRankingScopeChange(): void {
     this.rebuildRanking();
   }
@@ -362,7 +372,17 @@ export class InsideTournamentComponent implements OnInit {
   private rebuildMarketFromDatabase(): void {
     this.marketDependantIds = this.existingMarketEntries.flatMap((entry: any) => {
       const marketId = this.extractId(entry) ?? 0;
-      return this.normalizeIdCollection(entry.dependantPlayerIds ?? entry.dependant_player_ids).map(depId => ({
+      const dependantIds = this.normalizeIdCollection(
+        entry.dependantPlayerIds
+        ?? entry.dependant_player_ids
+        ?? entry.dependantPlayersIds
+        ?? entry.dependant_players_ids
+        ?? entry.dependantPlayerId
+        ?? entry.dependant_player_id
+        ?? entry.dependantPlayer
+        ?? entry.dependant_player
+      );
+      return dependantIds.map(depId => ({
         dependantPlayerId: depId,
         marketId,
       }));

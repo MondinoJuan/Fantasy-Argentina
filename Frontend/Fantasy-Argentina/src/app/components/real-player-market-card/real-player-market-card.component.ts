@@ -163,7 +163,7 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
     this.hasError = false;
 
     const dependant = this.dependantPlayersById[this.dependantPlayerId];
-    const realPlayerIdFromCache = this.extractId(dependant?.realPlayer);
+    const realPlayerIdFromCache = this.extractId(dependant?.realPlayer ?? dependant?.real_player);
     const cachedRealPlayer = realPlayerIdFromCache ? this.realPlayersById[realPlayerIdFromCache] : null;
 
     if (dependant && cachedRealPlayer) {
