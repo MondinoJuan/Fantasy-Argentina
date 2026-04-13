@@ -28,6 +28,7 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
   @Input() dependantPlayerId!: number;
   @Input() marketId!: number;
   @Input() tournamentId!: number;
+  @Input() leagueId: number | null = null;
   @Input() participantId!: number;
   @Input() availableMoney = 0;
   @Input() dependantPlayersById: Record<number, any> = {};
@@ -167,23 +168,8 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
     const cachedRealPlayer = realPlayerIdFromCache ? this.realPlayersById[realPlayerIdFromCache] : null;
 
     if (dependant && cachedRealPlayer) {
-      // Fetch leagueId from tournament to get translatedValue from RealPlayerLeagueValue
-      this.apiService.searchTournamentById(this.tournamentId).pipe(
-        switchMap((tournamentRes: any) => {
-          const tournament = tournamentRes?.data ?? tournamentRes;
-          const leagueId = this.extractId(tournament?.league) ?? tournament?.leagueId;
-          if (!leagueId) throw new Error('league_id no encontrado en tournament');
-
-          return this.apiService.searchRealPlayerLeagueValuesByLeagueId(leagueId).pipe(
-            map((leagueValuesRes: any) => ({
-              leagueValues: leagueValuesRes?.data ?? [],
-              cachedRealPlayer,
-              dependant
-            }))
-          );
-        })
-      ).subscribe({
-        next: ({ leagueValues, cachedRealPlayer, dependant }) => {
+      const leagueId = Number(this.leagueId ?? 0);
+      const applyPlayer = (leagueValues: any[]) => {
           const realPlayerId = this.extractId(cachedRealPlayer) ?? realPlayerIdFromCache ?? 0;
           const realTeamId = Number(
             cachedRealPlayer?.realTeamId ??
@@ -191,7 +177,7 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
             this.extractId(cachedRealPlayer?.realTeam)
           );
 
-          const translatedValue = leagueValues.find((v: any) => v.realPlayerId === realPlayerId)?.translatedValue ?? null;
+          const translatedValue = leagueValues.find((v: any) => Number(v.realPlayerId) === realPlayerId)?.translatedValue ?? null;
 
           this.player = {
             dependantPlayerId: this.dependantPlayerId,
@@ -205,6 +191,16 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
             translatedValue,
           };
           this.isLoading = false;
+      };
+
+      if (!Number.isFinite(leagueId) || leagueId <= 0) {
+        applyPlayer([]);
+        return;
+      }
+
+      this.apiService.searchRealPlayerLeagueValuesByLeagueId(leagueId).subscribe({
+        next: (response: any) => {
+          applyPlayer(Array.isArray(response?.data) ? response.data : []);
         },
         error: () => {
           this.hasError = true;
@@ -215,19 +211,18 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
     }
 
     // For non-cached case
-    this.apiService.searchTournamentById(this.tournamentId).pipe(
-      switchMap((tournamentRes: any) => {
-        const tournament = tournamentRes?.data ?? tournamentRes;
-        const leagueId = this.extractId(tournament?.league) ?? tournament?.leagueId;
-        if (!leagueId) throw new Error('league_id no encontrado en tournament');
+    const leagueId = Number(this.leagueId ?? 0);
+    if (!Number.isFinite(leagueId) || leagueId <= 0) {
+      this.hasError = true;
+      this.isLoading = false;
+      return;
+    }
 
-        return this.apiService.searchDependantPlayerById(this.dependantPlayerId).pipe(
-          map((dependantRes: any) => ({
-            dependant: dependantRes?.data ?? dependantRes,
-            leagueId
-          }))
-        );
-      }),
+    this.apiService.searchDependantPlayerById(this.dependantPlayerId).pipe(
+      map((dependantRes: any) => ({
+        dependant: dependantRes?.data ?? dependantRes,
+        leagueId,
+      })),
       switchMap(({ dependant, leagueId }) => {
         const realPlayerId = Number(dependant?.realPlayer?.id ?? dependant?.real_player?.id);
         if (!realPlayerId) throw new Error('real_player_id no encontrado en dependantPlayer');
