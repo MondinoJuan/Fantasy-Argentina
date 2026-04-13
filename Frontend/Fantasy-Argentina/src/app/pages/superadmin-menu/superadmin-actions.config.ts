@@ -11,6 +11,7 @@ export type SuperadminAction =
   | 'getAllSports'
   | 'getAllLeagues'
   | 'getAllRealTeams'
+  | 'getAllRealTeamLeagueParticipations'
   | 'getAllRealPlayers'
   | 'getAllTournaments'
   | 'getAllParticipants'
@@ -92,6 +93,7 @@ export const SUPERADMIN_ACTION_CONFIG: Record<SuperadminAction, { title: string;
   getAllSports: { title: 'Get all sports', fields: [] },
   getAllLeagues: { title: 'Get all leagues', fields: [] },
   getAllRealTeams: { title: 'Get all real teams', fields: [] },
+  getAllRealTeamLeagueParticipations: { title: 'Get all real team league participations', fields: [] },
   getAllRealPlayers: { title: 'Get all real players', fields: [] },
   getAllTournaments: { title: 'Get all tournaments', fields: [] },
   getAllParticipants: { title: 'Get all participants', fields: [] },

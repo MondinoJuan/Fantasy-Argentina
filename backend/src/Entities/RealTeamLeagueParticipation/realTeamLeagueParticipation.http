@@ -1,0 +1,17 @@
+### Get all participations
+GET http://localhost:3000/api/real-team-league-participations
+Authorization: Bearer {{token}}
+
+### Get participations filtered by league
+GET http://localhost:3000/api/real-team-league-participations?leagueId=1
+Authorization: Bearer {{token}}
+
+### Create participation
+POST http://localhost:3000/api/real-team-league-participations
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "realTeamId": 1,
+  "leagueId": 1
+}

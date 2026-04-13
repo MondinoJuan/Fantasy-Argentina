@@ -25,6 +25,7 @@ import { SportRouter } from './Entities/Sport/sport.routes.js';
 import { DependantPlayerRouter } from './Entities/DependantPlayer/dependantPlayer.routes.js';
 import { UltSeasonRouter } from './Entities/UltSeason/ultSeason.routes.js';
 import { AuthRouter } from './Entities/Auth/auth.routes.js';
+import { RealTeamLeagueParticipationRouter } from './Entities/RealTeamLeagueParticipation/realTeamLeagueParticipation.routes.js';
 import "dotenv/config";
 import { requireAuth } from './shared/http/auth.middleware.js';
 import { serverNow, serverNowMs } from './shared/time/serverClock.js';
@@ -188,6 +189,7 @@ app.use('/api/leagues', LeagueRouter)
 app.use('/api/participants', ParticipantRouter)
 app.use('/api/real-players', RealPlayerRouter)
 app.use('/api/real-teams', RealTeamRouter)
+app.use('/api/real-team-league-participations', RealTeamLeagueParticipationRouter)
 app.use('/api/dependant-players', DependantPlayerRouter)
 app.use('/api/participant-squads', ParticipantSquadRouter)
 app.use('/api/matchdays', MatchdayRouter)

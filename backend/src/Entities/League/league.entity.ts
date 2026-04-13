@@ -6,6 +6,8 @@ import { Matchday } from '../Matchday/matchday.entity.js';
 import { GameMatch } from '../GameMatch/gameMatch.entity.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
 import { UltSeason } from '../UltSeason/ultSeason.entity.js';
+import { RealTeamLeagueParticipation } from '../RealTeamLeagueParticipation/realTeamLeagueParticipation.entity.js';
+import { RealPlayerLeagueValue } from '../RealPlayerLeagueValue/realPlayerLeagueValue.entity.js';
 
 @Entity()
 export class League extends BaseEntity {
@@ -68,4 +70,14 @@ export class League extends BaseEntity {
     cascade: [Cascade.ALL],
   })
   ultSeasons = new Collection<UltSeason>(this);
+
+  @OneToMany(() => RealTeamLeagueParticipation, (participation) => participation.league, {
+    cascade: [Cascade.ALL],
+  })
+  realTeamParticipations = new Collection<RealTeamLeagueParticipation>(this);
+
+  @OneToMany(() => RealPlayerLeagueValue, (leagueValue) => leagueValue.league, {
+    cascade: [Cascade.ALL],
+  })
+  realPlayerLeagueValues = new Collection<RealPlayerLeagueValue>(this);
 }

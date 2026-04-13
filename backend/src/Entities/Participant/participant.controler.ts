@@ -11,6 +11,7 @@ import { ParticipantMatchdayPoints } from '../ParticipantMatchdayPoints/particip
 import { Negotiation } from '../Negotiation/negotiation.entity.js';
 import { Bid } from '../Bid/bid.entity.js';
 import { MatchdayMarket } from '../MatchdayMarket/matchdayMarket.entity.js';
+import { getRealPlayerLeagueTranslatedValue } from '../RealPlayerLeagueValue/realPlayerLeagueValue.service.js';
 
 const em = orm.em;
 
@@ -350,7 +351,7 @@ async function quickSellRealPlayer(req: Request, res: Response) {
     }
 
     const result = await em.transactional(async (transactionalEm) => {
-      const participant = await transactionalEm.findOne(Participant, { id: participantId });
+      const participant = await transactionalEm.findOne(Participant, { id: participantId }, { populate: ['tournament', 'tournament.league'] });
 
       if (!participant) {
         throw new Error('participant not found');
@@ -374,7 +375,19 @@ async function quickSellRealPlayer(req: Request, res: Response) {
         throw new Error('real player not found');
       }
 
-      const saleValue = Number(realPlayer.translatedValue ?? 0) * 0.7;
+      const tournamentLeagueId = Number(((participant.tournament as any)?.league?.id)
+        ?? ((participant.tournament as any)?.league)
+        ?? 0);
+      if (!Number.isFinite(tournamentLeagueId) || tournamentLeagueId <= 0) {
+        throw new Error('participant tournament league not found');
+      }
+
+      const translatedValueByLeague = await getRealPlayerLeagueTranslatedValue(
+        transactionalEm as any,
+        tournamentLeagueId,
+        realPlayerId,
+      );
+      const saleValue = Number(translatedValueByLeague ?? 0) * 0.7;
 
       if (!Number.isFinite(saleValue) || saleValue <= 0) {
         throw new Error('real player has no translated value for quick sale');
@@ -410,6 +423,7 @@ async function quickSellRealPlayer(req: Request, res: Response) {
       error.message === 'participant not found'
       || error.message === 'participant squad not found'
       || error.message === 'real player not found'
+      || error.message === 'participant tournament league not found'
     ) {
       res.status(404).json({ message: error.message });
       return;
