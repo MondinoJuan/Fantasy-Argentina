@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, Input, Output, EventEmitter, OnChanges, OnInit, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
-import { switchMap } from 'rxjs/operators';
+import { switchMap, map } from 'rxjs/operators';
 import { ApiService } from '../../servicios/api.service';
 
 export interface ResolvedMarketPlayer {
@@ -167,39 +167,80 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
     const cachedRealPlayer = realPlayerIdFromCache ? this.realPlayersById[realPlayerIdFromCache] : null;
 
     if (dependant && cachedRealPlayer) {
-      const realPlayerId = this.extractId(cachedRealPlayer) ?? realPlayerIdFromCache ?? 0;
-      const realTeamId = Number(
-        cachedRealPlayer?.realTeamId ??
-        cachedRealPlayer?.real_team_id ??
-        this.extractId(cachedRealPlayer?.realTeam)
-      );
+      // Fetch leagueId from tournament to get translatedValue from RealPlayerLeagueValue
+      this.apiService.searchTournamentById(this.tournamentId).pipe(
+        switchMap((tournamentRes: any) => {
+          const tournament = tournamentRes?.data ?? tournamentRes;
+          const leagueId = this.extractId(tournament?.league) ?? tournament?.leagueId;
+          if (!leagueId) throw new Error('league_id no encontrado en tournament');
 
-      this.player = {
-        dependantPlayerId: this.dependantPlayerId,
-        realPlayerId,
-        marketId: this.marketId,
-        name: cachedRealPlayer?.name ?? `Jugador ${realPlayerId}`,
-        position: this.normalizePosition(cachedRealPlayer?.position),
-        teamName: this.realTeamNameById[realTeamId] ?? 'Sin equipo',
-        totalScore: Number(this.performancesByRealPlayerId[realPlayerId] ?? 0),
-        totalBids: Number((this.bidsByRealPlayerId[realPlayerId] ?? []).length),
-        translatedValue: cachedRealPlayer?.translatedValue ?? null,
-      };
-      this.isLoading = false;
+          return this.apiService.searchRealPlayerLeagueValuesByLeagueId(leagueId).pipe(
+            map((leagueValuesRes: any) => ({
+              leagueValues: leagueValuesRes?.data ?? [],
+              cachedRealPlayer,
+              dependant
+            }))
+          );
+        })
+      ).subscribe({
+        next: ({ leagueValues, cachedRealPlayer, dependant }) => {
+          const realPlayerId = this.extractId(cachedRealPlayer) ?? realPlayerIdFromCache ?? 0;
+          const realTeamId = Number(
+            cachedRealPlayer?.realTeamId ??
+            cachedRealPlayer?.real_team_id ??
+            this.extractId(cachedRealPlayer?.realTeam)
+          );
+
+          const translatedValue = leagueValues.find((v: any) => v.realPlayerId === realPlayerId)?.translatedValue ?? null;
+
+          this.player = {
+            dependantPlayerId: this.dependantPlayerId,
+            realPlayerId,
+            marketId: this.marketId,
+            name: cachedRealPlayer?.name ?? `Jugador ${realPlayerId}`,
+            position: this.normalizePosition(cachedRealPlayer?.position),
+            teamName: this.realTeamNameById[realTeamId] ?? 'Sin equipo',
+            totalScore: Number(this.performancesByRealPlayerId[realPlayerId] ?? 0),
+            totalBids: Number((this.bidsByRealPlayerId[realPlayerId] ?? []).length),
+            translatedValue,
+          };
+          this.isLoading = false;
+        },
+        error: () => {
+          this.hasError = true;
+          this.isLoading = false;
+        },
+      });
       return;
     }
 
-    this.apiService.searchDependantPlayerById(this.dependantPlayerId).pipe(
-      switchMap((dependantRes: any) => {
-        const dependantPlayer = dependantRes?.data ?? dependantRes;
-        const realPlayerId = Number(dependantPlayer?.realPlayer?.id ?? dependantPlayer?.real_player?.id);
+    // For non-cached case
+    this.apiService.searchTournamentById(this.tournamentId).pipe(
+      switchMap((tournamentRes: any) => {
+        const tournament = tournamentRes?.data ?? tournamentRes;
+        const leagueId = this.extractId(tournament?.league) ?? tournament?.leagueId;
+        if (!leagueId) throw new Error('league_id no encontrado en tournament');
+
+        return this.apiService.searchDependantPlayerById(this.dependantPlayerId).pipe(
+          map((dependantRes: any) => ({
+            dependant: dependantRes?.data ?? dependantRes,
+            leagueId
+          }))
+        );
+      }),
+      switchMap(({ dependant, leagueId }) => {
+        const realPlayerId = Number(dependant?.realPlayer?.id ?? dependant?.real_player?.id);
         if (!realPlayerId) throw new Error('real_player_id no encontrado en dependantPlayer');
 
         this._pendingRealPlayerId = realPlayerId;
-        return this.apiService.searchRealPlayerById(realPlayerId);
+        return this.apiService.searchRealPlayerById(realPlayerId).pipe(
+          map((realPlayerRes: any) => ({
+            realPlayer: realPlayerRes?.data ?? realPlayerRes,
+            leagueId
+          }))
+        );
       }),
-      switchMap((realPlayerRes: any) => {
-        const realPlayer = realPlayerRes?.data ?? realPlayerRes;
+      switchMap(({ realPlayer, leagueId }) => {
         this._pendingRealPlayer = realPlayer;
 
         const realTeamId = Number(
@@ -210,50 +251,56 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
 
         if (!realTeamId) throw new Error('real_team_id no encontrado en realPlayer');
 
-        return this.apiService.searchRealTeamById(realTeamId);
+        return this.apiService.searchRealTeamById(realTeamId).pipe(
+          map((realTeamRes: any) => ({
+            realTeam: realTeamRes?.data ?? realTeamRes,
+            leagueId
+          }))
+        );
       }),
+      switchMap(({ realTeam, leagueId }) => {
+        return this.apiService.searchRealPlayerLeagueValuesByLeagueId(leagueId).pipe(
+          map((leagueValuesRes: any) => ({
+            realTeam,
+            leagueValues: leagueValuesRes?.data ?? []
+          }))
+        );
+      }),
+      switchMap(({ realTeam, leagueValues }) => {
+        const realPlayerId = this._pendingRealPlayerId;
+        return forkJoin({
+          performances: this.apiService.searchPlayerPerformances(),
+          bidsInfo: this.apiService.searchBidsByTournamentAndRealPlayer(this.tournamentId, realPlayerId),
+        }).pipe(
+          map(({ performances, bidsInfo }) => ({
+            realTeam,
+            leagueValues,
+            performances: performances?.data ?? [],
+            bidsInfo
+          }))
+        );
+      })
     ).subscribe({
-      next: (realTeamRes: any) => {
-        const realTeam = realTeamRes?.data ?? realTeamRes;
+      next: ({ realTeam, leagueValues, performances, bidsInfo }) => {
         const teamName = realTeam?.name ?? 'Sin equipo';
         const realPlayer = this._pendingRealPlayer;
         const realPlayerId = this._pendingRealPlayerId;
 
-        forkJoin({
-          performances: this.apiService.searchPlayerPerformances(),
-          bidsInfo: this.apiService.searchBidsByTournamentAndRealPlayer(this.tournamentId, realPlayerId),
-        }).subscribe({
-          next: ({ performances, bidsInfo }) => {
-            const totalScore = this.getTotalPoints(realPlayerId, performances?.data ?? []);
+        const translatedValue = leagueValues.find((v: any) => v.realPlayerId === realPlayerId)?.translatedValue ?? null;
+        const totalScore = this.getTotalPoints(realPlayerId, performances);
 
-            this.player = {
-              dependantPlayerId: this.dependantPlayerId,
-              realPlayerId,
-              marketId: this.marketId,
-              name: realPlayer?.name ?? `Jugador ${realPlayerId}`,
-              position: this.normalizePosition(realPlayer?.position),
-              teamName,
-              totalScore,
-              totalBids: Number(bidsInfo?.totalParticipants ?? bidsInfo?.totalBids ?? bidsInfo?.data?.length ?? 0),
-              translatedValue: realPlayer?.translatedValue ?? null,
-            };
-            this.isLoading = false;
-          },
-          error: () => {
-            this.player = {
-              dependantPlayerId: this.dependantPlayerId,
-              realPlayerId,
-              marketId: this.marketId,
-              name: realPlayer?.name ?? `Jugador ${realPlayerId}`,
-              position: this.normalizePosition(realPlayer?.position),
-              teamName,
-              totalScore: 0,
-              totalBids: 0,
-              translatedValue: realPlayer?.translatedValue ?? null,
-            };
-            this.isLoading = false;
-          },
-        });
+        this.player = {
+          dependantPlayerId: this.dependantPlayerId,
+          realPlayerId,
+          marketId: this.marketId,
+          name: realPlayer?.name ?? `Jugador ${realPlayerId}`,
+          position: this.normalizePosition(realPlayer?.position),
+          teamName,
+          totalScore,
+          totalBids: Number(bidsInfo?.totalParticipants ?? bidsInfo?.totalBids ?? bidsInfo?.data?.length ?? 0),
+          translatedValue,
+        };
+        this.isLoading = false;
       },
       error: () => {
         this.hasError = true;

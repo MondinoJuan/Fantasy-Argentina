@@ -3,7 +3,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CdkAccordionModule } from '@angular/cdk/accordion';
 import { Observable, of } from 'rxjs';
-import { switchMap } from 'rxjs/operators';
+import { switchMap, map } from 'rxjs/operators';
 import { ApiService } from '../../servicios/api.service';
 
 interface RivalPlayerRow {
@@ -34,6 +34,7 @@ export class RivalsRealPlayerListComponent {
   @Input({ required: true }) realPlayerById = new Map<number, any>();
   @Input({ required: true }) dependantByRealPlayerId = new Map<number, any>();
   @Input({ required: true }) playerClauseByDependantId = new Map<number, any>();
+  @Input({ required: true }) translatedValuesByRealPlayerId: Record<number, number | null> = {};
   @Input() clauseEnabled = false;
   @Input() highlighted = false;
 
@@ -326,7 +327,7 @@ export class RivalsRealPlayerListComponent {
     const dependantId = this.extractId(dependant) ?? 0;
 
     const clause = dependantId ? this.playerClauseByDependantId.get(dependantId) : null;
-    const translatedValue = Number(realPlayer?.translatedValue ?? 0);
+    const translatedValue = Number(this.translatedValuesByRealPlayerId[realPlayerId] ?? 0);
     const totalScore = Number(realPlayer?.totalScore ?? 0);
 
     const fallbackClause = Math.max(0, translatedValue + RivalsRealPlayerListComponent.INITIAL_CLAUSE_DELTA);
