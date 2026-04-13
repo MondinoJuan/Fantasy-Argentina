@@ -7,6 +7,7 @@ import { League } from '../League/league.entity.js';
 import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
 import { PLAYER_POSITIONS, isEnumValue } from '../../shared/domain-enums.js';
 import { getTeamIdsByLeague } from '../RealTeamLeagueParticipation/realTeamLeagueParticipation.service.js';
+import { upsertRealPlayerLeagueTranslatedValue } from '../RealPlayerLeagueValue/realPlayerLeagueValue.service.js';
 
 const em = orm.em;
 
@@ -103,7 +104,6 @@ function sanitizeRealPlayerInput(req: Request, res: Response, next: NextFunction
   const sanitizedValueCurrency = req.body.valueCurrency === undefined
     ? undefined
     : normalizeCurrencyCode(req.body.valueCurrency);
-  const sanitizedTranslatedValue = req.body.translatedValue === undefined ? undefined : toNumber(req.body.translatedValue);
   const shouldApplyValueFallback = isNullTextValue(req.body.value);
 
   req.body.sanitizeRealPlayerInput = {
@@ -113,7 +113,6 @@ function sanitizeRealPlayerInput(req: Request, res: Response, next: NextFunction
     realTeam: req.body.realTeam ?? req.body.realTeamId,
     valueCurrency: shouldApplyValueFallback ? 'EUR' : sanitizedValueCurrency,
     value: shouldApplyValueFallback ? 2_000_000 : sanitizedValue,
-    translatedValue: sanitizedTranslatedValue,
     active: req.body.active,
   };
 
@@ -530,12 +529,20 @@ async function translatePricesByLeague(req: Request, res: Response) {
       const valueReal_dePlayer = typeof player.value === 'number' && Number.isFinite(player.value) ? Number(player.value) : null;
 
       if (valueReal_dePlayer === null) {
-        player.translatedValue = null;
+        await upsertRealPlayerLeagueTranslatedValue(em as any, {
+          realPlayer: player,
+          league,
+          translatedValue: null,
+        });
         continue;
       }
 
       if (valueReal_MaxDeLeague === valueReal_MinDeLeague || valueReal_dePlayer === valueReal_MinDeLeague) {
-        player.translatedValue = limiteMin;
+        await upsertRealPlayerLeagueTranslatedValue(em as any, {
+          realPlayer: player,
+          league,
+          translatedValue: limiteMin,
+        });
         updated += 1;
         continue;
       }
@@ -543,7 +550,11 @@ async function translatePricesByLeague(req: Request, res: Response) {
       const normalized = (valueReal_dePlayer - valueReal_MinDeLeague) / (valueReal_MaxDeLeague - valueReal_MinDeLeague);
       const translated = limiteMin + (normalized * (limiteMax - limiteMin));
       const clamped = Math.max(limiteMin, Math.min(limiteMax, translated));
-      player.translatedValue = Number.isFinite(clamped) ? clamped : limiteMin;
+      await upsertRealPlayerLeagueTranslatedValue(em as any, {
+        realPlayer: player,
+        league,
+        translatedValue: Number.isFinite(clamped) ? clamped : limiteMin,
+      });
       updated += 1;
     }
 

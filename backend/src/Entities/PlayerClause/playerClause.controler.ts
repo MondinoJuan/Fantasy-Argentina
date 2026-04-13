@@ -10,6 +10,7 @@ import {
   assertSquadAndClausesUnlockedByLeague,
   SquadAndClausesLockedError,
 } from '../../shared/services/matchdaySquadLock.service.js';
+import { getRealPlayerLeagueTranslatedValue } from '../RealPlayerLeagueValue/realPlayerLeagueValue.service.js';
 
 const em = orm.em;
 
@@ -281,7 +282,12 @@ async function executeClausePurchase(req: Request, res: Response) {
         throw new Error(`clause disabled until ${currentClauseDisabledUntil.toISOString()}`);
       }
 
-      const translatedValue = Number((dependantPlayer.realPlayer as any)?.translatedValue ?? 0);
+      const translatedValueByLeague = await getRealPlayerLeagueTranslatedValue(
+        transactionalEm as any,
+        tournamentLeagueId,
+        realPlayerId,
+      );
+      const translatedValue = Number(translatedValueByLeague ?? 0);
       const fallbackClause = Math.max(0, translatedValue + 3_000_000);
       const amount = playerClause
         ? Number(playerClause.totalClause ?? 0)

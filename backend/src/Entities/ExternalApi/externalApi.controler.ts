@@ -22,6 +22,8 @@ import {
   getSportsApiProTeamsByLeagueService,
 } from './services/index.js';
 import { getTeamIdsByLeague } from '../RealTeamLeagueParticipation/realTeamLeagueParticipation.service.js';
+import { upsertRealPlayerLeagueTranslatedValue } from '../RealPlayerLeagueValue/realPlayerLeagueValue.service.js';
+import { RealPlayerLeagueValue } from '../RealPlayerLeagueValue/realPlayerLeagueValue.entity.js';
 
 const em = orm.em;
 
@@ -1430,9 +1432,14 @@ async function updateRealPlayerTranslatedValuesByLatestFormForCompetition(compet
     if (recentScores.length === 0) continue;
 
     const scoreForm = computeWeightedFormScore(recentScores);
+    const currentLeagueTranslatedValue = await localEm.findOne(
+      RealPlayerLeagueValue as any,
+      { realPlayer: { id: Number((player as any).id) }, league: { id: resolvedLeagueId } } as any,
+    );
+    const currentLeagueTranslatedValueNumber = Number((currentLeagueTranslatedValue as any)?.translatedValue);
     const valorTradActual =
-      typeof player.translatedValue === 'number' && Number.isFinite(player.translatedValue)
-        ? Number(player.translatedValue)
+      Number.isFinite(currentLeagueTranslatedValueNumber)
+        ? currentLeagueTranslatedValueNumber
         : limiteMin;
 
     const pRaw = (valorTradActual - limiteMin) / range;
@@ -1441,7 +1448,11 @@ async function updateRealPlayerTranslatedValuesByLatestFormForCompetition(compet
     const desvio = scoreForm - notaEsperada;
 
     if (desvio === 0) {
-      player.translatedValue = clamp(valorTradActual, limiteMin, limiteMax);
+      await upsertRealPlayerLeagueTranslatedValue(localEm as any, {
+        realPlayer: player,
+        league,
+        translatedValue: clamp(valorTradActual, limiteMin, limiteMax),
+      });
       updatedPlayers += 1;
       continue;
     }
@@ -1456,7 +1467,11 @@ async function updateRealPlayerTranslatedValuesByLatestFormForCompetition(compet
       nuevoValor = valorTradActual + ajuste * p * valorTradActual;
     }
 
-    player.translatedValue = clamp(nuevoValor, limiteMin, limiteMax);
+    await upsertRealPlayerLeagueTranslatedValue(localEm as any, {
+      realPlayer: player,
+      league,
+      translatedValue: clamp(nuevoValor, limiteMin, limiteMax),
+    });
     updatedPlayers += 1;
   }
 
