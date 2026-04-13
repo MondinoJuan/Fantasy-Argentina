@@ -57,7 +57,14 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['dependantPlayersById'] || changes['realPlayersById'] || changes['performancesByRealPlayerId'] || changes['bidsByRealPlayerId']) {
+    if (
+      changes['dependantPlayerId']
+      || changes['leagueId']
+      || changes['dependantPlayersById']
+      || changes['realPlayersById']
+      || changes['performancesByRealPlayerId']
+      || changes['bidsByRealPlayerId']
+    ) {
       this.resolvePlayer();
     }
   }
@@ -177,7 +184,7 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
             this.extractId(cachedRealPlayer?.realTeam)
           );
 
-          const translatedValue = leagueValues.find((v: any) => Number(v.realPlayerId) === realPlayerId)?.translatedValue ?? null;
+          const translatedValue = this.resolveTranslatedValue(leagueValues, realPlayerId);
 
           this.player = {
             dependantPlayerId: this.dependantPlayerId,
@@ -281,7 +288,7 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
         const realPlayer = this._pendingRealPlayer;
         const realPlayerId = this._pendingRealPlayerId;
 
-        const translatedValue = leagueValues.find((v: any) => v.realPlayerId === realPlayerId)?.translatedValue ?? null;
+        const translatedValue = this.resolveTranslatedValue(leagueValues, realPlayerId);
         const totalScore = this.getTotalPoints(realPlayerId, performances);
 
         this.player = {
@@ -343,6 +350,22 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
     return 'midfielder';
   }
 
+  private resolveTranslatedValue(leagueValues: any[], realPlayerId: number): number | null {
+    const row = leagueValues.find((value: any) => {
+      const valueRealPlayerId = Number(
+        value?.realPlayerId
+        ?? value?.real_player_id
+        ?? this.extractId(value?.realPlayer)
+        ?? this.extractId(value?.real_player)
+      );
+      return Number.isFinite(valueRealPlayerId) && valueRealPlayerId === realPlayerId;
+    });
+
+    if (!row) return null;
+    const translated = Number(row?.translatedValue ?? row?.translated_value);
+    return Number.isFinite(translated) ? translated : null;
+  }
+
   private extractId(value: unknown): number | null {
     if (typeof value === 'number') return Number.isFinite(value) ? value : null;
     if (typeof value === 'string' && value.trim()) {
@@ -352,6 +375,10 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
     if (value && typeof value === 'object') {
       const record = value as Record<string, unknown>;
       if (record['id'] !== undefined) return this.extractId(record['id']);
+      if (record['realPlayerId'] !== undefined) return this.extractId(record['realPlayerId']);
+      if (record['real_player_id'] !== undefined) return this.extractId(record['real_player_id']);
+      if (record['dependantPlayerId'] !== undefined) return this.extractId(record['dependantPlayerId']);
+      if (record['dependant_player_id'] !== undefined) return this.extractId(record['dependant_player_id']);
     }
     return null;
   }
