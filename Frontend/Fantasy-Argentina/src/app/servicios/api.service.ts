@@ -92,6 +92,7 @@ import { realTeamI } from '../modelos/realTeam.interface';
 import { realTeamPatchI } from '../modelos/realTeam.patch.interface';
 import { realTeamCollectionI } from '../modelos/realTeam.collection.interface';
 import { responseRealTeamI } from '../modelos/responseRealTeam.interface';
+import { realTeamLeagueParticipationCollectionI } from '../modelos/realTeamLeagueParticipation.collection.interface';
 
 import { sportI } from '../modelos/sport.interface';
 import { sportPatchI } from '../modelos/sport.patch.interface';
@@ -308,6 +309,11 @@ export class ApiService {
   updateRealTeam(realTeam: realTeamI) { return this.http.put<responseRealTeamI>(`${this.url}/real-teams/${realTeam.id}`, realTeam); }
   patchRealTeam(realTeam: realTeamPatchI) { return this.http.patch<responseRealTeamI>(`${this.url}/real-teams/${realTeam.id}`, realTeam); }
   removeRealTeam(id: number | string) { return this.http.delete<responseRealTeamI>(`${this.url}/real-teams/${id}`); }
+
+  // Real Team League Participations
+  searchRealTeamLeagueParticipations() {
+    return this.http.get<realTeamLeagueParticipationCollectionI>(`${this.url}/real-team-league-participations`);
+  }
 
   // Participant Squads
   searchParticipantSquads() { return this.http.get<participantSquadCollectionI>(`${this.url}/participant-squads`); }

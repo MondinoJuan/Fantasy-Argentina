@@ -32,6 +32,7 @@ export class SuperadminMenuComponent {
 
   readonly getAllActions: SuperadminAction[] = [
     'getAllUsers', 'getAllSports', 'getAllLeagues', 'getAllRealTeams', 'getAllRealPlayers',
+    'getAllRealTeamLeagueParticipations',
     'getAllTournaments', 'getAllParticipants', 'getAllParticipantSquads', 'getAllMatchdays', 'getAllMatches',
     'getAllMatchdayMarkets', 'getAllBids', 'getAllNegotiations', 'getAllTransactions',
     'getAllPlayerPerformances', 'getAllPlayerPointsBreakdowns', 'getAllParticipantMatchdayPoints', 'getLeaguesTournamentCounts',
@@ -199,6 +200,7 @@ export class SuperadminMenuComponent {
       getAllSports: () => this.apiService.searchSports(),
       getAllLeagues: () => this.apiService.searchLeagues(),
       getAllRealTeams: () => this.apiService.searchRealTeams(),
+      getAllRealTeamLeagueParticipations: () => this.apiService.searchRealTeamLeagueParticipations(),
       getAllRealPlayers: () => this.apiService.searchRealPlayers(),
       getAllTournaments: () => this.apiService.searchTournaments(),
       getAllParticipants: () => this.apiService.searchParticipants(),
@@ -358,6 +360,52 @@ export class SuperadminMenuComponent {
       },
       error: (error: any) => {
         this.errorMessage = error?.error?.message ?? 'No se pudo ejecutar la sincronización de jugadores.';
+      },
+    });
+  }
+
+  private runPersistFixtureBuild(competitionId: number, seasonId: number): void {
+    this.isLoading = true;
+
+    this.apiService.postExternalFixtureBuildCompetition({ competitionId, seasonId }).pipe(
+      switchMap((response) => {
+        const job = response?.data;
+        if (!job?.jobId) {
+          throw new Error('No se recibió jobId de persistencia de fixture.');
+        }
+
+        this.successMessage = 'Persistencia de fixture iniciada. Consultando progreso...';
+        this.result = { ...response, polling: true };
+
+        return interval(3000).pipe(
+          switchMap(() => this.apiService.getExternalFixtureBuildCompetitionJob(job.jobId)),
+          takeWhile((jobResponse) => {
+            const status = jobResponse?.data?.status;
+            return status === 'queued' || status === 'running';
+          }, true),
+        );
+      }),
+      finalize(() => {
+        this.isLoading = false;
+      }),
+    ).subscribe({
+      next: (jobResponse: { message: string; data: BuildCompetitionFixtureJob }) => {
+        this.result = jobResponse;
+
+        if (jobResponse.data.status === 'completed') {
+          this.successMessage = 'Persistencia de fixture completada correctamente.';
+          return;
+        }
+
+        if (jobResponse.data.status === 'failed') {
+          this.errorMessage = jobResponse.data.lastError ?? 'La persistencia de fixture falló.';
+          return;
+        }
+
+        this.successMessage = 'Persistencia de fixture en progreso...';
+      },
+      error: (error: any) => {
+        this.errorMessage = error?.error?.message ?? 'No se pudo ejecutar la persistencia de fixture.';
       },
     });
   }
