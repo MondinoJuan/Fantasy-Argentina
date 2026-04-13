@@ -94,11 +94,13 @@ Si quiero hacerlo en base a los ultimos partidos, no en base al ultimo, debo usa
 ## Futuro
 * Hay que mejorar el sistema de final de pujas. Si lo hace el superadmin es injusto, si lo hace un tiempo despues de la ultima puja no termina mas (se pueden hacer pujas indefinidas por $0), si lo hago a un tiempo despues del ultimo partido de la fecha se puede romper por partido postpuesto. ¿Qué hacer si dos personas ofertan la misma cantidad de dinero? Si hay una oferta = $0 tampoco deberia dar la puja por ganada.
 * Botones para modificar o eliminar entidades en el superadmin-menu.
-* Posibilidad de eliminar un tournament (solo para el que lo creo).
-* Hacer que el tiempo de espera hasta que se pueda usar la clausula se defina en el forms de creacion de tournament.
 * Mantener esta modalidad de tournament, pero tambien incluir la opcion de draft. Esta modalidad de tournament consiste en que al crear un tournament se invita a los Users que participarán, estos eligirán los realPlayers por turnos hasta completar un 11 (previamente se elige la formación que utilizarán). Además, al final de cada fecha se otorga la posibilidad de elegir un realPlayer a cada participant por turnos, yendo desde el último en el ranking de puntos hasta el primero. Los turnos del draft pueden ser intercambiables, pero no se a cambio de qué.
 * Agregar entity de squad por matchday.
 * Bloquear el cambio de squad durante una fecha.
+* Que al apretar 'Recuperar rankings por jugador/fecha' no busque de todas las fechas, ya que al efectuarse cada fecha no hace falta las anteriores.
+* Resolver error:
+	[rankings-background] error: Using global EntityManager instance methods for context specific actions is disallowed. If you need to work with the global instance's identity map, use `allowGlobalContext` configuration option or `fork()` instead.
+
 
 ## Listado ligas
 SPORTSAPIPRO V2:
@@ -107,7 +109,6 @@ SPORTSAPIPRO V2:
 384 - CONMEBOL Libertadores - season ID: 87760
 8 - La liga - season ID: 77559
 155 - Liga Profesional de Fútbol - season ID: 87913
-7 - UEFA champions league
 16 - World Cup
 679 - UEFA Europa league
 17015 - UEFA conference league
@@ -116,3 +117,4 @@ SPORTSAPIPRO V2:
 35 - Bundesliga - season ID:
 23 - Serie A - season ID:
 34 - Ligue 1 - season ID:
+7 - UEFA champions league - season ID: 76953

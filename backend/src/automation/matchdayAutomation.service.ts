@@ -90,6 +90,14 @@ async function ensureJob(params: {
   const localEm = orm.em.fork();
   const existing = await localEm.findOne(MatchdayAutomationJob, { idempotencyKey: params.idempotencyKey });
   if (existing) {
+    // Si el job anterior falló, lo reseteamos a pending para que reintente.
+    // Si está completed/running/pending lo dejamos como está.
+    if (existing.status === 'failed') {
+      existing.status = 'pending';
+      existing.runAt = params.runAt;
+      existing.lastError = null;
+      await localEm.flush();
+    }
     return existing;
   }
 
@@ -128,13 +136,51 @@ async function seedJobs() {
       }
     }
 
+    // Armar una cola de fechas pendientes por liga (más antigua primero).
+    // Al encontrar la primera 'completed' (iterando desc) cortamos — todo lo anterior ya fue procesado.
+    const pendingByLeague = new Map<number, Array<{ matchday: Matchday; league: League }>>();
+
     for (const league of leagueMap.values()) {
-      const matchdays = await localEm.find(Matchday, { league }, { populate: ['league'], orderBy: { matchdayNumber: 'asc' } });
+      const matchdays = await localEm.find(Matchday, { league }, { populate: ['league'], orderBy: { matchdayNumber: 'desc' } });
+      const pending: Array<{ matchday: Matchday; league: League }> = [];
 
       for (const matchday of matchdays) {
-        const isCompletedMatchday = matchday.status === 'completed';
+        if (matchday.status === 'completed') {
+          break;
+        }
+        pending.push({ matchday, league });
+      }
+
+      // Invertir: procesar de más antigua a más reciente dentro de cada liga.
+      pending.reverse();
+
+      if (pending.length > 0) {
+        pendingByLeague.set(Number(league.id), pending);
+      }
+    }
+
+    // Round-robin: en cada vuelta tomamos UNA fecha de cada liga,
+    // hasta agotar todas las colas.
+    const leagueQueues = [...pendingByLeague.values()];
+    let roundHasWork = true;
+
+    while (roundHasWork) {
+      roundHasWork = false;
+
+      for (const queue of leagueQueues) {
+        const entry = queue.shift();
+        if (!entry) {
+          continue;
+        }
+
+        roundHasWork = true;
+        const { matchday, league } = entry;
         const autoUpdateAt = toValidDate(matchday.autoUpdateAt);
-        if (!isCompletedMatchday && autoUpdateAt && autoUpdateAt.getTime() <= now.getTime()) {
+
+        // isLatest: true solo si es la última fecha pendiente de la cola (la más reciente).
+        const isLatest = queue.length === 0;
+
+        if (autoUpdateAt && autoUpdateAt.getTime() <= now.getTime()) {
           await ensureJob({
             league,
             matchday,
@@ -145,6 +191,7 @@ async function seedJobs() {
               leagueId: league.id,
               matchdayNumber: matchday.matchdayNumber,
               season: matchday.season,
+              isLatest,
             },
           });
         }
@@ -202,23 +249,29 @@ async function executeClosureJob(job: MatchdayAutomationJob) {
     await processRankingsForCompetition(competitionId);
   }
 
-  await invokeController(sumEndOfMatchdayPoints as any, {
-    leagueId,
-    matchdayNumber: matchday.matchdayNumber,
-    season: matchday.season,
-  });
+  // Solo la fecha más reciente (isLatest) cierra el mercado y suma puntos.
+  // Las fechas históricas solo necesitaban sincronizar resultados y rankings.
+  const isLatest = (job.payload as any)?.isLatest !== false;
+  if (isLatest) {
+    await invokeController(sumEndOfMatchdayPoints as any, {
+      leagueId,
+      matchdayNumber: matchday.matchdayNumber,
+      season: matchday.season,
+    });
 
-  await invokeController(settleMarketAndRefreshByLeague as any, {
-    leagueId,
-    matchdayNumber: matchday.matchdayNumber,
-    season: matchday.season,
-  });
-  await translateLeagueRealPlayersValues(leagueId);
+    await invokeController(settleMarketAndRefreshByLeague as any, {
+      leagueId,
+      matchdayNumber: matchday.matchdayNumber,
+      season: matchday.season,
+    });
+    await translateLeagueRealPlayersValues(leagueId);
+  }
 
   const localEm = orm.em.fork();
   const freshMatchday = await localEm.findOne(Matchday, { id: matchday.id });
   if (freshMatchday) {
     freshMatchday.status = 'completed';
+    (freshMatchday as any).autoUpdateAt = null; // evita que seedJobs lo vuelva a encolar
     await localEm.flush();
   }
 }
@@ -329,9 +382,22 @@ async function processDueJobs() {
         job.finishedAt = new Date();
         await localEm.flush();
       } catch (error: any) {
-        job.status = 'failed';
-        job.lastError = error?.message ?? 'unknown automation failure';
-        job.finishedAt = new Date();
+        const message: string = error?.message ?? 'unknown automation failure';
+        const isRateLimit = /429|rate.?limit|too.?many.?requests|quota.?exceeded/i.test(message);
+
+        if (isRateLimit) {
+          // Todas las API keys agotadas → reprogramar en 24 hs (se recargan al día siguiente).
+          job.status = 'pending';
+          job.runAt = addHours(new Date(), 24);
+          job.lastError = `[rate-limit] reprogramado +24h: ${message}`;
+          job.finishedAt = null;
+          console.warn(`[matchday-automation] job=${job.id} step=${job.step} rate-limit agotado → retry en 24 hs`);
+        } else {
+          job.status = 'failed';
+          job.lastError = message;
+          job.finishedAt = new Date();
+        }
+
         await localEm.flush();
       }
     }
