@@ -6,6 +6,7 @@ import { RealTeam } from '../RealTeam/realTeam.entity.js';
 import { League } from '../League/league.entity.js';
 import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
 import { PLAYER_POSITIONS, isEnumValue } from '../../shared/domain-enums.js';
+import { upsertRealPlayerLeagueTranslatedValue } from '../RealPlayerLeagueValue/realPlayerLeagueValue.service.js';
 
 const em = orm.em;
 
@@ -621,20 +622,22 @@ async function runTranslatePricesJob(jobId: string): Promise<void> {
       const valueReal_dePlayer = typeof player.value === 'number' && Number.isFinite(player.value) ? Number(player.value) : null;
 
       if (valueReal_dePlayer === null) {
-        player.translatedValue = null;
+        await upsertRealPlayerLeagueTranslatedValue(jobEm, { realPlayer: player, league, translatedValue: null });
         continue;
       }
+
+      let translatedValue: number;
 
       if (valueReal_MaxDeLeague === valueReal_MinDeLeague || valueReal_dePlayer === valueReal_MinDeLeague) {
-        player.translatedValue = limiteMin;
-        updated += 1;
-        continue;
+        translatedValue = limiteMin;
+      } else {
+        const normalized = (valueReal_dePlayer - valueReal_MinDeLeague) / (valueReal_MaxDeLeague - valueReal_MinDeLeague);
+        const translated = limiteMin + (normalized * (limiteMax - limiteMin));
+        const clamped = Math.max(limiteMin, Math.min(limiteMax, translated));
+        translatedValue = Number.isFinite(clamped) ? clamped : limiteMin;
       }
 
-      const normalized = (valueReal_dePlayer - valueReal_MinDeLeague) / (valueReal_MaxDeLeague - valueReal_MinDeLeague);
-      const translated = limiteMin + (normalized * (limiteMax - limiteMin));
-      const clamped = Math.max(limiteMin, Math.min(limiteMax, translated));
-      player.translatedValue = Number.isFinite(clamped) ? clamped : limiteMin;
+      await upsertRealPlayerLeagueTranslatedValue(jobEm, { realPlayer: player, league, translatedValue });
       updated += 1;
     }
 
