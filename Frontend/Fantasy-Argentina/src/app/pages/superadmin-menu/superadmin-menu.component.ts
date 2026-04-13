@@ -4,7 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { forkJoin, interval } from 'rxjs';
 import { finalize, map, switchMap, takeWhile } from 'rxjs/operators';
-import { ApiService, BuildCompetitionFixtureJob, SyncPlayedResultsJob, SyncPlayersByLeagueJob, TranslateRealPlayerPricesJob } from '../../servicios/api.service';
+import { ApiService, BuildCompetitionFixtureJob, SyncPlayedResultsJob, SyncPlayersByLeagueJob, TranslatePricesJob } from '../../servicios/api.service';
 import { AuthService } from '../../servicios/auth.service';
 
 import { ActionField, SuperadminAction, SUPERADMIN_ACTION_CONFIG, SUPERADMIN_FIELD_LABELS } from './superadmin-actions.config';
@@ -31,7 +31,7 @@ export class SuperadminMenuComponent {
   ];
 
   readonly getAllActions: SuperadminAction[] = [
-    'getAllUsers', 'getAllSports', 'getAllLeagues', 'getAllRealTeams', 'getAllRealTeamLeagueParticipations', 'getAllRealPlayers',
+    'getAllUsers', 'getAllSports', 'getAllLeagues', 'getAllRealTeams', 'getAllRealPlayers',
     'getAllTournaments', 'getAllParticipants', 'getAllParticipantSquads', 'getAllMatchdays', 'getAllMatches',
     'getAllMatchdayMarkets', 'getAllBids', 'getAllNegotiations', 'getAllTransactions',
     'getAllPlayerPerformances', 'getAllPlayerPointsBreakdowns', 'getAllParticipantMatchdayPoints', 'getLeaguesTournamentCounts',
@@ -141,16 +141,6 @@ export class SuperadminMenuComponent {
       return;
     }
 
-    if (this.currentAction === 'translateRealPlayerPrices') {
-      const leagueId = Number(form.leagueId);
-      if (!Number.isFinite(leagueId) || leagueId <= 0) {
-        this.errorMessage = 'Ingresá un leagueId válido (> 0).';
-        return;
-      }
-      this.runTranslateRealPlayerPrices(leagueId);
-      return;
-    }
-
     if (this.currentAction === 'getPersistedFixture') {
       const leagueId = Number(form.leagueId);
 
@@ -164,8 +154,17 @@ export class SuperadminMenuComponent {
       return;
     }
 
+    if (this.currentAction === 'translateRealPlayerPrices') {
+      const leagueId = Number(form.leagueId);
+      if (!Number.isFinite(leagueId) || leagueId <= 0) {
+        this.errorMessage = 'Ingresá un leagueId válido (> 0).';
+        return;
+      }
+      this.runTranslatePricesSync(leagueId);
+      return;
+    }
+
     this.isLoading = true;
-    this.successMessage = 'Operación iniciada. Esperando respuesta del backend...';
 
     const requests: Record<SuperadminAction, () => any> = {
       persistPlayers: () => this.apiService.syncPlayersByLeagueIdEnApi({ leagueIdEnApi: Number(form.leagueIdEnApi) }),
@@ -200,7 +199,6 @@ export class SuperadminMenuComponent {
       getAllSports: () => this.apiService.searchSports(),
       getAllLeagues: () => this.apiService.searchLeagues(),
       getAllRealTeams: () => this.apiService.searchRealTeams(),
-      getAllRealTeamLeagueParticipations: () => this.apiService.searchRealTeamLeagueParticipations(),
       getAllRealPlayers: () => this.apiService.searchRealPlayers(),
       getAllTournaments: () => this.apiService.searchTournaments(),
       getAllParticipants: () => this.apiService.searchParticipants(),
@@ -256,7 +254,9 @@ export class SuperadminMenuComponent {
         gameMatchId: Number(form.gameMatchId) > 0 ? Number(form.gameMatchId) : undefined,
       }),
       settleMarketByLeague: () => this.apiService.postTournamentSettleMarketAndRefreshByLeague({ leagueId: Number(form.leagueId) }),
-      translateRealPlayerPrices: () => this.apiService.postRealPlayerTranslatePricesByLeague({ leagueId: Number(form.leagueId) }),
+      translateRealPlayerPrices: () => this.apiService.postRealPlayerTranslatePricesByLeague({
+        leagueId: Number(form.leagueId),
+      }),
     };
 
     requests[this.currentAction]().pipe(finalize(() => this.isLoading = false)).subscribe({
@@ -316,52 +316,6 @@ export class SuperadminMenuComponent {
     });
   }
 
-  private runTranslateRealPlayerPrices(leagueId: number): void {
-    this.isLoading = true;
-
-    this.apiService.postRealPlayerTranslatePricesByLeague({ leagueId }).pipe(
-      switchMap((response) => {
-        const job = response?.data;
-        if (!job?.jobId) {
-          throw new Error('No se recibió jobId para traducir precios.');
-        }
-
-        this.successMessage = 'Traducción de precios iniciada. Consultando progreso...';
-        this.result = { ...response, polling: true };
-
-        return interval(3000).pipe(
-          switchMap(() => this.apiService.getRealPlayerTranslatePricesByLeagueJob(job.jobId)),
-          takeWhile((jobResponse) => {
-            const status = jobResponse?.data?.status;
-            return status === 'queued' || status === 'running';
-          }, true),
-        );
-      }),
-      finalize(() => {
-        this.isLoading = false;
-      }),
-    ).subscribe({
-      next: (jobResponse: { message: string; data: TranslateRealPlayerPricesJob }) => {
-        this.result = jobResponse;
-
-        if (jobResponse.data.status === 'completed') {
-          this.successMessage = 'Traducción de precios completada correctamente.';
-          return;
-        }
-
-        if (jobResponse.data.status === 'failed') {
-          this.errorMessage = jobResponse.data.lastError ?? 'La traducción de precios falló.';
-          return;
-        }
-
-        this.successMessage = 'Traducción de precios en progreso...';
-      },
-      error: (error: any) => {
-        this.errorMessage = error?.error?.message ?? 'No se pudo ejecutar la traducción de precios.';
-      },
-    });
-  }
-
   private runPersistPlayersSync(leagueIdEnApi: number): void {
     this.isLoading = true;
 
@@ -408,21 +362,21 @@ export class SuperadminMenuComponent {
     });
   }
 
-  private runPersistFixtureBuild(competitionId: number, seasonId: number): void {
+  private runTranslatePricesSync(leagueId: number): void {
     this.isLoading = true;
 
-    this.apiService.postExternalFixtureBuildCompetition({ competitionId, seasonId }).pipe(
+    this.apiService.postRealPlayerTranslatePricesByLeague({ leagueId }).pipe(
       switchMap((response) => {
         const job = response?.data;
         if (!job?.jobId) {
-          throw new Error('No se recibió jobId de persistencia de fixture.');
+          throw new Error('No se recibió jobId de traducción de precios.');
         }
 
-        this.successMessage = 'Persistencia de fixture iniciada. Consultando progreso...';
+        this.successMessage = 'Traducción de precios iniciada. Consultando progreso...';
         this.result = { ...response, polling: true };
 
         return interval(3000).pipe(
-          switchMap(() => this.apiService.getExternalFixtureBuildCompetitionJob(job.jobId)),
+          switchMap(() => this.apiService.getTranslatePricesByLeagueJob(job.jobId)),
           takeWhile((jobResponse) => {
             const status = jobResponse?.data?.status;
             return status === 'queued' || status === 'running';
@@ -433,23 +387,23 @@ export class SuperadminMenuComponent {
         this.isLoading = false;
       }),
     ).subscribe({
-      next: (jobResponse: { message: string; data: BuildCompetitionFixtureJob }) => {
+      next: (jobResponse: { message: string; data: TranslatePricesJob }) => {
         this.result = jobResponse;
 
         if (jobResponse.data.status === 'completed') {
-          this.successMessage = 'Persistencia de fixture completada correctamente.';
+          this.successMessage = 'Traducción de precios completada correctamente.';
           return;
         }
 
         if (jobResponse.data.status === 'failed') {
-          this.errorMessage = jobResponse.data.lastError ?? 'La persistencia de fixture falló.';
+          this.errorMessage = jobResponse.data.lastError ?? 'La traducción de precios falló.';
           return;
         }
 
-        this.successMessage = 'Persistencia de fixture en progreso...';
+        this.successMessage = 'Traducción de precios en progreso...';
       },
       error: (error: any) => {
-        this.errorMessage = error?.error?.message ?? 'No se pudo ejecutar la persistencia de fixture.';
+        this.errorMessage = error?.error?.message ?? 'No se pudo ejecutar la traducción de precios.';
       },
     });
   }
