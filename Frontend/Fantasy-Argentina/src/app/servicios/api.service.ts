@@ -177,6 +177,25 @@ export interface BuildCompetitionFixtureJob {
   lastError: string | null;
 }
 
+export interface TranslateRealPlayerPricesJob {
+  jobId: string;
+  status: BackgroundJobStatus;
+  leagueId: number;
+  leagueName: string;
+  limiteMin: number;
+  limiteMax: number;
+  usedLeagueConfiguredLimits: boolean;
+  valueReal_MinDeLeague: number | null;
+  valueReal_MaxDeLeague: number | null;
+  realTeamsIds: number[];
+  realPlayersInLeague: number;
+  translatedPlayers: number;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  lastError: string | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -478,7 +497,13 @@ export class ApiService {
   }
 
   postRealPlayerTranslatePricesByLeague(payload: { leagueId: number }) {
-    return this.http.post<any>(`${this.url}/real-players/translate-prices-by-league`, payload);
+    return this.http.post<{ message: string; data: TranslateRealPlayerPricesJob }>(`${this.url}/real-players/translate-prices-by-league`, payload);
+  }
+
+  getRealPlayerTranslatePricesByLeagueJob(jobId: string) {
+    return this.http.get<{ message: string; data: TranslateRealPlayerPricesJob }>(
+      `${this.url}/real-players/translate-prices-by-league/${encodeURIComponent(jobId)}`,
+    );
   }
 
   postExternalFixtureBuildCompetition(payload: { competitionId: number; seasonId: number }) {

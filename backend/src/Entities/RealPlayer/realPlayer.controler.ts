@@ -12,6 +12,7 @@ import { upsertRealPlayerLeagueTranslatedValue } from '../RealPlayerLeagueValue/
 const em = orm.em;
 
 type SyncPlayersJobStatus = 'queued' | 'running' | 'completed' | 'failed';
+type TranslatePricesJobStatus = 'queued' | 'running' | 'completed' | 'failed';
 
 type SyncPlayersByLeagueJobState = {
   jobId: string;
@@ -35,6 +36,28 @@ type SyncPlayersByLeagueJobState = {
 
 const syncPlayersByLeagueJobs = new Map<string, SyncPlayersByLeagueJobState>();
 const MAX_SYNC_PLAYERS_JOBS_TRACKED = 50;
+
+type TranslatePricesByLeagueJobState = {
+  jobId: string;
+  status: TranslatePricesJobStatus;
+  leagueId: number;
+  leagueName: string;
+  limiteMin: number;
+  limiteMax: number;
+  usedLeagueConfiguredLimits: boolean;
+  valueReal_MinDeLeague: number | null;
+  valueReal_MaxDeLeague: number | null;
+  realTeamsIds: number[];
+  realPlayersInLeague: number;
+  translatedPlayers: number;
+  createdAtDate: Date;
+  startedAtDate: Date | null;
+  finishedAtDate: Date | null;
+  lastError: string | null;
+};
+
+const translatePricesByLeagueJobs = new Map<string, TranslatePricesByLeagueJobState>();
+const MAX_TRANSLATE_PRICES_JOBS_TRACKED = 50;
 
 function buildSyncPlayersJobSnapshot(job: SyncPlayersByLeagueJobState) {
   return {
@@ -92,6 +115,52 @@ function getRunningSyncPlayersJobByLeague(leagueId: number | null, leagueIdEnApi
 function parseId(idParam: string | string[] | undefined) {
   const rawId = Array.isArray(idParam) ? idParam[0] : idParam;
   return Number.parseInt(rawId ?? '', 10);
+}
+
+function buildTranslatePricesJobSnapshot(job: TranslatePricesByLeagueJobState) {
+  return {
+    jobId: job.jobId,
+    status: job.status,
+    leagueId: job.leagueId,
+    leagueName: job.leagueName,
+    limiteMin: job.limiteMin,
+    limiteMax: job.limiteMax,
+    usedLeagueConfiguredLimits: job.usedLeagueConfiguredLimits,
+    valueReal_MinDeLeague: job.valueReal_MinDeLeague,
+    valueReal_MaxDeLeague: job.valueReal_MaxDeLeague,
+    realTeamsIds: [...job.realTeamsIds],
+    realPlayersInLeague: job.realPlayersInLeague,
+    translatedPlayers: job.translatedPlayers,
+    createdAt: job.createdAtDate.toISOString(),
+    startedAt: job.startedAtDate ? job.startedAtDate.toISOString() : null,
+    finishedAt: job.finishedAtDate ? job.finishedAtDate.toISOString() : null,
+    lastError: job.lastError,
+  };
+}
+
+function pruneTranslatePricesByLeagueJobs() {
+  if (translatePricesByLeagueJobs.size <= MAX_TRANSLATE_PRICES_JOBS_TRACKED) {
+    return;
+  }
+
+  const ordered = [...translatePricesByLeagueJobs.values()].sort(
+    (a, b) => a.createdAtDate.getTime() - b.createdAtDate.getTime(),
+  );
+
+  while (ordered.length > MAX_TRANSLATE_PRICES_JOBS_TRACKED) {
+    const oldest = ordered.shift();
+    if (!oldest) break;
+    translatePricesByLeagueJobs.delete(oldest.jobId);
+  }
+}
+
+function getRunningTranslatePricesByLeagueJob(leagueId: number) {
+  for (const job of translatePricesByLeagueJobs.values()) {
+    if ((job.status === 'queued' || job.status === 'running') && job.leagueId === leagueId) {
+      return job;
+    }
+  }
+  return null;
 }
 
 function parseOptionalBodyNumber(value: unknown): number | null {
@@ -481,6 +550,15 @@ async function translatePricesByLeague(req: Request, res: Response) {
       return;
     }
 
+    const existingRunningJob = getRunningTranslatePricesByLeagueJob(leagueId);
+    if (existingRunningJob) {
+      res.status(409).json({
+        message: 'translate prices job already running for league',
+        data: buildTranslatePricesJobSnapshot(existingRunningJob),
+      });
+      return;
+    }
+
     const league = await em.findOne(League, { id: leagueId });
     if (!league) {
       res.status(404).json({ message: 'league not found', data: { leagueId } });
@@ -505,31 +583,76 @@ async function translatePricesByLeague(req: Request, res: Response) {
       return;
     }
 
-    const realPlayers = await em.find(RealPlayer, { realTeam: { $in: realTeamsIds } } as any);
+    const job: TranslatePricesByLeagueJobState = {
+      jobId: randomUUID(),
+      status: 'queued',
+      leagueId: Number(league.id),
+      leagueName: league.name,
+      limiteMin,
+      limiteMax,
+      usedLeagueConfiguredLimits: hasValidConfiguredLimits,
+      valueReal_MinDeLeague: null,
+      valueReal_MaxDeLeague: null,
+      realTeamsIds: [...realTeamsIds],
+      realPlayersInLeague: 0,
+      translatedPlayers: 0,
+      createdAtDate: new Date(),
+      startedAtDate: null,
+      finishedAtDate: null,
+      lastError: null,
+    };
+
+    translatePricesByLeagueJobs.set(job.jobId, job);
+    pruneTranslatePricesByLeagueJobs();
+    void runTranslatePricesByLeagueJob(job.jobId);
+
+    res.status(202).json({
+      message: 'real player prices translate job started',
+      data: buildTranslatePricesJobSnapshot(job),
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+async function runTranslatePricesByLeagueJob(jobId: string): Promise<void> {
+  const job = translatePricesByLeagueJobs.get(jobId);
+  if (!job) return;
+
+  job.status = 'running';
+  job.startedAtDate = new Date();
+
+  try {
+    const jobEm = orm.em.fork();
+    const league = await jobEm.findOne(League, { id: job.leagueId });
+    if (!league) {
+      throw new Error('league not found');
+    }
+
+    const realPlayers = await jobEm.find(RealPlayer, { realTeam: { $in: job.realTeamsIds } } as any);
+    job.realPlayersInLeague = realPlayers.length;
 
     if (realPlayers.length === 0) {
-      res.status(404).json({ message: 'no local real players found for league teams', data: { leagueId, realTeamsIds } });
-      return;
+      throw new Error('no local real players found for league teams');
     }
 
     const valuedPlayers = realPlayers.filter((player) => typeof player.value === 'number' && Number.isFinite(player.value));
-
     if (valuedPlayers.length === 0) {
-      res.status(400).json({ message: 'real players for league have no numeric value to translate', data: { leagueId, realTeamsIds } });
-      return;
+      throw new Error('real players for league have no numeric value to translate');
     }
 
     const values = valuedPlayers.map((player) => Number(player.value));
     const valueReal_MinDeLeague = Math.min(...values);
     const valueReal_MaxDeLeague = Math.max(...values);
+    job.valueReal_MinDeLeague = valueReal_MinDeLeague;
+    job.valueReal_MaxDeLeague = valueReal_MaxDeLeague;
 
     let updated = 0;
-
     for (const player of realPlayers) {
       const valueReal_dePlayer = typeof player.value === 'number' && Number.isFinite(player.value) ? Number(player.value) : null;
 
       if (valueReal_dePlayer === null) {
-        await upsertRealPlayerLeagueTranslatedValue(em as any, {
+        await upsertRealPlayerLeagueTranslatedValue(jobEm as any, {
           realPlayer: player,
           league,
           translatedValue: null,
@@ -538,46 +661,52 @@ async function translatePricesByLeague(req: Request, res: Response) {
       }
 
       if (valueReal_MaxDeLeague === valueReal_MinDeLeague || valueReal_dePlayer === valueReal_MinDeLeague) {
-        await upsertRealPlayerLeagueTranslatedValue(em as any, {
+        await upsertRealPlayerLeagueTranslatedValue(jobEm as any, {
           realPlayer: player,
           league,
-          translatedValue: limiteMin,
+          translatedValue: job.limiteMin,
         });
         updated += 1;
         continue;
       }
 
       const normalized = (valueReal_dePlayer - valueReal_MinDeLeague) / (valueReal_MaxDeLeague - valueReal_MinDeLeague);
-      const translated = limiteMin + (normalized * (limiteMax - limiteMin));
-      const clamped = Math.max(limiteMin, Math.min(limiteMax, translated));
-      await upsertRealPlayerLeagueTranslatedValue(em as any, {
+      const translated = job.limiteMin + (normalized * (job.limiteMax - job.limiteMin));
+      const clamped = Math.max(job.limiteMin, Math.min(job.limiteMax, translated));
+      await upsertRealPlayerLeagueTranslatedValue(jobEm as any, {
         realPlayer: player,
         league,
-        translatedValue: Number.isFinite(clamped) ? clamped : limiteMin,
+        translatedValue: Number.isFinite(clamped) ? clamped : job.limiteMin,
       });
       updated += 1;
     }
 
-    await em.flush();
-
-    res.status(200).json({
-      message: 'real player prices translated by league',
-      data: {
-        leagueId,
-        leagueName: league.name,
-        limiteMin,
-        limiteMax,
-        usedLeagueConfiguredLimits: hasValidConfiguredLimits,
-        valueReal_MinDeLeague,
-        valueReal_MaxDeLeague,
-        realTeamsIds,
-        realPlayersInLeague: realPlayers.length,
-        translatedPlayers: updated,
-      },
-    });
+    await jobEm.flush();
+    job.translatedPlayers = updated;
+    job.status = 'completed';
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    job.status = 'failed';
+    job.lastError = error?.message ?? 'Unknown translate prices failure';
+  } finally {
+    job.finishedAtDate = new Date();
   }
+}
+
+async function getTranslatePricesByLeagueJob(req: Request, res: Response) {
+  const jobId = typeof req.params.jobId === 'string' ? req.params.jobId.trim() : '';
+  if (!jobId) {
+    return res.status(400).json({ message: 'jobId route param is required' });
+  }
+
+  const job = translatePricesByLeagueJobs.get(jobId);
+  if (!job) {
+    return res.status(404).json({ message: 'translate prices job not found' });
+  }
+
+  return res.status(200).json({
+    message: 'translate prices job status',
+    data: buildTranslatePricesJobSnapshot(job),
+  });
 }
 
 async function syncByLeagueIdEnApi(req: Request, res: Response) {
@@ -721,4 +850,4 @@ async function getSyncPlayersByLeagueJob(req: Request, res: Response) {
   });
 }
 
-export { sanitizeRealPlayerInput, findAll, findByIdEnApi, findOne, add, update, remove, syncByLeagueIdEnApi, syncTeamSquadByTeamIdEnApi, translatePricesByLeague, getSyncPlayersByLeagueJob };
+export { sanitizeRealPlayerInput, findAll, findByIdEnApi, findOne, add, update, remove, syncByLeagueIdEnApi, syncTeamSquadByTeamIdEnApi, translatePricesByLeague, getSyncPlayersByLeagueJob, getTranslatePricesByLeagueJob };
