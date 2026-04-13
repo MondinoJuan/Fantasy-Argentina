@@ -171,7 +171,7 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
     this.hasError = false;
 
     const dependant = this.dependantPlayersById[this.dependantPlayerId];
-    const realPlayerIdFromCache = this.extractId(dependant?.realPlayer ?? dependant?.real_player);
+    const realPlayerIdFromCache = this.extractDependantRealPlayerId(dependant);
     const cachedRealPlayer = realPlayerIdFromCache ? this.realPlayersById[realPlayerIdFromCache] : null;
 
     if (dependant && cachedRealPlayer) {
@@ -231,7 +231,7 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
         leagueId,
       })),
       switchMap(({ dependant, leagueId }) => {
-        const realPlayerId = Number(dependant?.realPlayer?.id ?? dependant?.real_player?.id);
+        const realPlayerId = Number(this.extractDependantRealPlayerId(dependant));
         if (!realPlayerId) throw new Error('real_player_id no encontrado en dependantPlayer');
 
         this._pendingRealPlayerId = realPlayerId;
@@ -364,6 +364,15 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
     if (!row) return null;
     const translated = Number(row?.translatedValue ?? row?.translated_value);
     return Number.isFinite(translated) ? translated : null;
+  }
+
+  private extractDependantRealPlayerId(dependant: any): number | null {
+    return this.extractId(
+      dependant?.realPlayer
+      ?? dependant?.real_player
+      ?? dependant?.realPlayerId
+      ?? dependant?.real_player_id
+    );
   }
 
   private extractId(value: unknown): number | null {

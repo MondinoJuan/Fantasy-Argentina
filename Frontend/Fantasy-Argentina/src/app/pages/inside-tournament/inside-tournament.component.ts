@@ -210,9 +210,9 @@ export class InsideTournamentComponent implements OnInit {
           this.isLoading = false;
           return;
         }
-        this.tournamentLeagueId = this.extractId(this.tournament?.league);
+        this.tournamentLeagueId = this.extractLeagueId(this.tournament);
 
-        const tournamentParticipants = response.participants.data.filter((item: any) => this.extractId(item.tournament) === this.tournamentId);
+        const tournamentParticipants = response.participants.data.filter((item: any) => this.extractTournamentId(item) === this.tournamentId);
 
         this.participant = tournamentParticipants.find((item: any) => this.extractId(item.user) === currentUserId) ?? null;
         if (!this.participant) {
@@ -236,16 +236,16 @@ export class InsideTournamentComponent implements OnInit {
         this.allParticipantPoints = response.participantMatchdayPoints.data;
         this.allPlayerPerformances = response.playerPerformances?.data ?? [];
 
-        this.existingMarketEntries = response.matchdayMarkets.data.filter((item: any) => this.extractId(item.tournament) === this.tournamentId);
+        this.existingMarketEntries = response.matchdayMarkets.data.filter((item: any) => this.extractTournamentId(item) === this.tournamentId);
         this.negotiations = response.negotiations.data.filter((item: any) =>
-          this.extractId(item.tournament) === this.tournamentId
+          this.extractTournamentId(item) === this.tournamentId
           && !this.isHiddenNegotiationStatus(item?.status)
         );
 
-        this.bids = response.bids.data.filter((bid: any) => this.extractId(bid.tournament) === this.tournamentId);
+        this.bids = response.bids.data.filter((bid: any) => this.extractTournamentId(bid) === this.tournamentId);
 
         this.matchdaysForTournament = response.matchdays.data
-          .filter((matchday: any) => this.extractId(matchday.league) === this.extractId(this.tournament.league))
+          .filter((matchday: any) => this.extractLeagueId(matchday) === this.extractLeagueId(this.tournament))
           .sort((left: any, right: any) => Number(left?.matchdayNumber ?? 0) - Number(right?.matchdayNumber ?? 0));
 
         this.selectedRankingScope = 'total';
@@ -283,7 +283,7 @@ export class InsideTournamentComponent implements OnInit {
       } catch {
         return value
           .split(',')
-          .map((item) => Number.parseInt(item.replace(/[\[\]\s]/g, ''), 10))
+          .map((item) => Number.parseInt(item.replace(/[\[\]{}\s]/g, ''), 10))
           .filter((item) => Number.isFinite(item) && item > 0);
       }
     }
@@ -451,7 +451,7 @@ export class InsideTournamentComponent implements OnInit {
 
     let visible = [...this.marketDependantIds].filter((item) => {
       const dependant = this.marketDependantById[item.dependantPlayerId];
-      const realPlayerId = this.extractId(dependant?.realPlayer ?? dependant?.real_player);
+      const realPlayerId = this.extractDependantRealPlayerId(dependant);
       const realPlayer = realPlayerId ? this.marketRealPlayerById[realPlayerId] : null;
       const name = String(realPlayer?.name ?? '').toLocaleLowerCase();
       const position = String(realPlayer?.position ?? '').toLocaleLowerCase();
@@ -464,8 +464,8 @@ export class InsideTournamentComponent implements OnInit {
     visible.sort((left, right) => {
       const leftDependant = this.marketDependantById[left.dependantPlayerId];
       const rightDependant = this.marketDependantById[right.dependantPlayerId];
-      const leftRealPlayerId = this.extractId(leftDependant?.realPlayer ?? leftDependant?.real_player);
-      const rightRealPlayerId = this.extractId(rightDependant?.realPlayer ?? rightDependant?.real_player);
+      const leftRealPlayerId = this.extractDependantRealPlayerId(leftDependant);
+      const rightRealPlayerId = this.extractDependantRealPlayerId(rightDependant);
       const leftPlayer = leftRealPlayerId ? this.marketRealPlayerById[leftRealPlayerId] : null;
       const rightPlayer = rightRealPlayerId ? this.marketRealPlayerById[rightRealPlayerId] : null;
 
@@ -560,7 +560,7 @@ export class InsideTournamentComponent implements OnInit {
   getNegotiationPlayerName(negotiation: any): string {
     const dependantId = this.extractId(negotiation?.dependantPlayer) ?? 0;
     const dependant = this.allDependantPlayers.find((item) => this.extractId(item) === dependantId);
-    const realPlayerId = this.extractId(dependant?.realPlayer) ?? 0;
+    const realPlayerId = this.extractDependantRealPlayerId(dependant) ?? 0;
     const realPlayer = this.realPlayerById.get(realPlayerId);
     return realPlayer?.name ?? `Jugador #${realPlayerId || '?'}`;
   }
@@ -650,7 +650,7 @@ export class InsideTournamentComponent implements OnInit {
 
     const dependantId = this.extractId(negotiation?.dependantPlayer) ?? 0;
     const dependant = this.allDependantPlayers.find((item) => this.extractId(item) === dependantId);
-    const realPlayerId = this.extractId(dependant?.realPlayer) ?? 0;
+    const realPlayerId = this.extractDependantRealPlayerId(dependant) ?? 0;
     const realPlayer = this.realPlayerById.get(realPlayerId);
     const translatedValue = Number(realPlayer?.translatedValue ?? 0);
     if (nextAmount <= translatedValue) {
@@ -747,7 +747,7 @@ export class InsideTournamentComponent implements OnInit {
     }).subscribe({
       next: (response) => {
         const currentUserId = Number(localStorage.getItem('currentUserId'));
-        const tournamentParticipants = response.participants.data.filter((item: any) => this.extractId(item.tournament) === this.tournamentId);
+        const tournamentParticipants = response.participants.data.filter((item: any) => this.extractTournamentId(item) === this.tournamentId);
 
         this.participant = tournamentParticipants.find((item: any) => this.extractId(item.user) === currentUserId) ?? this.participant;
         const currentParticipantId = this.extractId(this.participant);
@@ -763,13 +763,13 @@ export class InsideTournamentComponent implements OnInit {
         this.allPlayerClauses = response.playerClauses?.data ?? [];
         this.allParticipantPoints = response.participantMatchdayPoints.data;
 
-        this.existingMarketEntries = response.matchdayMarkets.data.filter((item: any) => this.extractId(item.tournament) === this.tournamentId);
+        this.existingMarketEntries = response.matchdayMarkets.data.filter((item: any) => this.extractTournamentId(item) === this.tournamentId);
         this.negotiations = response.negotiations.data.filter((item: any) =>
-          this.extractId(item.tournament) === this.tournamentId
+          this.extractTournamentId(item) === this.tournamentId
           && !this.isHiddenNegotiationStatus(item?.status)
         );
 
-        this.bids = response.bids.data.filter((bid: any) => this.extractId(bid.tournament) === this.tournamentId);
+        this.bids = response.bids.data.filter((bid: any) => this.extractTournamentId(bid) === this.tournamentId);
 
         this.rebuildMapsAndNegotiationViews();
         this.rebuildSquadFromFormation();
@@ -801,15 +801,15 @@ export class InsideTournamentComponent implements OnInit {
       const playerId = this.extractId(player);
       if (!playerId) continue;
       const totalScore = this.allPlayerPerformances
-        .filter((perf: any) => this.extractId(perf?.realPlayer) === playerId)
+        .filter((perf: any) => this.extractId(perf?.realPlayer ?? perf?.real_player ?? perf?.realPlayerId ?? perf?.real_player_id) === playerId)
         .reduce((sum: number, perf: any) => sum + Number(perf?.pointsObtained ?? 0), 0);
       this.realPlayerById.set(playerId, { ...player, totalScore });
     }
 
     this.dependantByRealPlayerId = new Map<number, any>();
     for (const dependant of this.allDependantPlayers) {
-      if (this.extractId(dependant?.tournament) !== this.tournamentId) continue;
-      const realPlayerId = this.extractId(dependant?.realPlayer);
+      if (this.extractTournamentId(dependant) !== this.tournamentId) continue;
+      const realPlayerId = this.extractDependantRealPlayerId(dependant);
       if (realPlayerId) {
         this.dependantByRealPlayerId.set(realPlayerId, dependant);
       }
@@ -817,7 +817,7 @@ export class InsideTournamentComponent implements OnInit {
 
     this.playerClauseByDependantId = new Map<number, any>();
     for (const clause of this.allPlayerClauses) {
-      if (this.extractId(clause?.tournament) !== this.tournamentId) continue;
+      if (this.extractTournamentId(clause) !== this.tournamentId) continue;
       const dependantId = this.extractId(clause?.dependantPlayer);
       if (dependantId) {
         this.playerClauseByDependantId.set(dependantId, clause);
@@ -922,8 +922,33 @@ export class InsideTournamentComponent implements OnInit {
     return null;
   }
 
+  private extractDependantRealPlayerId(dependant: any): number | null {
+    return this.extractId(
+      dependant?.realPlayer
+      ?? dependant?.real_player
+      ?? dependant?.realPlayerId
+      ?? dependant?.real_player_id
+    );
+  }
+
+  private extractTournamentId(record: any): number | null {
+    return this.extractId(
+      record?.tournament
+      ?? record?.tournament_id
+      ?? record?.tournamentId
+    );
+  }
+
+  private extractLeagueId(record: any): number | null {
+    return this.extractId(
+      record?.league
+      ?? record?.league_id
+      ?? record?.leagueId
+    );
+  }
+
   goToFixture(): void {
-    const leagueId = this.extractId(this.tournament?.league);
+    const leagueId = this.extractLeagueId(this.tournament);
 
     if (leagueId) {
       this.router.navigate(['/fixture'], { queryParams: { leagueId } });

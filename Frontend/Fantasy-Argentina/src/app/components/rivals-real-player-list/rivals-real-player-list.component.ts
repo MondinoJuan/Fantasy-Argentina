@@ -414,7 +414,7 @@ export class RivalsRealPlayerListComponent implements OnChanges {
       } catch {
         return value
           .split(',')
-          .map((item) => Number.parseInt(item.replace(/[\[\]\s]/g, ''), 10))
+          .map((item) => Number.parseInt(item.replace(/[\[\]{}\s]/g, ''), 10))
           .filter((item) => Number.isFinite(item) && item > 0);
       }
     }
