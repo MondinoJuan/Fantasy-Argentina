@@ -1,9 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CdkAccordionModule } from '@angular/cdk/accordion';
 import { Observable, of } from 'rxjs';
-import { switchMap, map } from 'rxjs/operators';
+import { switchMap } from 'rxjs/operators';
 import { ApiService } from '../../servicios/api.service';
 
 interface RivalPlayerRow {
@@ -23,7 +23,7 @@ interface RivalPlayerRow {
   templateUrl: './rivals-real-player-list.component.html',
   styleUrl: './rivals-real-player-list.component.scss',
 })
-export class RivalsRealPlayerListComponent {
+export class RivalsRealPlayerListComponent implements OnChanges {
   private static readonly INITIAL_CLAUSE_DELTA = 3_000_000;
 
   @Input({ required: true }) participant!: any;
@@ -34,7 +34,7 @@ export class RivalsRealPlayerListComponent {
   @Input({ required: true }) realPlayerById = new Map<number, any>();
   @Input({ required: true }) dependantByRealPlayerId = new Map<number, any>();
   @Input({ required: true }) playerClauseByDependantId = new Map<number, any>();
-  @Input({ required: true }) translatedValuesByRealPlayerId: Record<number, number | null> = {};
+  @Input() leagueId: number | null = null;
   @Input() clauseEnabled = false;
   @Input() highlighted = false;
 
@@ -49,8 +49,15 @@ export class RivalsRealPlayerListComponent {
   isSubmitting = false;
   showQuickSaleConfirm = false;
   quickSaleValue = 0;
+  private translatedValuesByRealPlayerId: Record<number, number | null> = {};
 
   constructor(private readonly apiService: ApiService) {}
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['leagueId']) {
+      this.loadTranslatedValues();
+    }
+  }
 
   get participantId(): number {
     return this.extractId(this.participant) ?? 0;
@@ -345,6 +352,30 @@ export class RivalsRealPlayerListComponent {
       translatedValue,
       clauseValue,
     };
+  }
+
+  private loadTranslatedValues(): void {
+    const leagueId = Number(this.leagueId ?? 0);
+    if (!Number.isFinite(leagueId) || leagueId <= 0) {
+      this.translatedValuesByRealPlayerId = {};
+      return;
+    }
+
+    this.apiService.searchRealPlayerLeagueValuesByLeagueId(leagueId).subscribe({
+      next: (response: any) => {
+        const rows = Array.isArray(response?.data) ? response.data : [];
+        const nextMap: Record<number, number | null> = {};
+        for (const row of rows) {
+          const realPlayerId = Number(row?.realPlayerId);
+          if (!Number.isFinite(realPlayerId) || realPlayerId <= 0) continue;
+          nextMap[realPlayerId] = row?.translatedValue ?? null;
+        }
+        this.translatedValuesByRealPlayerId = nextMap;
+      },
+      error: () => {
+        this.translatedValuesByRealPlayerId = {};
+      }
+    });
   }
 
   private findExistingNegotiation(dependantPlayerId: number): any | null {
