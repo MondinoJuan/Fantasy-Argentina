@@ -2,6 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 import { ParticipantSquad } from './participantSquad.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { SQUAD_ACQUISITION_TYPES, isEnumValue } from '../../shared/domain-enums.js';
+import { Participant } from '../Participant/participant.entity.js';
+import {
+  assertSquadAndClausesUnlockedByLeague,
+  SquadAndClausesLockedError,
+} from '../../shared/services/matchdaySquadLock.service.js';
 
 const em = orm.em;
 
@@ -135,10 +140,34 @@ async function add(req: Request, res: Response) {
       return;
     }
 
+    const participantId = Number.parseInt(String(req.body.sanitizeParticipantSquadInput.participant ?? ''), 10);
+    if (!Number.isFinite(participantId) || participantId <= 0) {
+      res.status(400).json({ message: 'participant is required' });
+      return;
+    }
+
+    const participant = await em.findOne(Participant, { id: participantId }, { populate: ['tournament', 'tournament.league'] });
+    if (!participant) {
+      res.status(404).json({ message: 'participant not found' });
+      return;
+    }
+
+    const leagueId = Number((participant.tournament as any)?.league?.id ?? (participant.tournament as any)?.league);
+    if (!Number.isFinite(leagueId) || leagueId <= 0) {
+      res.status(400).json({ message: 'participant tournament league not found' });
+      return;
+    }
+
+    await assertSquadAndClausesUnlockedByLeague(em as any, leagueId);
+
     const item = em.create(ParticipantSquad, req.body.sanitizeParticipantSquadInput);
     await em.flush();
     res.status(201).json({ message: 'participant squad created', data: item });
   } catch (error: any) {
+    if (error instanceof SquadAndClausesLockedError) {
+      res.status(423).json({ message: error.message, data: error.lockWindow });
+      return;
+    }
     res.status(500).json({ message: error.message });
   }
 }
@@ -151,7 +180,11 @@ async function update(req: Request, res: Response) {
     }
 
     const id = parseId(req.params.id);
-    const itemToUpdate = await em.findOne(ParticipantSquad, { id });
+    const itemToUpdate = await em.findOne(
+      ParticipantSquad,
+      { id },
+      { populate: ['participant', 'participant.tournament', 'participant.tournament.league'] },
+    );
     if (!itemToUpdate) {
       res.status(404).json({ message: 'participant squad not found' });
       return;
@@ -169,10 +202,23 @@ async function update(req: Request, res: Response) {
     }
     req.body.sanitizeParticipantSquadInput.captainRealPlayerId = mergedForValidation.captainRealPlayerId;
 
+    const leagueId = Number(((itemToUpdate.participant as any)?.tournament as any)?.league?.id
+      ?? ((itemToUpdate.participant as any)?.tournament as any)?.league);
+    if (!Number.isFinite(leagueId) || leagueId <= 0) {
+      res.status(400).json({ message: 'participant tournament league not found' });
+      return;
+    }
+
+    await assertSquadAndClausesUnlockedByLeague(em as any, leagueId);
+
     em.assign(itemToUpdate, req.body.sanitizeParticipantSquadInput);
     await em.flush();
     res.status(200).json({ message: 'participant squad updated', data: itemToUpdate });
   } catch (error: any) {
+    if (error instanceof SquadAndClausesLockedError) {
+      res.status(423).json({ message: error.message, data: error.lockWindow });
+      return;
+    }
     res.status(500).json({ message: error.message });
   }
 }

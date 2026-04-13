@@ -6,6 +6,10 @@ import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
 import { ParticipantSquad } from '../ParticipantSquad/participantSquad.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { serverNow } from '../../shared/time/serverClock.js';
+import {
+  assertSquadAndClausesUnlockedByLeague,
+  SquadAndClausesLockedError,
+} from '../../shared/services/matchdaySquadLock.service.js';
 
 const em = orm.em;
 
@@ -128,10 +132,18 @@ async function applyShielding(req: Request, res: Response) {
     }
 
     const result = await em.transactional(async (transactionalEm) => {
-      const playerClause = await transactionalEm.findOne(PlayerClause, { id: playerClauseId });
+      const playerClause = await transactionalEm.findOne(PlayerClause, { id: playerClauseId }, { populate: ['tournament', 'tournament.league'] });
       if (!playerClause) {
         throw new Error('player clause not found');
       }
+
+      const tournamentLeagueId = Number(((playerClause.tournament as any)?.league?.id)
+        ?? ((playerClause.tournament as any)?.league)
+        ?? 0);
+      if (!Number.isFinite(tournamentLeagueId) || tournamentLeagueId <= 0) {
+        throw new Error('player clause tournament league not found');
+      }
+      await assertSquadAndClausesUnlockedByLeague(transactionalEm as any, tournamentLeagueId);
 
       const participant = await transactionalEm.findOne(Participant, { id: participantId });
       if (!participant) {
@@ -167,7 +179,16 @@ async function applyShielding(req: Request, res: Response) {
 
     res.status(200).json({ message: 'shielding applied', data: result });
   } catch (error: any) {
-    if (error.message === 'player clause not found' || error.message === 'participant not found') {
+    if (error instanceof SquadAndClausesLockedError) {
+      res.status(423).json({ message: error.message, data: error.lockWindow });
+      return;
+    }
+
+    if (
+      error.message === 'player clause not found'
+      || error.message === 'participant not found'
+      || error.message === 'player clause tournament league not found'
+    ) {
       res.status(404).json({ message: error.message });
       return;
     }
@@ -202,11 +223,19 @@ async function executeClausePurchase(req: Request, res: Response) {
       const dependantPlayer = await transactionalEm.findOne(
         DependantPlayer,
         { id: dependantPlayerId, tournament: tournamentId },
-        { populate: ['realPlayer', 'tournament'] },
+        { populate: ['realPlayer', 'tournament', 'tournament.league'] },
       );
       if (!dependantPlayer) {
         throw new Error('dependant player not found');
       }
+
+      const tournamentLeagueId = Number(((dependantPlayer.tournament as any)?.league?.id)
+        ?? ((dependantPlayer.tournament as any)?.league)
+        ?? 0);
+      if (!Number.isFinite(tournamentLeagueId) || tournamentLeagueId <= 0) {
+        throw new Error('dependant player tournament league not found');
+      }
+      await assertSquadAndClausesUnlockedByLeague(transactionalEm as any, tournamentLeagueId);
 
       const buyerParticipant = await transactionalEm.findOne(Participant, { id: buyerParticipantId, tournament: tournamentId } as any);
       const sellerParticipant = await transactionalEm.findOne(Participant, { id: sellerParticipantId, tournament: tournamentId } as any);
@@ -316,10 +345,16 @@ async function executeClausePurchase(req: Request, res: Response) {
       data: result,
     });
   } catch (error: any) {
+    if (error instanceof SquadAndClausesLockedError) {
+      res.status(423).json({ message: error.message, data: error.lockWindow });
+      return;
+    }
+
     if (
       error.message === 'dependant player not found'
       || error.message === 'participant not found'
       || error.message === 'participant squad not found'
+      || error.message === 'dependant player tournament league not found'
     ) {
       res.status(404).json({ message: error.message });
       return;

@@ -21,6 +21,7 @@ import {
   getSportsApiProTeamDetailByTeamService,
   getSportsApiProTeamsByLeagueService,
 } from './services/index.js';
+import { getTeamIdsByLeague } from '../RealTeamLeagueParticipation/realTeamLeagueParticipation.service.js';
 
 const em = orm.em;
 
@@ -1384,18 +1385,22 @@ async function updateRealPlayerTranslatedValuesByLatestFormForCompetition(compet
     return { skipped: true, reason: 'invalid league limits', limiteMin, limiteMax, leagueId: league.id };
   }
 
-  const teams = await em.find(RealTeam, { league: { id: league.id } } as any, { fields: ['id'] as any });
-  const teamIds = teams.map((team: any) => Number(team.id)).filter((id) => Number.isFinite(id));
+  const resolvedLeagueId = Number(league.id);
+  if (!Number.isFinite(resolvedLeagueId) || resolvedLeagueId <= 0) {
+    return { skipped: true, reason: 'invalid league id' };
+  }
+
+  const teamIds = await getTeamIdsByLeague(localEm as any, resolvedLeagueId);
 
   if (teamIds.length === 0) {
     return { skipped: true, reason: 'no real teams in league', leagueId: league.id };
   }
 
-  const players = await em.find(RealPlayer, { realTeam: { $in: teamIds } } as any);
+  const players = await localEm.find(RealPlayer, { realTeam: { $in: teamIds } } as any);
 
   // ✅ UNA sola query para todas las performances de todos los jugadores
   const playerIds = players.map((p: any) => p.id);
-  const allPerformances = await em.find(
+  const allPerformances = await localEm.find(
     PlayerPerformance,
     { realPlayer: { $in: playerIds }, league: { id: league.id } } as any,
     { orderBy: { updateDate: 'desc' } as any },
@@ -1455,7 +1460,7 @@ async function updateRealPlayerTranslatedValuesByLatestFormForCompetition(compet
     updatedPlayers += 1;
   }
 
-  await em.flush();
+  await localEm.flush();
 
   return {
     skipped: false,
