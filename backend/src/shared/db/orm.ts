@@ -20,6 +20,7 @@ export const orm = await MikroORM.init({
   entities: ['dist/Entities/**/*.entity.js'],
   entitiesTs: ['src/Entities/**/*.entity.ts'],
   clientUrl,
+  allowGlobalContext: true,
   highlighter: !isProduction ? new SqlHighlighter() : undefined,
   debug: (process.env.DB_DEBUG ?? 'false').toLowerCase() === 'true',
 });

@@ -21,6 +21,7 @@ import { MatchdayAutomationJob } from '../MatchdayAutomationJob/matchdayAutomati
 import { TOURNAMENT_STATUSES, MATCHDAY_STATUSES, MATCH_STATUSES, MARKET_ORIGINS, isEnumValue } from '../../shared/domain-enums.js';
 import { setupParticipantAfterJoin } from './tournament-participation.service.js';
 import { serverNow } from '../../shared/time/serverClock.js';
+import { getTeamIdsByLeague } from '../RealTeamLeagueParticipation/realTeamLeagueParticipation.service.js';
 
 const em = orm.em;
 const POSTPONED_MATCHES_PATH = 'src/Entities/Tournament/data/postponedMatches.json';
@@ -478,8 +479,7 @@ async function syncPostponedMatchesAndPersistPlayerRatings(tournamentId: number)
 }
 
 async function translateLeagueRealPlayersValues(leagueId: number): Promise<void> {
-  const realTeams = await em.find(RealTeam, { league: { id: leagueId } } as any, { fields: ['id'] as any });
-  const realTeamsIds = realTeams.map((team: any) => Number(team.id)).filter((id) => Number.isFinite(id));
+  const realTeamsIds = await getTeamIdsByLeague(em as any, leagueId);
 
   if (realTeamsIds.length === 0) {
     return;

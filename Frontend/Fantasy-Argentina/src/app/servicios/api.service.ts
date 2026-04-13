@@ -92,6 +92,11 @@ import { realTeamI } from '../modelos/realTeam.interface';
 import { realTeamPatchI } from '../modelos/realTeam.patch.interface';
 import { realTeamCollectionI } from '../modelos/realTeam.collection.interface';
 import { responseRealTeamI } from '../modelos/responseRealTeam.interface';
+import { addRealTeamLeagueParticipationI } from '../modelos/addRealTeamLeagueParticipation.interface';
+import { realTeamLeagueParticipationCollectionI } from '../modelos/realTeamLeagueParticipation.collection.interface';
+import { realTeamLeagueParticipationI } from '../modelos/realTeamLeagueParticipation.interface';
+import { realTeamLeagueParticipationPatchI } from '../modelos/realTeamLeagueParticipation.patch.interface';
+import { responseRealTeamLeagueParticipationI } from '../modelos/responseRealTeamLeagueParticipation.interface';
 
 import { sportI } from '../modelos/sport.interface';
 import { sportPatchI } from '../modelos/sport.patch.interface';
@@ -280,6 +285,30 @@ export class ApiService {
   updateRealTeam(realTeam: realTeamI) { return this.http.put<responseRealTeamI>(`${this.url}/real-teams/${realTeam.id}`, realTeam); }
   patchRealTeam(realTeam: realTeamPatchI) { return this.http.patch<responseRealTeamI>(`${this.url}/real-teams/${realTeam.id}`, realTeam); }
   removeRealTeam(id: number | string) { return this.http.delete<responseRealTeamI>(`${this.url}/real-teams/${id}`); }
+
+  // Real Team League Participations
+  searchRealTeamLeagueParticipations(params?: { leagueId?: number; realTeamId?: number }) {
+    const query = new URLSearchParams();
+    if (Number.isFinite(Number(params?.leagueId))) query.set('leagueId', String(params?.leagueId));
+    if (Number.isFinite(Number(params?.realTeamId))) query.set('realTeamId', String(params?.realTeamId));
+    const suffix = query.toString().length > 0 ? `?${query.toString()}` : '';
+    return this.http.get<realTeamLeagueParticipationCollectionI>(`${this.url}/real-team-league-participations${suffix}`);
+  }
+  searchRealTeamLeagueParticipationById(id: number | string) {
+    return this.http.get<responseRealTeamLeagueParticipationI>(`${this.url}/real-team-league-participations/${id}`);
+  }
+  postRealTeamLeagueParticipation(payload: addRealTeamLeagueParticipationI) {
+    return this.http.post<responseRealTeamLeagueParticipationI>(`${this.url}/real-team-league-participations`, payload);
+  }
+  updateRealTeamLeagueParticipation(payload: realTeamLeagueParticipationI) {
+    return this.http.put<responseRealTeamLeagueParticipationI>(`${this.url}/real-team-league-participations/${payload.id}`, payload);
+  }
+  patchRealTeamLeagueParticipation(payload: realTeamLeagueParticipationPatchI) {
+    return this.http.patch<responseRealTeamLeagueParticipationI>(`${this.url}/real-team-league-participations/${payload.id}`, payload);
+  }
+  removeRealTeamLeagueParticipation(id: number | string) {
+    return this.http.delete<responseRealTeamLeagueParticipationI>(`${this.url}/real-team-league-participations/${id}`);
+  }
 
   // Participant Squads
   searchParticipantSquads() { return this.http.get<participantSquadCollectionI>(`${this.url}/participant-squads`); }
