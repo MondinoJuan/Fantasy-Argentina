@@ -136,20 +136,45 @@ async function seedJobs() {
       }
     }
 
+    // Armar una cola de fechas pendientes por liga (más antigua primero).
+    // Al encontrar la primera 'completed' (iterando desc) cortamos — todo lo anterior ya fue procesado.
+    const pendingByLeague = new Map<number, Array<{ matchday: Matchday; league: League }>>();
+
     for (const league of leagueMap.values()) {
-      // Más reciente primero: al encontrar el primer 'completed' sabemos que todo
-      // lo anterior también está procesado y cortamos el loop.
       const matchdays = await localEm.find(Matchday, { league }, { populate: ['league'], orderBy: { matchdayNumber: 'desc' } });
+      const pending: Array<{ matchday: Matchday; league: League }> = [];
 
       for (const matchday of matchdays) {
-        const isCompletedMatchday = matchday.status === 'completed';
-
-        // Primera fecha completada encontrada (yendo de reciente a antigua) → no
-        // hay nada más que encolar hacia atrás.
-        if (isCompletedMatchday) {
+        if (matchday.status === 'completed') {
           break;
         }
+        pending.push({ matchday, league });
+      }
 
+      // Invertir: procesar de más antigua a más reciente dentro de cada liga.
+      pending.reverse();
+
+      if (pending.length > 0) {
+        pendingByLeague.set(Number(league.id), pending);
+      }
+    }
+
+    // Round-robin: en cada vuelta tomamos UNA fecha de cada liga,
+    // hasta agotar todas las colas.
+    const leagueQueues = [...pendingByLeague.values()];
+    let roundHasWork = true;
+
+    while (roundHasWork) {
+      roundHasWork = false;
+
+      for (const queue of leagueQueues) {
+        const entry = queue.shift();
+        if (!entry) {
+          continue;
+        }
+
+        roundHasWork = true;
+        const { matchday, league } = entry;
         const autoUpdateAt = toValidDate(matchday.autoUpdateAt);
 
         if (autoUpdateAt && autoUpdateAt.getTime() <= now.getTime()) {
