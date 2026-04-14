@@ -1237,7 +1237,7 @@ async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
             matchdayNumber: 1,
             startDate: now,
             endDate: new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000),
-            autoUpdateAt: new Date(now.getTime() + (6 * 24 * 60 * 60 * 1000) + (8 * 60 * 60 * 1000)),
+            autoUpdateAt: new Date(now.getTime() + (6 * 24 * 60 * 60 * 1000) + (4 * 60 * 60 * 1000)),
             nextPostponedCheckAt: null,
             status: MATCHDAY_STATUSES[1],
           } as any);
@@ -1361,11 +1361,14 @@ async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
 
         const quantityToAdd = participants.length * 4;
         if (quantityToAdd > 0) {
-          const candidates = await transactionalEm.find(RealPlayer, {
-            active: true,
-            id: { $nin: [...reservedRealPlayerIds] },
-            realTeam: { league },
-          }, { limit: 1000 });
+          const teamIdsForLeague = await getTeamIdsByLeague(transactionalEm as any, leagueId);
+          const candidates = teamIdsForLeague.length > 0
+            ? await transactionalEm.find(RealPlayer, {
+              active: true,
+              id: { $nin: [...reservedRealPlayerIds] },
+              realTeam: { $in: teamIdsForLeague },
+            }, { limit: 1000 })
+            : [];
 
           const chosen = pickRandom(candidates, quantityToAdd);
           const createdDependants = chosen.map((player) => transactionalEm.create(DependantPlayer, {
