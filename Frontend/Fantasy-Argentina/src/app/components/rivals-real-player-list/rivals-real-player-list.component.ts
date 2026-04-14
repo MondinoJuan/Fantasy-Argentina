@@ -366,6 +366,13 @@ export class RivalsRealPlayerListComponent implements OnChanges {
         const rows = Array.isArray(response?.data) ? response.data : [];
         const nextMap: Record<number, number | null> = {};
         for (const row of rows) {
+          const rowLeagueId = Number(
+            row?.leagueId
+            ?? row?.league_id
+            ?? this.extractId(row?.league)
+          );
+          if (!Number.isFinite(rowLeagueId) || rowLeagueId !== leagueId) continue;
+
           const realPlayerId = Number(
             row?.realPlayerId
             ?? row?.real_player_id
