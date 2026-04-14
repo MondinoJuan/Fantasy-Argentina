@@ -152,6 +152,26 @@ function parseOptionalBodyNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+async function resolveTeamIdsByLeagueFilter(
+  localEm: typeof orm.em,
+  leagueId: number | null,
+  leagueIdEnApi: number | null,
+): Promise<number[]> {
+  if (leagueId !== null) {
+    return getTeamIdsByLeague(localEm as any, leagueId);
+  }
+
+  if (leagueIdEnApi !== null) {
+    const league = await localEm.findOne(League, { idEnApi: leagueIdEnApi });
+    if (!league || typeof league.id !== 'number') {
+      return [];
+    }
+    return getTeamIdsByLeague(localEm as any, Number(league.id));
+  }
+
+  return [];
+}
+
 function sanitizeRealPlayerInput(req: Request, res: Response, next: NextFunction) {
   const sanitizedValue = req.body.value === undefined ? undefined : toNumber(req.body.value);
   const sanitizedValueCurrency = req.body.valueCurrency === undefined
@@ -701,9 +721,8 @@ async function syncByLeagueIdEnApi(req: Request, res: Response) {
       return;
     }
 
-    const whereClause = leagueId !== null ? { league: { id: leagueId } } : { league: { idEnApi: leagueIdEnApi! } };
-    const teams = await em.find(RealTeam, whereClause as any, { fields: ['id'] as any });
-    if (teams.length === 0) {
+    const teamIds = await resolveTeamIdsByLeagueFilter(em, leagueId, leagueIdEnApi);
+    if (teamIds.length === 0) {
       res.status(404).json({
         message: 'no local teams found for league. Sync teams first.',
         filters: { leagueId, leagueIdEnApi },
@@ -720,7 +739,7 @@ async function syncByLeagueIdEnApi(req: Request, res: Response) {
       createdAt: createdAt.toISOString(),
       startedAt: null,
       finishedAt: null,
-      teamsTotal: teams.length,
+      teamsTotal: teamIds.length,
       teamsProcessed: 0,
       rows: 0,
       created: 0,
@@ -757,8 +776,10 @@ async function runSyncPlayersByLeagueJob(jobId: string): Promise<void> {
 
   try {
     const jobEm = orm.em.fork();
-    const whereClause = job.leagueId !== null ? { league: { id: job.leagueId } } : { league: { idEnApi: job.leagueIdEnApi! } };
-    const teams = await jobEm.find(RealTeam, whereClause as any, { populate: ['league'] }) as RealTeam[];
+    const teamIds = await resolveTeamIdsByLeagueFilter(jobEm, job.leagueId, job.leagueIdEnApi);
+    const teams = teamIds.length > 0
+      ? await jobEm.find(RealTeam, { id: { $in: teamIds } } as any, { populate: ['league'] }) as RealTeam[]
+      : [];
     job.teamsTotal = teams.length;
 
     const perTeamStats = await mapWithConcurrency<RealTeam, { rows: number; created: number; updated: number; teamIdEnApi: number; teamName: string }>(teams, 6, async (team) => {
