@@ -8,6 +8,7 @@ export interface SessionUser {
 }
 
 const TOKEN_KEY = 'authToken';
+const LEGACY_TOKEN_KEY = 'token';
 const USER_KEY = 'currentUser';
 
 @Injectable({ providedIn: 'root' })
@@ -21,7 +22,7 @@ export class AuthService {
   }
 
   getToken(): string | null {
-    return localStorage.getItem(TOKEN_KEY);
+    return localStorage.getItem(TOKEN_KEY) ?? localStorage.getItem(LEGACY_TOKEN_KEY);
   }
 
   getCurrentUser(): SessionUser | null {
@@ -47,6 +48,7 @@ export class AuthService {
 
   clearSession(): void {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem('currentUserId');
     localStorage.removeItem('currentUsername');

@@ -6,7 +6,7 @@
     <form [formGroup]="loginForm" (ngSubmit)="submit()" novalidate>
       <label>
         Email
-        <input type="email" formControlName="mail" placeholder="tu@email.com" />
+        <input type="email" formControlName="mail" placeholder="tu@email.com" autocomplete="username" />
       </label>
       <small class="error" *ngIf="loginForm.controls.mail.invalid && loginForm.controls.mail.touched">
         Ingresá un email válido.
@@ -14,7 +14,7 @@
 
       <label>
         Contraseña
-        <input type="password" formControlName="password" placeholder="********" />
+        <input type="password" formControlName="password" placeholder="********" autocomplete="current-password" />
       </label>
       <small class="error" *ngIf="loginForm.controls.password.invalid && loginForm.controls.password.touched">
         La contraseña debe tener al menos 4 caracteres.
