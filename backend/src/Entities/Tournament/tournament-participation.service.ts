@@ -7,6 +7,7 @@ import { MatchdayMarket } from '../MatchdayMarket/matchdayMarket.entity.js';
 import { Participant } from '../Participant/participant.entity.js';
 import { ParticipantSquad } from '../ParticipantSquad/participantSquad.entity.js';
 import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
+import { getTeamIdsByLeague } from '../RealTeamLeagueParticipation/realTeamLeagueParticipation.service.js';
 import { Tournament } from './tournament.entity.js';
 
 const DEFAULT_FORMATION: ParticipantFormation = PARTICIPANT_FORMATIONS[0];
@@ -62,7 +63,7 @@ async function getOrCreateCurrentMatchday(tournament: Tournament, entityManager:
     matchdayNumber: 1,
     startDate: new Date(),
     endDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
-    autoUpdateAt: new Date(Date.now() + (6 * 24 * 60 * 60 * 1000) + (8 * 60 * 60 * 1000)),
+    autoUpdateAt: new Date(Date.now() + (6 * 24 * 60 * 60 * 1000) + (4 * 60 * 60 * 1000)),
     nextPostponedCheckAt: null,
     status: MATCHDAY_STATUSES[1],
   } as any);
@@ -112,14 +113,20 @@ async function createDependantPlayersForSelection(tournament: Tournament, player
 async function assignInitialSquadToParticipant(tournament: Tournament, participant: Participant, entityManager: EntityManager, formation: ParticipantFormation = DEFAULT_FORMATION): Promise<number[]> {
   const required = getRequiredPlayersByPosition(formation);
   const reservedIds = await getTournamentReservedRealPlayerIds(tournament, entityManager);
+  const leagueId = Number((tournament.league as any)?.id ?? tournament.league);
+  if (!Number.isFinite(leagueId) || leagueId <= 0) {
+    throw new Error(`invalid leagueId for tournament ${tournament.id ?? 'new'}`);
+  }
+  const teamIds = await getTeamIdsByLeague(entityManager as any, leagueId);
+  if (teamIds.length === 0) {
+    throw new Error(`no real teams available for league ${leagueId}`);
+  }
 
   const availablePlayers = await entityManager.find(RealPlayer, {
     active: true,
     id: { $nin: [...reservedIds] },
     position: { $in: [...PLAYER_POSITIONS] },
-    realTeam: {
-      league: tournament.league,
-    },
+    realTeam: { $in: teamIds },
   });
 
   const groupedPlayers: Record<PlayerPosition, RealPlayer[]> = {
@@ -172,6 +179,14 @@ async function addMarketPlayersForNewParticipant(tournament: Tournament, quantit
 
   const matchday = await getOrCreateCurrentMatchday(tournament, entityManager);
   const reservedIds = await getTournamentReservedRealPlayerIds(tournament, entityManager);
+  const leagueId = Number((tournament.league as any)?.id ?? tournament.league);
+  if (!Number.isFinite(leagueId) || leagueId <= 0) {
+    throw new Error(`invalid leagueId for tournament ${tournament.id ?? 'new'}`);
+  }
+  const teamIds = await getTeamIdsByLeague(entityManager as any, leagueId);
+  if (teamIds.length === 0) {
+    throw new Error(`no real teams available for league ${leagueId}`);
+  }
 
   for (const excludedId of excludedRealPlayerIds) {
     reservedIds.add(excludedId);
@@ -180,9 +195,7 @@ async function addMarketPlayersForNewParticipant(tournament: Tournament, quantit
   const candidates = await entityManager.find(RealPlayer, {
     active: true,
     id: { $nin: [...reservedIds] },
-    realTeam: {
-      league: tournament.league,
-    },
+    realTeam: { $in: teamIds },
   }, {
     limit: 500,
   });
