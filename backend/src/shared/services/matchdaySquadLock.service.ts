@@ -30,7 +30,7 @@ export async function resolveSquadLockWindowByLeague(
   leagueId: number,
   referenceDate: Date = serverNow(),
 ): Promise<SquadLockWindow> {
-  const matchdays = await entityManager.find(
+  const latestStartedMatchday = await entityManager.findOne(
     Matchday,
     {
       league: { id: leagueId },
@@ -38,34 +38,50 @@ export async function resolveSquadLockWindowByLeague(
     } as any,
     {
       orderBy: { startDate: 'desc' } as any,
-      limit: 8,
     },
   );
 
-  for (const matchday of matchdays) {
-    if (matchday.status === 'completed') {
-      continue;
-    }
+  if (!latestStartedMatchday) {
+    return {
+      locked: false,
+      leagueId,
+      matchdayId: null,
+      lockStartsAt: null,
+      lockEndsAt: null,
+      reason: null,
+    };
+  }
 
-    const lockStartsAt = matchday.startDate ? new Date(matchday.startDate) : null;
-    const lockEndsAt = matchday.autoUpdateAt
-      ? new Date(matchday.autoUpdateAt)
-      : (matchday.endDate ? new Date(matchday.endDate) : null);
+  // Usamos la última fecha que ya comenzó como referencia de bloqueo.
+  // Así evitamos bloquear por fechas viejas reprogramadas (ej: fecha 9)
+  // y también bloqueamos al llegar el startDate aunque el status aún no haya migrado a in_progress.
+  if (latestStartedMatchday.status === 'completed' || latestStartedMatchday.status === 'cancelled') {
+    return {
+      locked: false,
+      leagueId,
+      matchdayId: null,
+      lockStartsAt: null,
+      lockEndsAt: null,
+      reason: null,
+    };
+  }
 
-    if (!lockStartsAt || !lockEndsAt) {
-      continue;
-    }
+  const lockStartsAt = latestStartedMatchday.startDate ? new Date(latestStartedMatchday.startDate) : null;
+  const lockEndsAt = latestStartedMatchday.autoUpdateAt
+    ? new Date(latestStartedMatchday.autoUpdateAt)
+    : (latestStartedMatchday.endDate ? new Date(latestStartedMatchday.endDate) : null);
 
-    if (referenceDate.getTime() >= lockStartsAt.getTime() && referenceDate.getTime() < lockEndsAt.getTime()) {
-      return {
-        locked: true,
-        leagueId,
-        matchdayId: Number(matchday.id ?? 0) || null,
-        lockStartsAt,
-        lockEndsAt,
-        reason: 'matchday_lock_window',
-      };
-    }
+  if (lockStartsAt && lockEndsAt
+    && referenceDate.getTime() >= lockStartsAt.getTime()
+    && referenceDate.getTime() < lockEndsAt.getTime()) {
+    return {
+      locked: true,
+      leagueId,
+      matchdayId: Number(latestStartedMatchday.id ?? 0) || null,
+      lockStartsAt,
+      lockEndsAt,
+      reason: 'matchday_lock_window',
+    };
   }
 
   return {
