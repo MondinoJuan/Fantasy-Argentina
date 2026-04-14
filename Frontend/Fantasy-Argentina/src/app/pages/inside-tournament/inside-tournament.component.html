@@ -118,6 +118,7 @@
           [realTeamNameById]="marketRealTeamNameById"
           [performancesByRealPlayerId]="marketPerformanceByRealPlayerId"
           [bidsByRealPlayerId]="marketBidsByRealPlayerId"
+          [translatedValuesByRealPlayerId]="translatedValuesByRealPlayerId"
           (bidSaved)="onBidSaved()"
         />
       </div>
@@ -198,6 +199,7 @@
         [realPlayerById]="realPlayerById"
         [dependantByRealPlayerId]="dependantByRealPlayerId"
         [playerClauseByDependantId]="playerClauseByDependantId"
+        [translatedValuesByRealPlayerId]="translatedValuesByRealPlayerId"
         [leagueId]="tournamentLeagueId"
         [clauseEnabled]="isClauseEnabled"
         [highlighted]="loggedParticipantId === listedParticipant?.id"
