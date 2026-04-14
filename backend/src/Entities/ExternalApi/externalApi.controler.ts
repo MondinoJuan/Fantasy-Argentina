@@ -234,7 +234,7 @@ async function persistFixtureCompetitionInDb(
     const closureAnchor = lastNonPostponedStart
       ? new Date(lastNonPostponedStart)
       : lastDate;
-    const autoUpdateAt = new Date(closureAnchor.getTime() + (8 * 60 * 60 * 1000));
+    const autoUpdateAt = new Date(closureAnchor.getTime() + (4 * 60 * 60 * 1000));
 
     const startDate = new Date(Date.UTC(firstDate.getUTCFullYear(), firstDate.getUTCMonth(), firstDate.getUTCDate(), 0, 0, 0, 0));
     const endDate = new Date(Date.UTC(lastDate.getUTCFullYear(), lastDate.getUTCMonth(), lastDate.getUTCDate(), 23, 59, 59, 999));
@@ -333,7 +333,7 @@ async function persistFixtureCompetitionInDb(
     }
 
     if (hasPostponedMatches) {
-      const fallbackAnchor = matchday.autoUpdateAt ?? new Date(endDate.getTime() + (8 * 60 * 60 * 1000));
+      const fallbackAnchor = matchday.autoUpdateAt ?? new Date(endDate.getTime() + (4 * 60 * 60 * 1000));
       matchday.nextPostponedCheckAt = new Date(fallbackAnchor.getTime() + (7 * 24 * 60 * 60 * 1000));
     } else {
       matchday.nextPostponedCheckAt = null;

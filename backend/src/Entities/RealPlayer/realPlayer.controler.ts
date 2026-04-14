@@ -7,6 +7,7 @@ import { League } from '../League/league.entity.js';
 import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
 import { PLAYER_POSITIONS, isEnumValue } from '../../shared/domain-enums.js';
 import { upsertRealPlayerLeagueTranslatedValue } from '../RealPlayerLeagueValue/realPlayerLeagueValue.service.js';
+import { getTeamIdsByLeague } from '../RealTeamLeagueParticipation/realTeamLeagueParticipation.service.js';
 
 const em = orm.em;
 
@@ -593,8 +594,7 @@ async function runTranslatePricesJob(jobId: string): Promise<void> {
     const limiteMin = hasValidConfiguredLimits ? Number(league.limiteMin) : defaultMin;
     const limiteMax = hasValidConfiguredLimits ? Number(league.limiteMax) : defaultMax;
 
-    const realTeams = await jobEm.find(RealTeam, { league: { id: job.leagueId } } as any, { fields: ['id'] as any });
-    const realTeamsIds = realTeams.map((team: any) => Number(team.id)).filter((id) => Number.isFinite(id));
+    const realTeamsIds = await getTeamIdsByLeague(jobEm as any, job.leagueId);
 
     if (realTeamsIds.length === 0) {
       throw new Error(`no local real teams found for leagueId: ${job.leagueId}`);
