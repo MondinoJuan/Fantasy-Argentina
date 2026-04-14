@@ -34,6 +34,7 @@ export class RivalsRealPlayerListComponent implements OnChanges {
   @Input({ required: true }) realPlayerById = new Map<number, any>();
   @Input({ required: true }) dependantByRealPlayerId = new Map<number, any>();
   @Input({ required: true }) playerClauseByDependantId = new Map<number, any>();
+  @Input() translatedValuesByRealPlayerId: Record<number, number | null> = {};
   @Input() leagueId: number | null = null;
   @Input() clauseEnabled = false;
   @Input() highlighted = false;
@@ -49,14 +50,10 @@ export class RivalsRealPlayerListComponent implements OnChanges {
   isSubmitting = false;
   showQuickSaleConfirm = false;
   quickSaleValue = 0;
-  private translatedValuesByRealPlayerId: Record<number, number | null> = {};
-
   constructor(private readonly apiService: ApiService) {}
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['leagueId'] || changes['participantSquad'] || changes['realPlayerById']) {
-      this.loadTranslatedValues();
-    }
+    void changes;
   }
 
   get participantId(): number {
@@ -352,43 +349,6 @@ export class RivalsRealPlayerListComponent implements OnChanges {
       translatedValue,
       clauseValue,
     };
-  }
-
-  private loadTranslatedValues(): void {
-    const leagueId = Number(this.leagueId ?? 0);
-    if (!Number.isFinite(leagueId) || leagueId <= 0) {
-      this.translatedValuesByRealPlayerId = {};
-      return;
-    }
-
-    this.apiService.searchRealPlayerLeagueValuesByLeagueId(leagueId).subscribe({
-      next: (response: any) => {
-        const rows = Array.isArray(response?.data) ? response.data : [];
-        const nextMap: Record<number, number | null> = {};
-        for (const row of rows) {
-          const rowLeagueId = Number(
-            row?.leagueId
-            ?? row?.league_id
-            ?? this.extractId(row?.league)
-          );
-          if (!Number.isFinite(rowLeagueId) || rowLeagueId !== leagueId) continue;
-
-          const realPlayerId = Number(
-            row?.realPlayerId
-            ?? row?.real_player_id
-            ?? this.extractId(row?.realPlayer)
-            ?? this.extractId(row?.real_player)
-          );
-          if (!Number.isFinite(realPlayerId) || realPlayerId <= 0) continue;
-          const translatedValue = Number(row?.translatedValue ?? row?.translated_value);
-          nextMap[realPlayerId] = Number.isFinite(translatedValue) ? translatedValue : null;
-        }
-        this.translatedValuesByRealPlayerId = nextMap;
-      },
-      error: () => {
-        this.translatedValuesByRealPlayerId = {};
-      }
-    });
   }
 
   private findExistingNegotiation(dependantPlayerId: number): any | null {
