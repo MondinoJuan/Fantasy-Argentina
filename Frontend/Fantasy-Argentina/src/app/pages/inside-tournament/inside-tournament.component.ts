@@ -56,6 +56,7 @@ export class InsideTournamentComponent implements OnInit {
   marketRealTeamNameById: Record<number, string> = {};
   marketPerformanceByRealPlayerId: Record<number, number> = {};
   marketBidsByRealPlayerId: Record<number, any[]> = {};
+  translatedValuesByRealPlayerId: Record<number, number | null> = {};
 
   selectedRankingScope: 'total' | number = 'total';
   rankingRows: Array<{ participantName: string; points: number; }> = [];
@@ -249,14 +250,29 @@ export class InsideTournamentComponent implements OnInit {
           .sort((left: any, right: any) => Number(left?.matchdayNumber ?? 0) - Number(right?.matchdayNumber ?? 0));
 
         this.selectedRankingScope = 'total';
-        this.rebuildMapsAndNegotiationViews();
-
-        this.rebuildSquadFromFormation();
-        this.rebuildMarketFromDatabase();
-        this.rebuildMarketReferenceData();
-        this.rebuildRanking();
-
-        this.isLoading = false;
+        const leagueId = Number(this.tournamentLeagueId ?? 0);
+        this.apiService.searchRealPlayerLeagueValuesByLeagueId(leagueId).pipe(
+          catchError(() => of({ message: 'league values unavailable', data: [] as any[] })),
+        ).subscribe({
+          next: (leagueValuesResponse: any) => {
+            this.translatedValuesByRealPlayerId = this.buildTranslatedValuesByRealPlayerId(leagueValuesResponse?.data ?? []);
+            this.rebuildMapsAndNegotiationViews();
+            this.rebuildSquadFromFormation();
+            this.rebuildMarketFromDatabase();
+            this.rebuildMarketReferenceData();
+            this.rebuildRanking();
+            this.isLoading = false;
+          },
+          error: () => {
+            this.translatedValuesByRealPlayerId = {};
+            this.rebuildMapsAndNegotiationViews();
+            this.rebuildSquadFromFormation();
+            this.rebuildMarketFromDatabase();
+            this.rebuildMarketReferenceData();
+            this.rebuildRanking();
+            this.isLoading = false;
+          },
+        });
       },
       error: (error) => {
         this.errorMessage = error?.error?.message ?? 'No se pudo cargar el torneo.';
@@ -744,6 +760,7 @@ export class InsideTournamentComponent implements OnInit {
       negotiations: this.requestCacheService.getOrSet('negotiations', () => this.apiService.searchNegotiations(), 15_000),
       bids: this.requestCacheService.getOrSet('bids', () => this.apiService.searchBids(), 15_000),
       participantMatchdayPoints: this.requestCacheService.getOrSet('participant-matchday-points', () => this.apiService.searchParticipantMatchdayPoints(), 20_000),
+      realPlayerLeagueValues: this.getLeagueValuesRequest$(),
     }).subscribe({
       next: (response) => {
         const currentUserId = Number(localStorage.getItem('currentUserId'));
@@ -762,6 +779,7 @@ export class InsideTournamentComponent implements OnInit {
         this.allDependantPlayers = response.dependantPlayers?.data ?? [];
         this.allPlayerClauses = response.playerClauses?.data ?? [];
         this.allParticipantPoints = response.participantMatchdayPoints.data;
+        this.translatedValuesByRealPlayerId = this.buildTranslatedValuesByRealPlayerId(response.realPlayerLeagueValues?.data ?? []);
 
         this.existingMarketEntries = response.matchdayMarkets.data.filter((item: any) => this.extractTournamentId(item) === this.tournamentId);
         this.negotiations = response.negotiations.data.filter((item: any) =>
@@ -850,6 +868,38 @@ export class InsideTournamentComponent implements OnInit {
         this.participantById.get(buyerId).relatedNegotiations.push(negotiation);
       }
     }
+  }
+
+  private getLeagueValuesRequest$() {
+    const leagueId = Number(this.tournamentLeagueId ?? this.extractLeagueId(this.tournament) ?? 0);
+    if (!Number.isFinite(leagueId) || leagueId <= 0) {
+      return of({ message: 'leagueId unavailable', data: [] as any[] });
+    }
+
+    return this.apiService.searchRealPlayerLeagueValuesByLeagueId(leagueId).pipe(
+      catchError(() => of({ message: 'league values unavailable', data: [] as any[] })),
+    );
+  }
+
+  private buildTranslatedValuesByRealPlayerId(rows: any[]): Record<number, number | null> {
+    const out: Record<number, number | null> = {};
+    const leagueId = Number(this.tournamentLeagueId ?? this.extractLeagueId(this.tournament) ?? 0);
+
+    for (const row of (Array.isArray(rows) ? rows : [])) {
+      const rowLeagueId = Number(row?.leagueId ?? row?.league_id ?? this.extractId(row?.league));
+      if (Number.isFinite(leagueId) && leagueId > 0 && rowLeagueId !== leagueId) continue;
+      const realPlayerId = Number(
+        row?.realPlayerId
+        ?? row?.real_player_id
+        ?? this.extractId(row?.realPlayer)
+        ?? this.extractId(row?.real_player),
+      );
+      if (!Number.isFinite(realPlayerId) || realPlayerId <= 0) continue;
+      const translated = Number(row?.translatedValue ?? row?.translated_value);
+      out[realPlayerId] = Number.isFinite(translated) ? translated : null;
+    }
+
+    return out;
   }
 
   private getNegotiationResponderParticipantId(negotiation: any): number | null {

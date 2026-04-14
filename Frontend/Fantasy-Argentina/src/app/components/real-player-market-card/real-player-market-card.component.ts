@@ -36,6 +36,7 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
   @Input() realTeamNameById: Record<number, string> = {};
   @Input() performancesByRealPlayerId: Record<number, number> = {};
   @Input() bidsByRealPlayerId: Record<number, any[]> = {};
+  @Input() translatedValuesByRealPlayerId: Record<number, number | null> = {};
   @Output() bidSaved = new EventEmitter<void>();
 
   player: ResolvedMarketPlayer | null = null;
@@ -64,6 +65,7 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
       || changes['realPlayersById']
       || changes['performancesByRealPlayerId']
       || changes['bidsByRealPlayerId']
+      || changes['translatedValuesByRealPlayerId']
     ) {
       this.resolvePlayer();
     }
@@ -176,7 +178,7 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
 
     if (dependant && cachedRealPlayer) {
       const leagueId = Number(this.leagueId ?? 0);
-      const applyPlayer = (leagueValues: any[]) => {
+      const applyPlayer = () => {
           const realPlayerId = this.extractId(cachedRealPlayer) ?? realPlayerIdFromCache ?? 0;
           const realTeamId = Number(
             cachedRealPlayer?.realTeamId ??
@@ -184,7 +186,7 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
             this.extractId(cachedRealPlayer?.realTeam)
           );
 
-          const translatedValue = this.resolveTranslatedValue(leagueValues, realPlayerId, leagueId);
+          const translatedValue = this.resolveTranslatedValue(realPlayerId, leagueId);
 
           this.player = {
             dependantPlayerId: this.dependantPlayerId,
@@ -199,21 +201,7 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
           };
           this.isLoading = false;
       };
-
-      if (!Number.isFinite(leagueId) || leagueId <= 0) {
-        applyPlayer([]);
-        return;
-      }
-
-      this.apiService.searchRealPlayerLeagueValuesByLeagueId(leagueId).subscribe({
-        next: (response: any) => {
-          applyPlayer(Array.isArray(response?.data) ? response.data : []);
-        },
-        error: () => {
-          this.hasError = true;
-          this.isLoading = false;
-        },
-      });
+      applyPlayer();
       return;
     }
 
@@ -261,15 +249,6 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
         );
       }),
       switchMap(({ realTeam, leagueId }) => {
-        return this.apiService.searchRealPlayerLeagueValuesByLeagueId(leagueId).pipe(
-          map((leagueValuesRes: any) => ({
-            realTeam,
-            leagueId,
-            leagueValues: leagueValuesRes?.data ?? []
-          }))
-        );
-      }),
-      switchMap(({ realTeam, leagueValues, leagueId }) => {
         const realPlayerId = this._pendingRealPlayerId;
         return forkJoin({
           performances: this.apiService.searchPlayerPerformances(),
@@ -278,19 +257,18 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
           map(({ performances, bidsInfo }) => ({
             realTeam,
             leagueId,
-            leagueValues,
             performances: performances?.data ?? [],
             bidsInfo
           }))
         );
       })
     ).subscribe({
-      next: ({ realTeam, leagueValues, performances, bidsInfo, leagueId }) => {
+      next: ({ realTeam, performances, bidsInfo, leagueId }) => {
         const teamName = realTeam?.name ?? 'Sin equipo';
         const realPlayer = this._pendingRealPlayer;
         const realPlayerId = this._pendingRealPlayerId;
 
-        const translatedValue = this.resolveTranslatedValue(leagueValues, realPlayerId, leagueId);
+        const translatedValue = this.resolveTranslatedValue(realPlayerId, leagueId);
         const totalScore = this.getTotalPoints(realPlayerId, performances);
 
         this.player = {
@@ -352,28 +330,9 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
     return 'midfielder';
   }
 
-  private resolveTranslatedValue(leagueValues: any[], realPlayerId: number, leagueId: number): number | null {
-    const row = leagueValues.find((value: any) => {
-      const valueRealPlayerId = Number(
-        value?.realPlayerId
-        ?? value?.real_player_id
-        ?? this.extractId(value?.realPlayer)
-        ?? this.extractId(value?.real_player)
-      );
-      const valueLeagueId = Number(
-        value?.leagueId
-        ?? value?.league_id
-        ?? this.extractId(value?.league)
-      );
-
-      return Number.isFinite(valueRealPlayerId)
-        && valueRealPlayerId === realPlayerId
-        && Number.isFinite(valueLeagueId)
-        && valueLeagueId === leagueId;
-    });
-
-    if (!row) return null;
-    const translated = Number(row?.translatedValue ?? row?.translated_value);
+  private resolveTranslatedValue(realPlayerId: number, leagueId: number): number | null {
+    if (!Number.isFinite(leagueId) || leagueId <= 0) return null;
+    const translated = Number(this.translatedValuesByRealPlayerId[realPlayerId] ?? null);
     return Number.isFinite(translated) ? translated : null;
   }
 
