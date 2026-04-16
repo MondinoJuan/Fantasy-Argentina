@@ -194,6 +194,17 @@ export interface TranslatePricesJob {
   } | null;
 }
 
+export interface SyncLeagueKnockoutStageJob {
+  jobId: string;
+  status: BackgroundJobStatus;
+  leagueIdEnApi: number;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  lastError: string | null;
+  result: any | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -461,7 +472,16 @@ export class ApiService {
   }
 
   syncLeagueKnockoutStageByLeagueIdEnApi(payload: { leagueIdEnApi: number }) {
-    return this.http.post<any>(`${this.url}/leagues/sync/knockout-stage/by-league-id-en-api`, payload);
+    return this.http.post<{ message: string; data: SyncLeagueKnockoutStageJob }>(
+      `${this.url}/leagues/sync/knockout-stage/by-league-id-en-api`,
+      payload,
+    );
+  }
+
+  getSyncLeagueKnockoutStageJob(jobId: string) {
+    return this.http.get<{ message: string; data: SyncLeagueKnockoutStageJob }>(
+      `${this.url}/leagues/sync/knockout-stage/by-league-id-en-api/${encodeURIComponent(jobId)}`,
+    );
   }
 
   syncTeamsByLeagueIdEnApi(payload: { leagueIdEnApi: number }) {

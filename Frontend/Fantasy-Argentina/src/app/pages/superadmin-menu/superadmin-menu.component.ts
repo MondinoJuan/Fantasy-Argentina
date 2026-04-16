@@ -4,7 +4,14 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { forkJoin, interval } from 'rxjs';
 import { finalize, map, switchMap, takeWhile } from 'rxjs/operators';
-import { ApiService, BuildCompetitionFixtureJob, SyncPlayedResultsJob, SyncPlayersByLeagueJob, TranslatePricesJob } from '../../servicios/api.service';
+import {
+  ApiService,
+  BuildCompetitionFixtureJob,
+  SyncLeagueKnockoutStageJob,
+  SyncPlayedResultsJob,
+  SyncPlayersByLeagueJob,
+  TranslatePricesJob,
+} from '../../servicios/api.service';
 import { AuthService } from '../../servicios/auth.service';
 
 import { ActionField, SuperadminAction, SUPERADMIN_ACTION_CONFIG, SUPERADMIN_FIELD_LABELS } from './superadmin-actions.config';
@@ -139,6 +146,16 @@ export class SuperadminMenuComponent {
         return;
       }
       this.runPersistFixtureBuild(competitionId, seasonId);
+      return;
+    }
+
+    if (this.currentAction === 'persistLeagueKnockoutStage') {
+      const leagueIdEnApi = Number(form.leagueIdEnApi);
+      if (!Number.isFinite(leagueIdEnApi) || leagueIdEnApi <= 0) {
+        this.errorMessage = 'Ingresá un leagueIdEnApi válido (> 0).';
+        return;
+      }
+      this.runPersistLeagueKnockoutStageSync(leagueIdEnApi);
       return;
     }
 
@@ -452,6 +469,52 @@ export class SuperadminMenuComponent {
       },
       error: (error: any) => {
         this.errorMessage = error?.error?.message ?? 'No se pudo ejecutar la traducción de precios.';
+      },
+    });
+  }
+
+  private runPersistLeagueKnockoutStageSync(leagueIdEnApi: number): void {
+    this.isLoading = true;
+
+    this.apiService.syncLeagueKnockoutStageByLeagueIdEnApi({ leagueIdEnApi }).pipe(
+      switchMap((response) => {
+        const job = response?.data;
+        if (!job?.jobId) {
+          throw new Error('No se recibió jobId de sincronización de knockout stage.');
+        }
+
+        this.successMessage = 'Sincronización de knockout stage iniciada. Se notificará progreso cada 20 segundos.';
+        this.result = { ...response, polling: true };
+
+        return interval(20000).pipe(
+          switchMap(() => this.apiService.getSyncLeagueKnockoutStageJob(job.jobId)),
+          takeWhile((jobResponse) => {
+            const status = jobResponse?.data?.status;
+            return status === 'queued' || status === 'running';
+          }, true),
+        );
+      }),
+      finalize(() => {
+        this.isLoading = false;
+      }),
+    ).subscribe({
+      next: (jobResponse: { message: string; data: SyncLeagueKnockoutStageJob }) => {
+        this.result = jobResponse;
+
+        if (jobResponse.data.status === 'completed') {
+          this.successMessage = 'Sincronización de knockout stage completada correctamente.';
+          return;
+        }
+
+        if (jobResponse.data.status === 'failed') {
+          this.errorMessage = jobResponse.data.lastError ?? 'La sincronización de knockout stage falló.';
+          return;
+        }
+
+        this.successMessage = 'Sincronización de knockout stage en progreso (último chequeo: hace menos de 20 segundos).';
+      },
+      error: (error: any) => {
+        this.errorMessage = error?.error?.message ?? 'No se pudo ejecutar la sincronización de knockout stage.';
       },
     });
   }

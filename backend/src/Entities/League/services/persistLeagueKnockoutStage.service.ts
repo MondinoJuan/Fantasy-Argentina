@@ -63,6 +63,15 @@ function toDateFromUnknown(value: unknown): Date | null {
   return toDateFromUnixSeconds(value);
 }
 
+function normalizeKeyName(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 async function fetchStartDateFromEvent(eventId: string): Promise<Date | null> {
   try {
     const payload = asRecord(await requestSportsApiPro(`/api/match/${eventId}`));
@@ -176,18 +185,33 @@ export async function persistLeagueKnockoutStageByIdEnApi(leagueIdEnApi: number)
         const awayScore = toNullableScore(block.awayTeamScore);
         const finished = Boolean(block.finished) || (homeScore !== null && awayScore !== null);
         const startDateTimeFromBlock = toDateFromUnknown(block.seriesStartDateTimestamp);
+        const homeTeamName = asString(homeTeam.name) || 'TBD';
+        const awayTeamName = asString(awayTeam.name) || 'TBD';
+        const dedupeSignature = new Set<string>();
 
         for (const externalApiId of eventIds) {
           const startDateTime = startDateTimeFromBlock
             ?? await fetchStartDateFromEvent(externalApiId)
             ?? startDate;
+          const signature = [
+            normalizeKeyName(homeTeamName),
+            normalizeKeyName(awayTeamName),
+            startDateTime.toISOString(),
+            String(homeScore ?? 'null'),
+            String(awayScore ?? 'null'),
+          ].join('|');
+
+          if (dedupeSignature.has(signature)) {
+            continue;
+          }
+          dedupeSignature.add(signature);
 
           const existing = await em.findOne(GameMatch, { externalApiId });
           if (existing) {
             existing.matchday = matchday;
             existing.league = league;
-            existing.homeTeam = asString(homeTeam.name) || existing.homeTeam;
-            existing.awayTeam = asString(awayTeam.name) || existing.awayTeam;
+            existing.homeTeam = homeTeamName || existing.homeTeam;
+            existing.awayTeam = awayTeamName || existing.awayTeam;
             existing.startDateTime = startDateTime;
             existing.homeScore = homeScore;
             existing.awayScore = awayScore;
@@ -196,12 +220,28 @@ export async function persistLeagueKnockoutStageByIdEnApi(leagueIdEnApi: number)
             continue;
           }
 
+          const sameMatchAlreadyPersisted = await em.findOne(GameMatch, {
+            matchday,
+            league,
+            homeTeam: homeTeamName,
+            awayTeam: awayTeamName,
+            startDateTime,
+          });
+          if (sameMatchAlreadyPersisted) {
+            sameMatchAlreadyPersisted.externalApiId = externalApiId;
+            sameMatchAlreadyPersisted.homeScore = homeScore;
+            sameMatchAlreadyPersisted.awayScore = awayScore;
+            sameMatchAlreadyPersisted.status = finished ? 'finalizado' : 'scheduled';
+            updatedMatches += 1;
+            continue;
+          }
+
           em.create(GameMatch, {
             matchday,
             league,
             externalApiId,
-            homeTeam: asString(homeTeam.name) || 'TBD',
-            awayTeam: asString(awayTeam.name) || 'TBD',
+            homeTeam: homeTeamName,
+            awayTeam: awayTeamName,
             startDateTime,
             status: finished ? 'finalizado' : 'scheduled',
             homeScore,

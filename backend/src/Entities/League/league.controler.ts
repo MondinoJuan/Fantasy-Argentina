@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { randomUUID } from 'crypto';
 import { League } from './league.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { fetchLeaguesFromSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
@@ -6,6 +7,79 @@ import { persistNewLeagueService } from './services/persistNewLeague.service.js'
 import { persistLeagueKnockoutStageByIdEnApi } from './services/persistLeagueKnockoutStage.service.js';
 
 const em = orm.em;
+type KnockoutSyncJobStatus = 'queued' | 'running' | 'completed' | 'failed';
+
+type KnockoutSyncJobState = {
+  jobId: string;
+  status: KnockoutSyncJobStatus;
+  leagueIdEnApi: number;
+  createdAtDate: Date;
+  startedAtDate: Date | null;
+  finishedAtDate: Date | null;
+  lastError: string | null;
+  result: any | null;
+};
+
+const knockoutSyncJobs = new Map<string, KnockoutSyncJobState>();
+const MAX_KNOCKOUT_SYNC_JOBS = 50;
+
+function buildKnockoutSyncJobSnapshot(job: KnockoutSyncJobState) {
+  return {
+    jobId: job.jobId,
+    status: job.status,
+    leagueIdEnApi: job.leagueIdEnApi,
+    createdAt: job.createdAtDate.toISOString(),
+    startedAt: job.startedAtDate ? job.startedAtDate.toISOString() : null,
+    finishedAt: job.finishedAtDate ? job.finishedAtDate.toISOString() : null,
+    lastError: job.lastError,
+    result: job.result,
+  };
+}
+
+function trimKnockoutSyncJobs() {
+  if (knockoutSyncJobs.size <= MAX_KNOCKOUT_SYNC_JOBS) {
+    return;
+  }
+
+  const jobs = [...knockoutSyncJobs.values()].sort((a, b) => a.createdAtDate.getTime() - b.createdAtDate.getTime());
+  const overflow = jobs.length - MAX_KNOCKOUT_SYNC_JOBS;
+  for (let i = 0; i < overflow; i += 1) {
+    const oldest = jobs[i];
+    if (oldest) {
+      knockoutSyncJobs.delete(oldest.jobId);
+    }
+  }
+}
+
+function findRunningKnockoutJobByLeagueId(leagueIdEnApi: number): KnockoutSyncJobState | null {
+  for (const job of knockoutSyncJobs.values()) {
+    if (job.leagueIdEnApi === leagueIdEnApi && (job.status === 'queued' || job.status === 'running')) {
+      return job;
+    }
+  }
+  return null;
+}
+
+async function runKnockoutSyncJob(jobId: string): Promise<void> {
+  const job = knockoutSyncJobs.get(jobId);
+  if (!job) {
+    return;
+  }
+
+  job.status = 'running';
+  job.startedAtDate = new Date();
+
+  try {
+    const result = await persistLeagueKnockoutStageByIdEnApi(job.leagueIdEnApi);
+    job.result = result;
+    job.status = 'completed';
+  } catch (error: any) {
+    job.status = 'failed';
+    job.lastError = error?.message ?? 'Unknown knockout stage sync failure';
+  } finally {
+    job.finishedAtDate = new Date();
+  }
+}
 
 function parseId(idParam: string | string[] | undefined) {
   const rawId = Array.isArray(idParam) ? idParam[0] : idParam;
@@ -306,26 +380,56 @@ async function syncKnockoutStageByLeagueIdEnApi(req: Request, res: Response) {
       return;
     }
 
-    const result = await persistLeagueKnockoutStageByIdEnApi(leagueIdEnApi);
-
-    if (result.skipped) {
+    const activeJob = findRunningKnockoutJobByLeagueId(leagueIdEnApi);
+    if (activeJob) {
       res.status(200).json({
-        message: result.message,
-        data: {
-          league: result.league,
-          skipped: true,
-        },
+        message: 'knockout stage sync already running',
+        data: buildKnockoutSyncJobSnapshot(activeJob),
       });
       return;
     }
 
-    res.status(201).json({
-      message: 'league knockout stage synced from sportsapipro',
-      data: result,
+    const job: KnockoutSyncJobState = {
+      jobId: randomUUID(),
+      status: 'queued',
+      leagueIdEnApi,
+      createdAtDate: new Date(),
+      startedAtDate: null,
+      finishedAtDate: null,
+      lastError: null,
+      result: null,
+    };
+
+    knockoutSyncJobs.set(job.jobId, job);
+    trimKnockoutSyncJobs();
+    void runKnockoutSyncJob(job.jobId);
+
+    res.status(202).json({
+      message: 'knockout stage sync started',
+      data: buildKnockoutSyncJobSnapshot(job),
     });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
+}
+
+async function getKnockoutStageSyncJob(req: Request, res: Response) {
+  const jobId = typeof req.params.jobId === 'string' ? req.params.jobId.trim() : '';
+  if (!jobId) {
+    res.status(400).json({ message: 'jobId route param is required' });
+    return;
+  }
+
+  const job = knockoutSyncJobs.get(jobId);
+  if (!job) {
+    res.status(404).json({ message: 'knockout stage sync job not found' });
+    return;
+  }
+
+  res.status(200).json({
+    message: 'knockout stage sync job status',
+    data: buildKnockoutSyncJobSnapshot(job),
+  });
 }
 
 export {
@@ -340,4 +444,5 @@ export {
   ensureByNameFromSportsApiPro,
   syncByIdEnApi,
   syncKnockoutStageByLeagueIdEnApi,
+  getKnockoutStageSyncJob,
 };
