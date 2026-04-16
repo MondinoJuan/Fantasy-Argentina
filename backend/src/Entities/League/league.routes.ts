@@ -11,6 +11,7 @@ import {
   ensureByNameFromSportsApiPro,
   syncByIdEnApi,
   syncKnockoutStageByLeagueIdEnApi,
+  getKnockoutStageSyncJob,
 } from './league.controler.js';
 
 export const LeagueRouter = Router();
@@ -20,6 +21,7 @@ LeagueRouter.post('/sync/sportsapipro', syncFromSportsApiPro);
 LeagueRouter.post('/ensure/by-name', ensureByNameFromSportsApiPro);
 LeagueRouter.post('/sync/by-id-en-api', syncByIdEnApi);
 LeagueRouter.post('/sync/knockout-stage/by-league-id-en-api', syncKnockoutStageByLeagueIdEnApi);
+LeagueRouter.get('/sync/knockout-stage/by-league-id-en-api/:jobId', getKnockoutStageSyncJob);
 LeagueRouter.get('/by-id-en-api/:idEnApi', findByIdEnApi);
 LeagueRouter.get('/:id', findOne);
 LeagueRouter.post('/', sanitizeLeagueInput, add);
