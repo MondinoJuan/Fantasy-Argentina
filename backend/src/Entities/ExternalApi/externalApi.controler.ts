@@ -236,8 +236,8 @@ async function persistFixtureCompetitionInDb(
       : lastDate;
     const autoUpdateAt = new Date(closureAnchor.getTime() + (4 * 60 * 60 * 1000));
 
-    const startDate = new Date(Date.UTC(firstDate.getUTCFullYear(), firstDate.getUTCMonth(), firstDate.getUTCDate(), 0, 0, 0, 0));
-    const endDate = new Date(Date.UTC(lastDate.getUTCFullYear(), lastDate.getUTCMonth(), lastDate.getUTCDate(), 23, 59, 59, 999));
+    const startDate = new Date(firstDate);
+    const endDate = new Date(firstDate);
 
     let matchday = await em.findOne(Matchday, {
       league,
