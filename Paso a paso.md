@@ -96,10 +96,7 @@ Si quiero hacerlo en base a los ultimos partidos, no en base al ultimo, debo usa
 * Botones para modificar o eliminar entidades en el superadmin-menu.
 * Mantener esta modalidad de tournament, pero tambien incluir la opcion de draft. Esta modalidad de tournament consiste en que al crear un tournament se invita a los Users que participarán, estos eligirán los realPlayers por turnos hasta completar un 11 (previamente se elige la formación que utilizarán). Además, al final de cada fecha se otorga la posibilidad de elegir un realPlayer a cada participant por turnos, yendo desde el último en el ranking de puntos hasta el primero. Los turnos del draft pueden ser intercambiables, pero no se a cambio de qué.
 * Agregar entity de squad por matchday.
-* Bloquear el cambio de squad durante una fecha.
 * Que al apretar 'Recuperar rankings por jugador/fecha' no busque de todas las fechas, ya que al efectuarse cada fecha no hace falta las anteriores.
-* Resolver error:
-	[rankings-background] error: Using global EntityManager instance methods for context specific actions is disallowed. If you need to work with the global instance's identity map, use `allowGlobalContext` configuration option or `fork()` instead.
 
 
 ## Listado ligas
@@ -109,6 +106,7 @@ SPORTSAPIPRO V2:
 384 - CONMEBOL Libertadores - season ID: 87760
 8 - La liga - season ID: 77559
 155 - Liga Profesional de Fútbol - season ID: 87913
+7 - UEFA champions league - season ID: 76953
 16 - World Cup
 679 - UEFA Europa league
 17015 - UEFA conference league
@@ -117,4 +115,3 @@ SPORTSAPIPRO V2:
 35 - Bundesliga - season ID:
 23 - Serie A - season ID:
 34 - Ligue 1 - season ID:
-7 - UEFA champions league - season ID: 76953
