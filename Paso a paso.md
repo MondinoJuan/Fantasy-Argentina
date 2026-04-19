@@ -97,6 +97,7 @@ Si quiero hacerlo en base a los ultimos partidos, no en base al ultimo, debo usa
 * Mantener esta modalidad de tournament, pero tambien incluir la opcion de draft. Esta modalidad de tournament consiste en que al crear un tournament se invita a los Users que participarán, estos eligirán los realPlayers por turnos hasta completar un 11 (previamente se elige la formación que utilizarán). Además, al final de cada fecha se otorga la posibilidad de elegir un realPlayer a cada participant por turnos, yendo desde el último en el ranking de puntos hasta el primero. Los turnos del draft pueden ser intercambiables, pero no se a cambio de qué.
 * Agregar entity de squad por matchday.
 * Que al apretar 'Recuperar rankings por jugador/fecha' no busque de todas las fechas, ya que al efectuarse cada fecha no hace falta las anteriores.
+* Agregar en la creacion de tournament switchs que permitan o no realizar clausulazos o cambios en la alineacion durante una fecha.
 
 
 ## Listado ligas

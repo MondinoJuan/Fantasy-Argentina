@@ -1,140 +1,158 @@
 # Fantasy Argentina ⚽🇦🇷
 
-Aplicación web para jugar un **Fantasy de fútbol** con amigos, basada en la **Liga Argentina**, con mercado de pujas “a sobre cerrado”, cláusulas, negociaciones y ranking por fecha.
 
----
+Aplicación web para jugar un **Fantasy de fútbol** con amigos, basada en la **Liga Argentina** y otras competiciones internacionales. Cuenta con un mercado de pujas "a sobre cerrado", sistema de cláusulas dinámicas, negociaciones directas y rankings actualizados por fecha.
 
-## Objetivo del proyecto
 
-- Crear torneos Fantasy eligiendo **nombre** y **liga**.
-- Al crear un torneo, a cada participante se le asigna un **plantel inicial de 11 jugadores** al azar (obtenidos desde una API de estadísticas).
-- Cada fecha, los puntos de los jugadores se transforman en **puntos para su dueño**, generando:
-  - **Ranking general** (acumulado)
-  - **Ranking por fecha**
 
----
+## 🎯 Objetivo del Proyecto
+Permitir a los usuarios crear torneos Fantasy eligiendo nombre y liga. Al ingresar, a cada participante se le asigna un plantel inicial de **11 jugadores** al azar, los cuales generarán puntos fecha a fecha según su rendimiento real (estadísticas obtenidas mediante SportsApiPro). El objetivo es gestionar el presupuesto, comprar y vender jugadores inteligentemente, y acumular la mayor cantidad de puntos para liderar el ranking.
 
-## Funcionalidades principales
 
-### 🏟️ Torneos y participantes
-- Creación de torneo con liga a elección.
-- Inscripción de participantes.
-- Cada participante cuenta con un **banco** (presupuesto).
 
-### 👥 Plantel (equipo del participante)
-- Plantel inicial de 11 jugadores asignados al azar.
-- Historial de tenencia de jugadores (cuándo se adquieren/liberan) para evitar inconsistencias de puntaje.
+## 🏗️ Arquitectura y Tecnologías
 
-### 📊 Puntajes y rankings
-- Los participantes suman puntos según el rendimiento real de sus jugadores en la fecha.
-- Si un jugador no juega, suma **0 puntos**.
-- Rankings disponibles:
-  - **General** (acumulado)
-  - **Por fecha**
+    * **Frontend:** Angular
+    * **Backend / Base de Datos:** SQL (Modelo relacional normalizado)
+    * **Integración:** API de estadísticas SportsApiPro
 
----
 
-## Mercado de jugadores (común por torneo)
 
-Cada fecha existe un **mercado compartido** para todos los participantes del torneo.
+## 👥 Roles y Usuarios
 
-- El mercado se compone de una cantidad de jugadores igual a:  
-  **3 × (cantidad de participantes del torneo)**
-- El mercado se **renueva** en cada fecha.
+### Superadmin
+Encargado de la administración general del sistema. Sus funciones incluyen:
 
-### 🧾 Pujas “a sobre cerrado”
-- Los participantes pueden pujar por jugadores del mercado:
-  - No se ve el monto de las ofertas de otros.
-  - Solo se ve la **cantidad de pujas** recibidas por cada jugador.
-- Restricción: la puja debe ser **≥ valor mínimo del mercado** (relacionado al valor de mercado del jugador).
 
-### 💰 Reservas de dinero (bids/offers)
-Cuando un participante oferta:
-- El dinero **no se descuenta** del banco inmediatamente.
-- Se **reserva** (queda bloqueado) hasta que:
-  - se cancele la puja/oferta,
-  - se rechace (en negociaciones),
-  - o se procese el cierre de fecha.
-- Un participante puede realizar **todas las pujas/ofertas que quiera**, siempre que tenga **saldo disponible** (`saldo_total − saldo_reservado`).
+    * Realizar un CRUD completo de cada entidad del proyecto.
+    * Poblar la base de datos local con las tuplas correspondientes.
+    * Gestionar actualizaciones manuales o modificaciones de claves foráneas (ej. traspasos de jugadores en la vida real).
 
----
 
-## Traspasos, negociaciones y venta instantánea
 
-### 🔁 Negociaciones entre participantes
-- Los participantes pueden negociar compras/ventas de jugadores.
-- Las ofertas también generan **reserva de dinero** hasta ser aceptadas o rechazadas.
+### User / Participant
+El usuario regular. La relación entre `User` y `Tournament` se da a través de la entidad `Participant`, la cual contiene el presupuesto (`bankBudget`, `availableMoney`, `reservedMoney`), el puntaje y el equipo asociado.
 
-### ⚡ Venta instantánea al sistema
-- Un participante puede vender un jugador de forma inmediata al **85% del valor de mercado**.
-- El dinero se acredita al banco del participante.
 
-### ⏱️ Regla de traspaso diferido (+4hs)
-Para evitar que un jugador “puntúe doble”:
-- Los traspasos entre participantes se vuelven efectivos **4 horas después** del punto de actualización de la fecha.
 
----
+## 🏟️ Torneos y Planteles
 
-## Cláusulas y blindajes
+### Creación y Asignación Inicial
 
-### 🧷 Compra por cláusula (habilitada a los 14 días)
-- A partir de **14 días desde el inicio del torneo**, se habilita la compra directa por cláusula.
+    * Al unirse o crear un torneo, el participante recibe un **presupuesto base** y un **plantel de 11 jugadores** al azar.
+    * Estos 11 jugadores iniciales se otorgan buscando respetar una formación **4-4-2** por defecto (1 arquero, 4 defensores, 4 mediocampistas y 2 delanteros).
+    * **Exclusividad:** Un jugador real (`RealPlayer`) solo puede pertenecer a un participante a la vez dentro de un mismo torneo.
 
-### 🛡️ Blindaje de jugadores
-- Un participante puede “blindar” un jugador invirtiendo dinero de su banco.
-- Regla: **por cada $1 invertido**, la cláusula aumenta en **$2**.
-- La cláusula del jugador se mantiene si el jugador cambia de dueño (se transfiere con el jugador).
 
----
 
-## Cierre de fecha y optimización de requests a la API
+### Alineación y Penalizaciones
 
-Para minimizar llamadas a la API:
+    * Los participantes pueden cambiar su formación libremente mediante el mercado.
+    * **Persistencia:** Es obligatorio presionar el botón de guardado para que los cambios en la alineación se apliquen.
+    * **Fuera de Posición:** Al calcular el puntaje, se restan **3 puntos** por cada jugador que esté alineado en una posición incorrecta.
+    * **Bloqueo:** Durante el transcurso de una fecha, no se puede modificar la alineación ni realizar "clausulazos".
 
-### 🧠 Punto de actualización (cierre)
-- **3 horas después** de finalizada la fecha:
-  1. Se consultan los puntajes de la API para:
-     - jugadores que están en el mercado, **o**
-     - jugadores que pertenecen a algún participante.
-  2. Finalizan las pujas:
-     - se determina ganador por jugador,
-     - al ganador se le descuenta el monto (antes estaba reservado),
-     - a los perdedores se les libera la reserva.
-  3. Se calcula el puntaje de la fecha por participante y se actualizan rankings.
-  4. Se genera el nuevo mercado:
-     - se agregan **3 jugadores aleatorios por participante**,
-     - se habilitan las nuevas pujas de la siguiente fecha.
 
----
 
-## Arquitectura del repositorio
+## 🛒 Mercado y Pujas
+El mercado es compartido por todos los participantes del torneo y se renueva cada fecha.
 
-- **Frontend:** Angular  
-- **Backend / Base de Datos:** SQL (modelo relacional normalizado)  
-- Integración con API de estadísticas (pendiente de definir/implementar)
 
-Sugerencia de estructura:
+    * **Volumen del Mercado:** Se llena con una cantidad de jugadores equivalente a **3 o 4 veces** la cantidad de participantes del torneo (jugadores libres que no pertenecen a nadie).
+    * **Pujas "a sobre cerrado":** Los participantes pueden ofrecer dinero por un jugador. Las ofertas son secretas; solo se ve la cantidad de pujas que tiene un jugador, no los montos.
+    * **Monto Mínimo:** La puja debe ser mayor o igual al valor de mercado del jugador. Para cancelar una puja, se debe modificar su valor a **$0**.
+    * **Resolución (Desempate):** Si hay empate en el monto de la puja ganadora, se la lleva el participante que haya ofertado primero en el tiempo.
 
-```bash
-/
-├─ frontend/          # Angular
-├─ backend/           # API / servicios / lógica de negocio
-├─ database/          # scripts SQL, modelo, migraciones
-└─ docs/              # documentación funcional y técnica
-```
 
----
 
-## Estado del proyecto
-En desarrollo. El objetivo es construir un MVP jugable y luego iterar con mejoras (seguridad, UX, performance, etc.).
+### Sistema de Dinero (Reservado vs. Disponible)
 
----
+    * **Oferta:** Al pujar o negociar, el monto se descuenta del `availableMoney` (dinero disponible) y pasa al `reservedMoney` (dinero reservado). El presupuesto total (`bankBudget`) no cambia.
+    * **Resultado Positivo:** Si gana la puja, el dinero se descuenta definitivamente de `reservedMoney` y de `bankBudget`.
+    * **Resultado Negativo:** Si pierde, el dinero sale de `reservedMoney` y vuelve a `availableMoney`.
 
-## Roadmap (MVP sugerido)
-- [ ] Autenticación y gestión de usuarios
-- [ ] Crear torneo + unirse
-- [ ] Asignación inicial de 11 jugadores
-- [ ] Mercado por fecha + pujas con reservas
-- [ ] Cierre de fecha (3hs) + cálculo de puntos + rankings
-- [ ] Transferencias efectivas (4hs)
-- [ ] Cláusulas + blindajes (14 días)
+
+
+## 🔁 Traspasos, Negociaciones y Ventas
+
+    * **Negociaciones Directas:** Un participante puede ver el equipo de un rival y hacerle una oferta por un jugador. El dueño puede aceptarla, rechazarla o contraofertar. El monto ofrecido debe ser menor o igual al dinero disponible del comprador.
+    * **Venta Rápida (Instantánea):** Los jugadores pueden ser vendidos al sistema de manera rápida por un **70% de su valor de mercado** actual. El dinero se acredita de inmediato.
+
+
+
+## 🧷 Cláusulas de Rescisión (Shielding)
+
+    * **Habilitación:** La compra por cláusula se habilita luego de una cantidad de días específica (configurada al crear el torneo) y permite "robar" un jugador de un rival pagando un precio elevado.
+    * **Valor Base:** Cuando un jugador es comprado en el mercado, su cláusula base es: $Clausula = PrecioCompra + (PrecioCompra 	imes 1.5)$
+    * **Blindaje:** El dueño puede aumentar la cláusula invirtiendo dinero de su banco. La relación es **1:2** (por cada **$1M** invertido, la cláusula aumenta **$2M**).
+    * **Cooldown:** Tras efectuar un "clausulazo", el jugador queda bloqueado por unos minutos para que el nuevo dueño tenga tiempo de aumentar su cláusula e impedir una recompra inmediata.
+
+
+
+## 📊 Sistema de Puntuación y Fin de Fecha
+
+### Cierre de Fecha (Punto de Actualización)
+**Ocurre 4 horas después** del último partido de la fecha:
+
+
+    * **Resolución del Mercado:** Se cierran las pujas, se entregan los jugadores y se ejecutan los cobros/devoluciones.
+    * **Cálculo de Puntos:** Se consulta la API y se suman los puntos ("ranking") obtenidos por cada jugador titular. Si un jugador no juega, suma 0.
+    * **Premio Económico (Draft):** Se otorga dinero en función de la posición obtenida en esa fecha específica:
+        
+            * **Top 1 al 3:** 1M
+            * **Top 4 al 6:** 1.5M
+            * **Top 7 al 9:** 2.0M
+        
+    
+    * **Renovación de Mercado:** Se retiran los jugadores no vendidos y se agregan nuevos jugadores libres.
+
+
+
+## 📈 Fluctuación del Precio de Jugadores
+El valor de un jugador cambia después de cada fecha dependiendo de su rendimiento respecto a su valor actual. Un jugador que vale mucho necesita puntajes casi perfectos para mantener su precio; un jugador barato subirá drásticamente si encadena un par de buenos partidos.
+
+
+
+### 1. Traducción inicial de precio por Liga
+Se normaliza el precio del jugador dentro de los topes económicos del juego utilizando la siguiente fórmula:
+
+`Value = limiteMin + ((valueReal_Player - valueReal_MinDeLeague) / (valueReal_MaxDeLeague - valueReal_MinDeLeague)) * (limiteMax - limiteMin)`
+
+
+
+### 2. Cálculo de fluctuación post-partido
+Se define una nota esperada basada en la posición normalizada (p) del valor actual del jugador en el mercado:
+
+`p = (valueTradActual - limiteMin) / (limiteMax - limiteMin)`
+
+`notaEsperada = notaMinEsperada + p * (notaMaxEsperada - notaMinEsperada)`
+
+
+
+## 🌐 Ligas Disponibles
+<table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+    <thead>
+        <tr style="background-color: #2c3e50; color: white;">
+            <th style="border: 1px solid #ddd; padding: 12px; text-align: left;">ID</th>
+            <th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Liga / Torneo</th>
+            <th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Season ID</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td style="border: 1px solid #ddd; padding: 10px;">155</td><td style="border: 1px solid #ddd; padding: 10px;">Liga Profesional de Fútbol</td><td style="border: 1px solid #ddd; padding: 10px;">87913</td></tr>
+        <tr style="background-color: #f9f9f9;"><td style="border: 1px solid #ddd; padding: 10px;">480</td><td style="border: 1px solid #ddd; padding: 10px;">CONMEBOL Sudamericana</td><td style="border: 1px solid #ddd; padding: 10px;">87770</td></tr>
+        <tr><td style="border: 1px solid #ddd; padding: 10px;">384</td><td style="border: 1px solid #ddd; padding: 10px;">CONMEBOL Libertadores</td><td style="border: 1px solid #ddd; padding: 10px;">87760</td></tr>
+        <tr style="background-color: #f9f9f9;"><td style="border: 1px solid #ddd; padding: 10px;">17</td><td style="border: 1px solid #ddd; padding: 10px;">Premier League</td><td style="border: 1px solid #ddd; padding: 10px;">76986</td></tr>
+        <tr><td style="border: 1px solid #ddd; padding: 10px;">8</td><td style="border: 1px solid #ddd; padding: 10px;">La Liga</td><td style="border: 1px solid #ddd; padding: 10px;">77559</td></tr>
+    </tbody>
+</table>
+
+
+## 🚀 Roadmap y Tareas Pendientes
+
+    * Autenticación y gestión de usuarios.
+    * Creación de torneo e inyección inicial de planteles.
+    * Sistema de mercado base (pujas con reservas).
+    * Lógica cron/jobs de cierre de fecha.
+    * Sistema de cláusulas con bloqueo temporal.
+
