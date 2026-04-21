@@ -243,15 +243,27 @@ async function executeClosureJob(job: MatchdayAutomationJob) {
     throw new Error('invalid closure job league/matchday');
   }
 
-  const competitionId = Number((job.league as any)?.idEnApi ?? 0);
+  const localEm = orm.em.fork();
+  const league = await localEm.findOne(League, { id: leagueId });
+  const competitionId = Number(league?.idEnApi ?? (job.league as any)?.idEnApi ?? 0);
   if (Number.isFinite(competitionId) && competitionId > 0) {
     await syncPlayedMatchesResultsForCompetition(competitionId);
     await processRankingsForCompetition(competitionId);
   }
 
-  // Solo la fecha más reciente (isLatest) cierra el mercado y suma puntos.
-  // Las fechas históricas solo necesitaban sincronizar resultados y rankings.
-  const isLatest = (job.payload as any)?.isLatest !== false;
+  let isLatest = (job.payload as any)?.isLatest !== false;
+  if (!isLatest) {
+    const latestDueMatchday = await localEm.findOne(Matchday, {
+      league: { id: leagueId },
+      status: { $ne: 'completed' },
+      autoUpdateAt: { $ne: null, $lte: new Date() },
+    } as any, {
+      orderBy: [{ matchdayNumber: 'desc' }, { autoUpdateAt: 'desc' }],
+    });
+
+    isLatest = Number(latestDueMatchday?.id ?? 0) === Number(matchday.id ?? 0);
+  }
+
   if (isLatest) {
     await invokeController(sumEndOfMatchdayPoints as any, {
       leagueId,
@@ -267,7 +279,6 @@ async function executeClosureJob(job: MatchdayAutomationJob) {
     await translateLeagueRealPlayersValues(leagueId);
   }
 
-  const localEm = orm.em.fork();
   const freshMatchday = await localEm.findOne(Matchday, { id: matchday.id });
   if (freshMatchday) {
     freshMatchday.status = 'completed';
