@@ -25,6 +25,10 @@ function addHours(date: Date, hours: number): Date {
   return new Date(date.getTime() + (hours * 60 * 60 * 1000));
 }
 
+function addMinutes(date: Date, minutes: number): Date {
+  return new Date(date.getTime() + (minutes * 60 * 1000));
+}
+
 function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + (days * 24 * 60 * 60 * 1000));
 }
@@ -236,7 +240,7 @@ async function seedJobs() {
   }
 }
 
-async function executeClosureJob(job: MatchdayAutomationJob) {
+async function executeClosureJob(job: MatchdayAutomationJob): Promise<boolean> {
   const leagueId = Number((job.league as any)?.id ?? job.league);
   const matchday = job.matchday as Matchday | null;
   if (!Number.isFinite(leagueId) || leagueId <= 0 || !matchday) {
@@ -277,6 +281,11 @@ async function executeClosureJob(job: MatchdayAutomationJob) {
       season: matchday.season,
     });
     await translateLeagueRealPlayersValues(leagueId);
+  } else {
+    console.log(
+      `[matchday-automation] closure job=${job.id} league=${leagueId} matchday=${matchday.matchdayNumber} omitido: todavía no es latest due`,
+    );
+    return false;
   }
 
   const freshMatchday = await localEm.findOne(Matchday, { id: matchday.id });
@@ -285,6 +294,8 @@ async function executeClosureJob(job: MatchdayAutomationJob) {
     (freshMatchday as any).autoUpdateAt = null; // evita que seedJobs lo vuelva a encolar
     await localEm.flush();
   }
+
+  return true;
 }
 
 async function executePostponedRecheckJob(job: MatchdayAutomationJob) {
@@ -381,16 +392,25 @@ async function processDueJobs() {
       await localEm.flush();
 
       try {
+        let shouldCompleteJob = true;
+
         if (job.step === 'matchday_closure') {
-          await executeClosureJob(job);
+          shouldCompleteJob = await executeClosureJob(job);
         } else if (job.step === 'postponed_recheck') {
           await executePostponedRecheckJob(job);
         } else if (job.step === 'postponed_match_sum') {
           await executePostponedMatchSumJob(job);
         }
 
-        job.status = 'completed';
-        job.finishedAt = new Date();
+        if (shouldCompleteJob) {
+          job.status = 'completed';
+          job.finishedAt = new Date();
+        } else {
+          job.status = 'pending';
+          job.runAt = addMinutes(new Date(), 15);
+          job.lastError = 'waiting until matchday is latest due for full closure';
+          job.finishedAt = null;
+        }
         await localEm.flush();
       } catch (error: any) {
         const message: string = error?.message ?? 'unknown automation failure';
