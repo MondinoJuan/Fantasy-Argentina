@@ -25,6 +25,10 @@ function addHours(date: Date, hours: number): Date {
   return new Date(date.getTime() + (hours * 60 * 60 * 1000));
 }
 
+function addMinutes(date: Date, minutes: number): Date {
+  return new Date(date.getTime() + (minutes * 60 * 1000));
+}
+
 function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + (days * 24 * 60 * 60 * 1000));
 }
@@ -236,22 +240,34 @@ async function seedJobs() {
   }
 }
 
-async function executeClosureJob(job: MatchdayAutomationJob) {
+async function executeClosureJob(job: MatchdayAutomationJob): Promise<boolean> {
   const leagueId = Number((job.league as any)?.id ?? job.league);
   const matchday = job.matchday as Matchday | null;
   if (!Number.isFinite(leagueId) || leagueId <= 0 || !matchday) {
     throw new Error('invalid closure job league/matchday');
   }
 
-  const competitionId = Number((job.league as any)?.idEnApi ?? 0);
+  const localEm = orm.em.fork();
+  const league = await localEm.findOne(League, { id: leagueId });
+  const competitionId = Number(league?.idEnApi ?? (job.league as any)?.idEnApi ?? 0);
   if (Number.isFinite(competitionId) && competitionId > 0) {
     await syncPlayedMatchesResultsForCompetition(competitionId);
     await processRankingsForCompetition(competitionId);
   }
 
-  // Solo la fecha más reciente (isLatest) cierra el mercado y suma puntos.
-  // Las fechas históricas solo necesitaban sincronizar resultados y rankings.
-  const isLatest = (job.payload as any)?.isLatest !== false;
+  let isLatest = (job.payload as any)?.isLatest !== false;
+  if (!isLatest) {
+    const latestDueMatchday = await localEm.findOne(Matchday, {
+      league: { id: leagueId },
+      status: { $ne: 'completed' },
+      autoUpdateAt: { $ne: null, $lte: new Date() },
+    } as any, {
+      orderBy: [{ matchdayNumber: 'desc' }, { autoUpdateAt: 'desc' }],
+    });
+
+    isLatest = Number(latestDueMatchday?.id ?? 0) === Number(matchday.id ?? 0);
+  }
+
   if (isLatest) {
     await invokeController(sumEndOfMatchdayPoints as any, {
       leagueId,
@@ -265,15 +281,21 @@ async function executeClosureJob(job: MatchdayAutomationJob) {
       season: matchday.season,
     });
     await translateLeagueRealPlayersValues(leagueId);
+  } else {
+    console.log(
+      `[matchday-automation] closure job=${job.id} league=${leagueId} matchday=${matchday.matchdayNumber} omitido: todavía no es latest due`,
+    );
+    return false;
   }
 
-  const localEm = orm.em.fork();
   const freshMatchday = await localEm.findOne(Matchday, { id: matchday.id });
   if (freshMatchday) {
     freshMatchday.status = 'completed';
     (freshMatchday as any).autoUpdateAt = null; // evita que seedJobs lo vuelva a encolar
     await localEm.flush();
   }
+
+  return true;
 }
 
 async function executePostponedRecheckJob(job: MatchdayAutomationJob) {
@@ -370,16 +392,25 @@ async function processDueJobs() {
       await localEm.flush();
 
       try {
+        let shouldCompleteJob = true;
+
         if (job.step === 'matchday_closure') {
-          await executeClosureJob(job);
+          shouldCompleteJob = await executeClosureJob(job);
         } else if (job.step === 'postponed_recheck') {
           await executePostponedRecheckJob(job);
         } else if (job.step === 'postponed_match_sum') {
           await executePostponedMatchSumJob(job);
         }
 
-        job.status = 'completed';
-        job.finishedAt = new Date();
+        if (shouldCompleteJob) {
+          job.status = 'completed';
+          job.finishedAt = new Date();
+        } else {
+          job.status = 'pending';
+          job.runAt = addMinutes(new Date(), 15);
+          job.lastError = 'waiting until matchday is latest due for full closure';
+          job.finishedAt = null;
+        }
         await localEm.flush();
       } catch (error: any) {
         const message: string = error?.message ?? 'unknown automation failure';
