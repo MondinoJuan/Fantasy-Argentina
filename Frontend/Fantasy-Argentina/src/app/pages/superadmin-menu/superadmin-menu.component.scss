@@ -1,113 +1,75 @@
 :host {
-  --deep-plum: #190019;
-  --royal-violet: #2b124c;
-  --dusty-purple: #522b5b;
-  --mauve: #854f6c;
-  --rose-beige: #dfb6b2;
-  --soft-blush: #fbe4d8;
-
   display: block;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 10% 10%, rgba(223, 182, 178, 0.28), transparent 34%),
-    linear-gradient(150deg, #2b124c 0%, #522b5b 55%, #190019 100%);
-  padding: 1.5rem;
+  padding: 1.3rem;
 }
 
 .superadmin-page {
-  max-width: 1100px;
+  max-width: 1120px;
   margin: 0 auto;
-  background: rgba(251, 228, 216, 0.92);
-  border-radius: 1.2rem;
-  border: 1px solid rgba(82, 43, 91, 0.42);
-  box-shadow: 0 20px 44px rgba(25, 0, 25, 0.34);
-  padding: 1.4rem;
+  background: linear-gradient(170deg, rgba(13, 37, 55, 0.95), rgba(11, 33, 50, 0.94));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.35rem;
 }
 
-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.8rem;
-  margin-bottom: 1rem;
-}
+header { display: flex; justify-content: space-between; align-items: center; gap: 0.8rem; margin-bottom: 1rem; }
 
-h1, h2, h3 { color: var(--royal-violet); }
-
-
-.actions-section {
-  margin-top: 1rem;
-}
-
-.actions-section h2 {
-  margin: 0 0 0.5rem;
-}
-.actions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 0.75rem;
-}
+.actions-section { margin-top: 1rem; }
+.actions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.7rem; }
 
 button {
-  padding: 0.74rem 1rem;
-  border-radius: 0.8rem;
   border: 0;
-  background: linear-gradient(120deg, var(--dusty-purple), var(--mauve));
-  color: #fff;
+  border-radius: 10px;
+  background: linear-gradient(120deg, var(--accent-2), var(--accent));
+  color: #002027;
+  font-weight: 800;
+  padding: 0.7rem 0.95rem;
   cursor: pointer;
-  font-weight: 700;
-  transition: transform 0.2s ease, filter 0.2s ease;
 }
-
-button:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
-button:disabled { opacity: 0.7; cursor: not-allowed; }
-
-button.secondary {
-  background: #fff8f4;
-  color: #3b1d48;
-  border: 1px solid rgba(82, 43, 91, 0.35);
-}
+button:disabled { opacity: 0.55; }
+.secondary { background: #123247; color: var(--text-1); }
 
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(25, 0, 25, 0.62);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: rgba(2, 11, 20, 0.72);
+  display: grid;
+  place-items: center;
   padding: 1rem;
+  z-index: 25;
 }
 
 .modal-card {
-  background: rgba(251, 228, 216, 0.96);
-  border: 1px solid rgba(82, 43, 91, 0.4);
-  border-radius: 1rem;
-  width: min(580px, 96vw);
+  width: min(560px, 95vw);
+  background: linear-gradient(170deg, rgba(13, 37, 55, 0.98), rgba(11, 33, 50, 0.97));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
   padding: 1rem;
-  box-shadow: 0 18px 34px rgba(25, 0, 25, 0.28);
 }
 
-form { display: grid; gap: 0.58rem; }
-label { display: grid; gap: 0.25rem; font-size: 0.92rem; color: #3b1d48; font-weight: 600; }
-input {
-  border: 1px solid rgba(82, 43, 91, 0.4);
-  border-radius: 0.7rem;
-  padding: 0.62rem 0.75rem;
-  background: #fff8f4;
+form { display: grid; gap: 0.6rem; }
+label { display: grid; gap: 0.25rem; font-weight: 600; }
+input,
+select {
+  border: 1px solid rgba(80, 137, 167, 0.4);
+  background: rgba(6, 22, 36, 0.88);
+  border-radius: 10px;
+  color: var(--text-1);
+  padding: 0.6rem 0.72rem;
 }
-input:focus { outline: none; border-color: var(--mauve); box-shadow: 0 0 0 3px rgba(133, 79, 108, 0.22); }
-.hint { margin: 0.15rem 0 0; font-size: 0.85rem; color: #5f3a67; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.6rem; }
 
-.modal-actions { display: flex; justify-content: flex-end; gap: 0.55rem; margin-top: 0.7rem; }
+.error { color: var(--danger); font-weight: 700; }
+.success { color: var(--ok); font-weight: 700; }
 
 .result-box {
   margin-top: 1rem;
-  background: #2b124c;
-  color: #fbe4d8;
-  padding: 1rem;
-  border-radius: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(7, 24, 38, 0.9);
+  padding: 0.9rem;
 }
-
-pre { white-space: pre-wrap; margin: 0; }
-.error { color: #8b1f49; font-weight: 600; }
-.success { color: #3f2d72; font-weight: 600; }
+pre { margin: 0; white-space: pre-wrap; color: var(--text-1); }
