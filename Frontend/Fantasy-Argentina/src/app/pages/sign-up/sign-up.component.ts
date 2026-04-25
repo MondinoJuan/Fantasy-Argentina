@@ -57,12 +57,15 @@ export class SignUpComponent {
       .pipe(finalize(() => this.isLoading = false))
       .subscribe({
         next: () => {
-          this.successMessage = 'Cuenta creada con éxito. Te redirigimos al login...';
+          this.successMessage = 'Cuenta creada. Revisá tu email para verificarla antes de iniciar sesión.';
           this.signUpForm.reset();
-          setTimeout(() => this.router.navigate(['/logIn']), 900);
+          setTimeout(() => this.router.navigate(['/logIn']), 1600);
         },
-        error: () => {
-          this.errorMessage = 'No se pudo crear la cuenta. Verificá los datos e intentá otra vez.';
+        error: (error) => {
+          const status = Number(error?.status ?? 0);
+          this.errorMessage = status === 500
+            ? 'No se pudo crear la cuenta. Revisá que el email no esté ya registrado.'
+            : 'No se pudo crear la cuenta. Verificá los datos e intentá otra vez.';
         }
       });
   }

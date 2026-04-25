@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ApiService } from '../../servicios/api.service';
 import { LoadingSpinnerComponent } from '../../components/loading-spinner/loading-spinner.component';
@@ -19,21 +19,94 @@ export class LogInComponent {
 
   isLoading = false;
   errorMessage = '';
+  successMessage = '';
 
   constructor(
     private readonly fb: FormBuilder,
     private readonly apiService: ApiService,
     private readonly authService: AuthService,
+    private readonly route: ActivatedRoute,
     private readonly router: Router
   ) {
     this.loginForm = this.fb.nonNullable.group({
       mail: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(4)]]
     });
+
+    this.tryVerifyEmailFromQueryToken();
+    this.loadGoogleSignInButton();
+  }
+
+  private tryVerifyEmailFromQueryToken(): void {
+    const verifyToken = this.route.snapshot.queryParamMap.get('verifyToken');
+    if (!verifyToken) {
+      return;
+    }
+
+    this.apiService.verifyEmail({ token: verifyToken }).subscribe({
+      next: ({ message }) => {
+        this.successMessage = message ?? 'Email verificado con éxito. Ya podés iniciar sesión.';
+        this.errorMessage = '';
+      },
+      error: () => {
+        this.errorMessage = 'El link de verificación es inválido o expiró.';
+      },
+    });
+  }
+
+  private loadGoogleSignInButton(): void {
+    setTimeout(() => {
+      const googleApi = (window as any).google;
+      const googleClientId = (window as any).__GOOGLE_CLIENT_ID__ as string | undefined;
+      if (!googleApi?.accounts?.id || !googleClientId) {
+        return;
+      }
+
+      googleApi.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: (response: { credential?: string }) => this.handleGoogleCredential(response?.credential),
+      });
+
+      googleApi.accounts.id.renderButton(
+        document.getElementById('google-signin-button'),
+        { theme: 'outline', size: 'large', shape: 'pill', text: 'signin_with', locale: 'es' }
+      );
+    }, 0);
+  }
+
+  private handleGoogleCredential(idToken?: string): void {
+    this.errorMessage = '';
+    this.successMessage = '';
+
+    if (!idToken) {
+      this.errorMessage = 'No se recibió un token válido desde Google.';
+      return;
+    }
+
+    this.isLoading = true;
+    this.apiService.loginWithGoogle({ idToken })
+      .pipe(finalize(() => this.isLoading = false))
+      .subscribe({
+        next: ({ data }) => {
+          const user = data?.user;
+          const token = data?.token;
+          if (!user?.id || !token) {
+            this.errorMessage = 'No encontramos un usuario con esos datos.';
+            return;
+          }
+
+          this.authService.setSession(token, user);
+          this.router.navigate([user.type === 'SUPERADMIN' ? '/superadmin-menu' : '/landingPage']);
+        },
+        error: () => {
+          this.errorMessage = 'No pudimos iniciar sesión con Google. Probá nuevamente.';
+        },
+      });
   }
 
   submit(): void {
     this.errorMessage = '';
+    this.successMessage = '';
 
     if (this.loginForm.invalid) {
       this.loginForm.markAllAsTouched();
@@ -61,7 +134,9 @@ export class LogInComponent {
           const status = Number(error?.status ?? 0);
           this.errorMessage = status === 401
             ? 'Credenciales inválidas.'
-            : 'No pudimos conectarnos al servidor. Probá nuevamente.';
+            : status === 403
+              ? 'Debés verificar tu email antes de iniciar sesión.'
+              : 'No pudimos conectarnos al servidor. Probá nuevamente.';
         }
       });
   }

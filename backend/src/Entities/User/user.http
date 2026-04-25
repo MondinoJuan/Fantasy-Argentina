@@ -12,7 +12,8 @@ Content-Type: application/json
   "username": "juanpere1z",
   "password": "ClaveSegura123!",
   "mail": "juan1.perez@example.com",
-  "type": "SUPERADMIN"
+  "type": "SUPERADMIN",
+  "authProvider": "LOCAL"
 }
 
 ### actualizar un registro de User por id
@@ -46,5 +47,6 @@ Content-Type: application/json
   "username": "adminglobal",
   "password": "ClaveSegura123!",
   "mail": "admin@example.com",
-  "type": "SUPERADMIN"
+  "type": "SUPERADMIN",
+  "authProvider": "LOCAL"
 }
