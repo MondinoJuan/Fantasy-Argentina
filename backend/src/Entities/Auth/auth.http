@@ -1,0 +1,28 @@
+### login local (requiere email verificado)
+POST http://127.0.0.1:3000/api/auth/login
+Content-Type: application/json
+
+{
+  "mail": "juan1.perez@example.com",
+  "password": "ClaveSegura123!"
+}
+
+### login Google
+POST http://127.0.0.1:3000/api/auth/google
+Content-Type: application/json
+
+{
+  "idToken": "GOOGLE_ID_TOKEN"
+}
+
+### verificar email local
+POST http://127.0.0.1:3000/api/auth/verify-email
+Content-Type: application/json
+
+{
+  "token": "TOKEN_RECIBIDO_POR_MAIL"
+}
+
+### obtener usuario autenticado
+GET http://127.0.0.1:3000/api/auth/me
+Authorization: Bearer {{token}}

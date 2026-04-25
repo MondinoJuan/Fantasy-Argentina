@@ -14,6 +14,18 @@ export class User extends BaseEntity {
   @Property({ nullable: false })
   password!: string;
 
+  @Property({ nullable: false, default: 'LOCAL' })
+  authProvider: 'LOCAL' | 'GOOGLE' = 'LOCAL';
+
+  @Property({ nullable: false, default: false })
+  isEmailVerified = false;
+
+  @Property({ nullable: true, length: 120 })
+  emailVerificationToken: string | null = null;
+
+  @Property({ nullable: true })
+  emailVerificationSentAt: Date | null = null;
+
   @Property({ nullable: false })
   registrationDate: Date = new Date();
 

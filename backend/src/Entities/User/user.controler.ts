@@ -3,6 +3,7 @@ import { User } from './user.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { USER_TYPES, isEnumValue } from '../../shared/domain-enums.js';
 import { hashPassword, isPasswordHashed } from '../../shared/security/password.js';
+import { buildEmailVerificationToken, sendVerificationEmail } from '../Auth/auth.service.js';
 
 const em = orm.em;
 
@@ -17,7 +18,8 @@ function sanitizeUserInput(req: Request, res: Response, next: NextFunction) {
         username: req.body.username,
         password: req.body.password,
         mail: normalizedMail,
-        type: req.body.type,
+    type: req.body.type,
+        authProvider: req.body.authProvider,
         superadminCode: req.body.superadminCode,
     };
 
@@ -52,6 +54,8 @@ function sanitizeUserOutput(user: User) {
     mail: user.mail,
     registrationDate: user.registrationDate,
     type: user.type,
+    authProvider: user.authProvider,
+    isEmailVerified: user.isEmailVerified,
   };
 }
 
@@ -84,9 +88,15 @@ async function findOne(req: Request, res: Response) {
 
 async function add(req: Request, res: Response) {
   try {
+    const authProvider = req.body.sanitizeUserInput.authProvider === 'GOOGLE' ? 'GOOGLE' : 'LOCAL';
+    const emailVerificationToken = authProvider === 'LOCAL' ? buildEmailVerificationToken() : null;
     const userInput = {
       ...req.body.sanitizeUserInput,
+      authProvider,
       type: resolveUserTypeForCreation(req.body.sanitizeUserInput.type, req.body.sanitizeUserInput.superadminCode),
+      isEmailVerified: authProvider === 'GOOGLE',
+      emailVerificationToken,
+      emailVerificationSentAt: emailVerificationToken ? new Date() : null,
     };
     delete (userInput as any).superadminCode;
 
@@ -96,6 +106,11 @@ async function add(req: Request, res: Response) {
 
     const item = em.create(User, userInput);
     await em.flush();
+
+    if (emailVerificationToken && item.mail) {
+      await sendVerificationEmail(item.mail, item.username, emailVerificationToken);
+    }
+
     res.status(201).json({ message: 'user created', data: sanitizeUserOutput(item) });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

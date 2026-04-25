@@ -42,5 +42,28 @@ button {
 }
 button:disabled { opacity: 0.68; cursor: not-allowed; }
 .error, .error-message { color: var(--danger); }
+.success-message { color: #67e8a8; }
+
+.separator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.2rem;
+  margin-bottom: 1rem;
+  color: var(--text-2);
+}
+
+.separator::before,
+.separator::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid rgba(80, 137, 167, 0.35);
+}
+
+.google-signin-button {
+  display: grid;
+  place-items: center;
+}
+
 .switch-link { text-align: center; margin: 0.9rem 0 0; color: var(--text-2); }
 a { color: var(--accent); font-weight: 700; }
