@@ -3,6 +3,7 @@ import { User } from './user.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { USER_TYPES, isEnumValue } from '../../shared/domain-enums.js';
 import { hashPassword, isPasswordHashed } from '../../shared/security/password.js';
+import { buildEmailVerificationToken, sendVerificationEmail } from '../Auth/auth.service.js';
 
 const em = orm.em;
 
@@ -17,7 +18,8 @@ function sanitizeUserInput(req: Request, res: Response, next: NextFunction) {
         username: req.body.username,
         password: req.body.password,
         mail: normalizedMail,
-        type: req.body.type,
+    type: req.body.type,
+        authProvider: req.body.authProvider,
         superadminCode: req.body.superadminCode,
     };
 
@@ -52,6 +54,8 @@ function sanitizeUserOutput(user: User) {
     mail: user.mail,
     registrationDate: user.registrationDate,
     type: user.type,
+    authProvider: user.authProvider,
+    isEmailVerified: user.isEmailVerified,
   };
 }
 
@@ -84,9 +88,15 @@ async function findOne(req: Request, res: Response) {
 
 async function add(req: Request, res: Response) {
   try {
+    const authProvider = req.body.sanitizeUserInput.authProvider === 'GOOGLE' ? 'GOOGLE' : 'LOCAL';
+    const emailVerificationToken = authProvider === 'LOCAL' ? buildEmailVerificationToken() : null;
     const userInput = {
       ...req.body.sanitizeUserInput,
+      authProvider,
       type: resolveUserTypeForCreation(req.body.sanitizeUserInput.type, req.body.sanitizeUserInput.superadminCode),
+      isEmailVerified: authProvider === 'GOOGLE',
+      emailVerificationToken,
+      emailVerificationSentAt: emailVerificationToken ? new Date() : null,
     };
     delete (userInput as any).superadminCode;
 
@@ -96,8 +106,29 @@ async function add(req: Request, res: Response) {
 
     const item = em.create(User, userInput);
     await em.flush();
-    res.status(201).json({ message: 'user created', data: sanitizeUserOutput(item) });
+
+    let verificationEmailSent = false;
+    if (emailVerificationToken && item.mail) {
+      try {
+        await sendVerificationEmail(item.mail, item.username, emailVerificationToken);
+        verificationEmailSent = true;
+      } catch (mailError: any) {
+        console.error('[signup] error enviando mail de verificación:', mailError?.message ?? mailError);
+      }
+    }
+
+    res.status(201).json({
+      message: verificationEmailSent
+        ? 'user created. verification email sent'
+        : 'user created. verification email pending (contact support)',
+      data: sanitizeUserOutput(item),
+      meta: { verificationEmailSent },
+    });
   } catch (error: any) {
+    if (String(error?.message ?? '').toLowerCase().includes('duplicate entry')) {
+      return res.status(409).json({ message: 'El email ya está registrado.' });
+    }
+
     res.status(500).json({ message: error.message });
   }
 }

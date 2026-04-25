@@ -21,11 +21,22 @@
       </small>
 
       <p class="error-message" *ngIf="errorMessage">{{ errorMessage }}</p>
+      <p class="success-message" *ngIf="successMessage">{{ successMessage }}</p>
 
       <button type="submit" [disabled]="isLoading">
         {{ isLoading ? 'Entrando...' : 'Entrar' }}
       </button>
     </form>
+
+    <div class="separator">
+      <span>o</span>
+    </div>
+
+    <button type="button" class="google-fallback-button" (click)="triggerGoogleLogin()" [disabled]="isLoading">
+      {{ isLoading ? 'Procesando...' : 'Continuar con Google' }}
+    </button>
+
+    <div id="google-signin-button" class="google-signin-button"></div>
 
     <app-loading-spinner *ngIf="isLoading" label="Validando credenciales" size="2.1rem" />
 

@@ -43,5 +43,35 @@ button {
 button:disabled { opacity: 0.68; cursor: not-allowed; }
 .error, .error-message { color: var(--danger); }
 .success-message { color: var(--ok); }
+
+.separator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.2rem;
+  margin-bottom: 1rem;
+  color: var(--text-2);
+}
+
+.separator::before,
+.separator::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid rgba(80, 137, 167, 0.35);
+}
+
+.google-link {
+  display: block;
+  text-align: center;
+  margin-bottom: 0.7rem;
+  background: #ffffff;
+  color: #1f2937;
+  border: 1px solid rgba(156, 163, 175, 0.6);
+  border-radius: 10px;
+  padding: 0.72rem 0.8rem;
+  text-decoration: none;
+  font-weight: 700;
+}
+
 .switch-link { margin-top: 1rem; text-align: center; color: var(--text-2); }
 a { color: var(--accent); font-weight: 700; }

@@ -217,6 +217,12 @@ export class ApiService {
   login(payload: { mail: string; password: string }) {
     return this.http.post<{ message: string; data: { token: string; user: any } }>(`${this.url}/auth/login`, payload);
   }
+  loginWithGoogle(payload: { idToken: string }) {
+    return this.http.post<{ message: string; data: { token: string; user: any } }>(`${this.url}/auth/google`, payload);
+  }
+  verifyEmail(payload: { token: string }) {
+    return this.http.post<{ message: string }>(`${this.url}/auth/verify-email`, payload);
+  }
   me() { return this.http.get<{ message: string; data: any }>(`${this.url}/auth/me`); }
   getServerTime() {
     return this.http.get<{ message: string; data: { now: string; nowMs: number } }>(`${this.url}/time/now`);

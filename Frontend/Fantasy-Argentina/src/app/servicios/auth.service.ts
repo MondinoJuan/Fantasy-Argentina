@@ -5,6 +5,8 @@ export interface SessionUser {
   username: string;
   mail: string;
   type: 'USER' | 'SUPERADMIN';
+  authProvider?: 'LOCAL' | 'GOOGLE';
+  isEmailVerified?: boolean;
 }
 
 const TOKEN_KEY = 'authToken';
