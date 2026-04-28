@@ -57,6 +57,16 @@
             </label>
           </div>
           <p><strong>Plantel fijo:</strong> 11 titulares + 5 suplentes (16 jugadores)</p>
+          <div class="switches-grid">
+            <label class="switch-label">
+              <input type="checkbox" formControlName="allowSquadChangesDuringMatchday" />
+              Permitir modificar squad durante matchday
+            </label>
+            <label class="switch-label">
+              <input type="checkbox" formControlName="allowClauseExecutionDuringMatchday" />
+              Permitir ejecutar cláusulas durante matchday
+            </label>
+          </div>
           @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
           <button type="submit" [disabled]="isCreating">{{ isCreating ? 'Creando...' : 'Crear y unirme' }}</button>
         </form>

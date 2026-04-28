@@ -71,6 +71,8 @@ function sanitizeTournamentInput(req: Request, res: Response, next: NextFunction
     squadSize: req.body.squadSize,
     status: req.body.status,
     clauseWaitDays: toInt(req.body.clauseWaitDays),
+    allowSquadChangesDuringMatchday: toBoolean(req.body.allowSquadChangesDuringMatchday),
+    allowClauseExecutionDuringMatchday: toBoolean(req.body.allowClauseExecutionDuringMatchday),
     creatorUserId: req.body.creatorUserId,
   };
 
@@ -101,6 +103,25 @@ function toNumber(value: unknown): number | null {
   if (typeof value === 'string' && value.trim()) {
     const parsed = Number.parseFloat(value.trim());
     return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function toBoolean(value: unknown): boolean | null {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true' || normalized === '1') return true;
+    if (normalized === 'false' || normalized === '0') return false;
+  }
+
+  if (typeof value === 'number') {
+    if (value === 1) return true;
+    if (value === 0) return false;
   }
 
   return null;
@@ -731,6 +752,8 @@ async function add(req: Request, res: Response) {
 
     tournamentInput.creationDate = currentServerNow;
     tournamentInput.clauseEnableDate = computedClauseEnableDate;
+    tournamentInput.allowSquadChangesDuringMatchday = Boolean((tournamentInput as any).allowSquadChangesDuringMatchday);
+    tournamentInput.allowClauseExecutionDuringMatchday = Boolean((tournamentInput as any).allowClauseExecutionDuringMatchday);
 
     delete (tournamentInput as any).clauseWaitDays;
 

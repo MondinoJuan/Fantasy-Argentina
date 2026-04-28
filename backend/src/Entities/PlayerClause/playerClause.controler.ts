@@ -144,7 +144,9 @@ async function applyShielding(req: Request, res: Response) {
       if (!Number.isFinite(tournamentLeagueId) || tournamentLeagueId <= 0) {
         throw new Error('player clause tournament league not found');
       }
-      await assertSquadAndClausesUnlockedByLeague(transactionalEm as any, tournamentLeagueId);
+      await assertSquadAndClausesUnlockedByLeague(transactionalEm as any, tournamentLeagueId, undefined, {
+        allowClauseExecutionDuringMatchday: Boolean((playerClause.tournament as any)?.allowClauseExecutionDuringMatchday),
+      });
 
       const participant = await transactionalEm.findOne(Participant, { id: participantId });
       if (!participant) {
@@ -236,7 +238,9 @@ async function executeClausePurchase(req: Request, res: Response) {
       if (!Number.isFinite(tournamentLeagueId) || tournamentLeagueId <= 0) {
         throw new Error('dependant player tournament league not found');
       }
-      await assertSquadAndClausesUnlockedByLeague(transactionalEm as any, tournamentLeagueId);
+      await assertSquadAndClausesUnlockedByLeague(transactionalEm as any, tournamentLeagueId, undefined, {
+        allowClauseExecutionDuringMatchday: Boolean((dependantPlayer.tournament as any)?.allowClauseExecutionDuringMatchday),
+      });
 
       const buyerParticipant = await transactionalEm.findOne(Participant, { id: buyerParticipantId, tournament: tournamentId } as any);
       const sellerParticipant = await transactionalEm.findOne(Participant, { id: sellerParticipantId, tournament: tournamentId } as any);
