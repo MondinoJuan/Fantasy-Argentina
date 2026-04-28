@@ -38,6 +38,13 @@ export class Tournament extends BaseEntity {
   @Property({ nullable: true })
   clauseEnableDate?: Date;
 
+
+  @Property({ nullable: false, default: false })
+  allowSquadChangesDuringMatchday: boolean = false;
+
+  @Property({ nullable: false, default: false })
+  allowClauseExecutionDuringMatchday: boolean = false;
+
   @OneToMany(() => Participant, (participant) => participant.tournament, {
     cascade: [Cascade.ALL],
   })

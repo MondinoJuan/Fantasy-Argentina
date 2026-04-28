@@ -128,3 +128,79 @@ button {
     padding-top: 1rem;
   }
 }
+
+
+.tournament-permissions {
+  margin-top: 0.15rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(23, 207, 209, 0.25);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(23, 207, 209, 0.14), transparent 55%),
+    linear-gradient(150deg, rgba(14, 41, 59, 0.78), rgba(8, 29, 45, 0.9));
+  display: grid;
+  gap: 0.65rem;
+}
+
+.switch-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  font-weight: 700;
+  color: #e8f6ff;
+  line-height: 1.25;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid rgba(108, 177, 214, 0.22);
+  background: rgba(7, 26, 40, 0.55);
+  transition: border-color .2s ease, transform .2s ease, background .2s ease;
+}
+
+.switch-label:hover {
+  border-color: rgba(23, 207, 209, 0.5);
+  background: rgba(11, 36, 54, 0.72);
+  transform: translateY(-1px);
+}
+
+.switch-label input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 2.9rem;
+  height: 1.65rem;
+  min-width: 2.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(90, 132, 162, 0.75);
+  background: linear-gradient(180deg, rgba(28, 53, 73, 0.95), rgba(16, 36, 53, 0.95));
+  position: relative;
+  cursor: pointer;
+  transition: background .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+
+.switch-label input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #f7fbff, #c8d8e6);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  transition: transform .2s ease;
+}
+
+.switch-label input[type='checkbox']:checked {
+  background: linear-gradient(125deg, var(--accent-2), var(--accent));
+  border-color: rgba(23, 207, 209, 0.95);
+  box-shadow: 0 0 0 3px rgba(23, 207, 209, 0.18);
+}
+
+.switch-label input[type='checkbox']:checked::after {
+  transform: translateX(1.22rem);
+}
+
+.switch-label input[type='checkbox']:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(23, 207, 209, 0.28);
+}

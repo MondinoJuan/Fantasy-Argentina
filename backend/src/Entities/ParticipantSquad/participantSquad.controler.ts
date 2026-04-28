@@ -158,7 +158,9 @@ async function add(req: Request, res: Response) {
       return;
     }
 
-    await assertSquadAndClausesUnlockedByLeague(em as any, leagueId);
+    await assertSquadAndClausesUnlockedByLeague(em as any, leagueId, undefined, {
+      allowSquadChangesDuringMatchday: Boolean((participant.tournament as any)?.allowSquadChangesDuringMatchday),
+    });
 
     const item = em.create(ParticipantSquad, req.body.sanitizeParticipantSquadInput);
     await em.flush();
@@ -209,7 +211,9 @@ async function update(req: Request, res: Response) {
       return;
     }
 
-    await assertSquadAndClausesUnlockedByLeague(em as any, leagueId);
+    await assertSquadAndClausesUnlockedByLeague(em as any, leagueId, undefined, {
+      allowSquadChangesDuringMatchday: Boolean(((itemToUpdate.participant as any)?.tournament as any)?.allowSquadChangesDuringMatchday),
+    });
 
     em.assign(itemToUpdate, req.body.sanitizeParticipantSquadInput);
     await em.flush();

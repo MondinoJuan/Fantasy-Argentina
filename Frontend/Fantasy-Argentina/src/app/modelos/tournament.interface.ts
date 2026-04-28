@@ -12,4 +12,6 @@ export interface tournamentI {
   status: TournamentStatus;
   publicCode?: string;
   clauseEnableDate?: Date;
+  allowSquadChangesDuringMatchday: boolean;
+  allowClauseExecutionDuringMatchday: boolean;
 }

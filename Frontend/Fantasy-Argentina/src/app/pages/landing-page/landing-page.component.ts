@@ -61,7 +61,9 @@ export class LandingPageComponent implements OnInit {
       leagueId: [0, [Validators.required, Validators.min(1)]],
       initialBudget: [20000000, [Validators.required, Validators.min(100000)]],
       clauseWaitDays: [14, [Validators.required, Validators.min(0), Validators.max(365)]],
-      status: ['active', Validators.required]
+      status: ['active', Validators.required],
+      allowSquadChangesDuringMatchday: [false],
+      allowClauseExecutionDuringMatchday: [false]
     });
 
 
@@ -147,6 +149,8 @@ export class LandingPageComponent implements OnInit {
       status: formValue.status as TournamentStatus,
       clauseWaitDays: Math.max(0, clauseWaitDays),
       creatorUserId: userId,
+      allowSquadChangesDuringMatchday: Boolean(formValue.allowSquadChangesDuringMatchday),
+      allowClauseExecutionDuringMatchday: Boolean(formValue.allowClauseExecutionDuringMatchday),
     }).pipe(
       finalize(() => this.isCreating = false),
         ).subscribe({
@@ -158,6 +162,8 @@ export class LandingPageComponent implements OnInit {
           initialBudget: 20000000,
           clauseWaitDays: 14,
           status: 'active',
+          allowSquadChangesDuringMatchday: false,
+          allowClauseExecutionDuringMatchday: false,
         });
 
         // Debo recuperar de la base de datos los players que perteneceran al equipo del participant.

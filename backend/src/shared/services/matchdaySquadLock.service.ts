@@ -11,6 +11,11 @@ export type SquadLockWindow = {
   reason: string | null;
 };
 
+export type TournamentLockOptions = {
+  allowSquadChangesDuringMatchday?: boolean;
+  allowClauseExecutionDuringMatchday?: boolean;
+};
+
 export class SquadAndClausesLockedError extends Error {
   readonly lockWindow: SquadLockWindow;
 
@@ -98,7 +103,13 @@ export async function assertSquadAndClausesUnlockedByLeague(
   entityManager: EntityManager,
   leagueId: number,
   referenceDate: Date = serverNow(),
+  options: TournamentLockOptions = {},
 ): Promise<void> {
+  const shouldBypassLock = Boolean(options.allowSquadChangesDuringMatchday) || Boolean(options.allowClauseExecutionDuringMatchday);
+  if (shouldBypassLock) {
+    return;
+  }
+
   const lockWindow = await resolveSquadLockWindowByLeague(entityManager, leagueId, referenceDate);
   if (lockWindow.locked) {
     throw new SquadAndClausesLockedError(lockWindow);
