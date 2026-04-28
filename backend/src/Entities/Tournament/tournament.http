@@ -17,7 +17,9 @@ Content-Type: application/json
   "squadSize": 16,
   "status": "active",
   "clauseWaitDays": 14,
-  "creatorUserId": 1
+  "creatorUserId": 1,
+  "allowSquadChangesDuringMatchday": false,
+  "allowClauseExecutionDuringMatchday": false
 }
 
 ### actualizar un registro de Tournament por id
@@ -30,7 +32,9 @@ Content-Type: application/json
   "initialBudget": 60000100,
   "squadSize": 125,
   "status": "inactive",
-  "clauseEnableDate": "2026-02-20T12:00:00.000Z"
+  "clauseEnableDate": "2026-02-20T12:00:00.000Z",
+  "allowSquadChangesDuringMatchday": true,
+  "allowClauseExecutionDuringMatchday": true
 }
 
 ### actualizar parcialmente un registro de Tournament por id
@@ -40,7 +44,8 @@ Content-Type: application/json
 {
   "name": "Liga Profesional actualizado",
   "leagueId": "1",
-  "status": "inactive"
+  "status": "inactive",
+  "allowSquadChangesDuringMatchday": false
 }
 
 ### eliminar un registro de Tournament por id

@@ -9,6 +9,8 @@ export interface addTournamentI {
   publicCode?: string;
   clauseWaitDays?: number;
   creatorUserId?: number;
+  allowSquadChangesDuringMatchday?: boolean;
+  allowClauseExecutionDuringMatchday?: boolean;
   sportId?: number;
   competitionId?: number;
 }

@@ -9,4 +9,6 @@ export interface tournamentPatchI {
   squadSize?: number;
   status?: TournamentStatus;
   clauseEnableDate?: Date;
+  allowSquadChangesDuringMatchday?: boolean;
+  allowClauseExecutionDuringMatchday?: boolean;
 }
