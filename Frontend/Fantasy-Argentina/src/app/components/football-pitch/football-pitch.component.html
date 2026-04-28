@@ -38,6 +38,7 @@
           <small class="pc-team">{{ player.teamName }}</small>
           <label class="captain-toggle">
             <input
+              class="ui-switch ui-switch--sm"
               type="checkbox"
               [checked]="isCaptain(player)"
               (change)="toggleCaptain(player)"

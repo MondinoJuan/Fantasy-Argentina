@@ -65,7 +65,7 @@
       <p>Total jugadores en market: {{ marketDependantIds.length }}</p>
       <p>Jugadores visibles con filtros: {{ filteredMarketDependantIds.length }}</p>
       <label class="market-bids-toggle">
-        <input type="checkbox" [(ngModel)]="showLoggedParticipantBids">
+        <input class="ui-switch" type="checkbox" [(ngModel)]="showLoggedParticipantBids">
         Mostrar resumen de mis pujas
       </label>
       <div class="market-bids-summary" *ngIf="showLoggedParticipantBids">
@@ -128,6 +128,7 @@
       <h2>Negociaciones</h2>
       <label class="negotiation-accepted-toggle">
         <input
+          class="ui-switch"
           type="checkbox"
           [(ngModel)]="showAcceptedNegotiations"
           (ngModelChange)="onNegotiationVisibilityToggle()"
