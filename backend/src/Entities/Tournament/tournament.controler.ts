@@ -153,6 +153,35 @@ function pickRandom<T>(values: T[], limit: number): T[] {
   return selected;
 }
 
+function pickWeightedRandom<T>(values: T[], limit: number, weightResolver: (value: T) => number): T[] {
+  const pool = [...values];
+  const selected: T[] = [];
+
+  while (pool.length > 0 && selected.length < limit) {
+    const weights = pool.map((item) => {
+      const weight = Number(weightResolver(item));
+      return Number.isFinite(weight) && weight > 0 ? weight : 0;
+    });
+    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+    if (totalWeight <= 0) break;
+
+    let target = Math.random() * totalWeight;
+    let selectedIndex = 0;
+    for (let index = 0; index < pool.length; index += 1) {
+      target -= weights[index];
+      if (target <= 0) {
+        selectedIndex = index;
+        break;
+      }
+    }
+
+    selected.push(pool[selectedIndex]);
+    pool.splice(selectedIndex, 1);
+  }
+
+  return selected;
+}
+
 function sortParticipantsByScoreWithRandomTieBreak(
   participants: Participant[],
   scoreResolver: (participant: Participant) => number = (participant) => Number(participant.totalScore ?? 0),
@@ -1308,6 +1337,17 @@ async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
           ? await transactionalEm.find(ParticipantSquad, { participant: { $in: participantIds } }, { orderBy: [{ participant: 'asc' }, { acquisitionDate: 'desc' }] })
           : [];
         const latestSquadByParticipantId = buildPreferredLatestSquadByParticipant(squads);
+        const ownedRealPlayerIds = new Set<number>();
+        for (const latestSquad of latestSquadByParticipantId.values()) {
+          const starters = Array.isArray(latestSquad.startingRealPlayersIds) ? latestSquad.startingRealPlayersIds : [];
+          const substitutes = Array.isArray(latestSquad.substitutesRealPlayersIds) ? latestSquad.substitutesRealPlayersIds : [];
+          for (const rawId of [...starters, ...substitutes]) {
+            const realPlayerId = Number(rawId);
+            if (Number.isFinite(realPlayerId) && realPlayerId > 0) {
+              ownedRealPlayerIds.add(realPlayerId);
+            }
+          }
+        }
 
         for (const market of currentMarkets) {
           const dependantPlayerIds = Array.isArray(market.dependantPlayerIds)
@@ -1378,9 +1418,12 @@ async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
         }
 
         const dependantPlayersInTournament = await transactionalEm.find(DependantPlayer, { tournament }, { populate: ['realPlayer'] });
-        const reservedRealPlayerIds = new Set<number>(dependantPlayersInTournament
-          .map((item) => Number(item.realPlayer?.id ?? 0))
-          .filter((id) => Number.isFinite(id) && id > 0));
+        const dependantByRealPlayerId = new Map<number, DependantPlayer>();
+        for (const dependant of dependantPlayersInTournament) {
+          const realPlayerId = Number(dependant.realPlayer?.id ?? 0);
+          if (!Number.isFinite(realPlayerId) || realPlayerId <= 0) continue;
+          dependantByRealPlayerId.set(realPlayerId, dependant);
+        }
 
         const quantityToAdd = participants.length * 4;
         if (quantityToAdd > 0) {
@@ -1388,24 +1431,44 @@ async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
           const candidates = teamIdsForLeague.length > 0
             ? await transactionalEm.find(RealPlayer, {
               active: true,
-              id: { $nin: [...reservedRealPlayerIds] },
+              ...(ownedRealPlayerIds.size > 0 ? { id: { $nin: [...ownedRealPlayerIds] } } : {}),
               realTeam: { $in: teamIdsForLeague },
             }, { limit: 1000 })
             : [];
 
-          const chosen = pickRandom(candidates, quantityToAdd);
-          const createdDependants = chosen.map((player) => transactionalEm.create(DependantPlayer, {
-            tournament,
-            realPlayer: player,
-            marketValue: 0,
-          } as any));
+          const chosen = pickWeightedRandom(candidates, quantityToAdd, (player) => {
+            const realPlayerId = Number(player.id ?? 0);
+            const dependant = dependantByRealPlayerId.get(realPlayerId);
+            const appearances = Number(dependant?.marketAppearances ?? 0);
+            return 1 / (1 + Math.max(0, appearances));
+          });
 
-          if (createdDependants.length > 0) {
-            transactionalEm.persist(createdDependants);
+          const selectedDependants: DependantPlayer[] = [];
+          for (const player of chosen) {
+            const realPlayerId = Number(player.id ?? 0);
+            if (!Number.isFinite(realPlayerId) || realPlayerId <= 0) continue;
+
+            let dependant = dependantByRealPlayerId.get(realPlayerId);
+            if (!dependant) {
+              dependant = transactionalEm.create(DependantPlayer, {
+                tournament,
+                realPlayer: player,
+                marketValue: 0,
+                marketAppearances: 0,
+              } as any);
+              transactionalEm.persist(dependant);
+              dependantByRealPlayerId.set(realPlayerId, dependant);
+            }
+
+            dependant.marketAppearances = Number(dependant.marketAppearances ?? 0) + 1;
+            selectedDependants.push(dependant);
+          }
+
+          if (selectedDependants.length > 0) {
             await transactionalEm.flush();
           }
 
-          const dependantIds = createdDependants
+          const dependantIds = selectedDependants
             .map((dependant) => Number(dependant.id ?? 0))
             .filter((id) => Number.isFinite(id) && id > 0);
 
