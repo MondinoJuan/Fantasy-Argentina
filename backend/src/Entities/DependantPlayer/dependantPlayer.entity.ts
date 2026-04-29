@@ -17,6 +17,9 @@ export class DependantPlayer extends BaseEntity {
   @Property({ nullable: true })
   marketValue?: number | null;
 
+  @Property({ nullable: false, default: 0 })
+  marketAppearances: number = 0;
+
   @OneToMany(() => PlayerClause, (playerClause) => playerClause.dependantPlayer, {
     cascade: [Cascade.ALL],
   })
