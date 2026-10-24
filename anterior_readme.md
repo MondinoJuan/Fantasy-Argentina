@@ -1,3 +1,5 @@
+> DOCUMENTO HISTÓRICO. No es el reglamento vigente. Las reglas confirmadas están en Reglas.md y el estado de implementación en Paso a paso.md. Sus horarios, fórmulas y roadmap pueden estar desactualizados.
+
 # Fantasy Argentina ⚽🇦🇷
 
 Aplicación web para jugar un **Fantasy de fútbol** con amigos, basada en la **Liga Argentina**, con mercado de pujas “a sobre cerrado”, cláusulas, negociaciones y ranking por fecha.

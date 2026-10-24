@@ -1,118 +1,84 @@
-# SUPERADMIN
-El superadministrador debe ser el encargado de, aparte de poder realizar un CRUD de cada entity del proyecto, llenar la BdD local con las tuplas correspondientes a cada entidad y realizar actualizaciones o modificaciones de claves foráneas (por ejemplo en caso de traspasos).
- 
+# Flujos, configuración y estado técnico
 
-# Creacion de Tournament
-Una persona ingresa a la página y puede hacerse una cuenta o ingresar con una ya creada.
-En la página principal un User debe poder consultar los torneos a los que pertenece o crear uno nuevo, la relacion entre User y Tournament se da a partir de Participant el cual contendra los datos propios del User y del Tournament al que pertenece. Cuando se crea el Tournament, se crea al mismo tiempo el Participant que linkea ambos, con algunos valores seteados por default (como bankBudget), y se le asignan 11 RealPlayers recuperados al azar desde la base de datos local (estos RealPlayer pueden existir una vez por Tournament, es decir, que para que otro Participant obtenga al RealPlayer, este debe realizar una Negotiation con el Participant dueño actual del RealPlayer y acordar un cierto dinero para la Transaction). 
-Estos RealPlayers recuperados deben pertenecer uno a cada posicion, por ejemplo, como la formación por default es '4-4-2', se deberían recuperar 1 goalkeeper, 4 defenders, 4 midfielders y 2 forwards. Total si despues el Participant decide cambiar la formación, va a tratar de cambiar los realPlayer el mismo mediante Bids o Negotiations.
-A su vez, cada vez que se cree un Participant para el Tournament, es decir que mas Users se linkeen a dicho Tournament, 4 RealPlayers que no estén ya en el Tournament (ya en el Market o perteneciente a un Participant) se deben recuperar al azar sin restriccion de posición y colocarse en el Market para que puedan realizarse Bids sobre ese RealPlayer. Las Bids consisten en que cada Participant ofrece una cantidad de plata por dicho RealPlayer, al final de cada Matchday (8hs despues del último Match jugado de dicha Matchday) se analizan las Bids y el Participant que haya ofertado la mayor cantidad de dinero se lleva el RealPlayer, los Participant no deben saber el valor de las Bids realizadas mientras el RealPlayer se encuentre en el Market (es decir mientras la puja siga activa).
+Referencia funcional: `Reglas.md`. Actualizado el 17 de octubre de 2026. Este archivo reemplaza los borradores anteriores con fórmulas y horarios contradictorios.
 
-# Realizar una puja
-Cuando un Participant realiza una Bid o una Negotiation por algun RealPlayer de un Participant rival, se reserva dicha cantidad de dinero: la reserva consta de que mientras no haya Bid o Negotiations activas, el availableMoney es el mismo que el bankBudget; pero cuando esta activa una o mas Bids o Negotiatios, se resta la sumatoria de dinero del availableMoney y se guarda en la propiedad reservedMoney, mientras el bankBudget no se inmuta (es como si mostrara el total). Si el Participant gana la Bid o le es aceptada la Negotiation, ahi si se descuenta dicha cantidad de dinero del reservedMoney y del bankBudget; si no gana la Bid o le rechazan la Negotiation, ese dinero se descuenta de reservedMoney, se le suma al availableMoney y el bankBudget no se modifica. 
-Para checkear si un Participant puede realizar el Bid o la Negotiation por cierta cantidad de dinero, se debe validar que sea menor que el availableMoney. 
+## Implementación existente
 
-# Realizar una Negotiation
-Un Participant puede observar un listado de sus Participant rivales y seleccionar uno para ver los RealPlayers que pertenezcan a dicho rival.
-Al seleccionar a un RealPlayer, el Participant puede seleccionar una cantidad de dinero para ofrecer por dicho RealPlayer, el Participant dueño del mismo deberia poder ver las ofertas que le llegan por sus RealPlayers y puede rechazarlas, aceptarlas o realizar una contraoferta. Si la Negotiation es aceptada, el RealPlayer deberia pasar del Participant dueño del pase previamente al Participant que oferto, este traspaso consta de eliminar la referencia que tiene un Participant sobre el RealPlayer y agregar dicha referencia al otro Participant.
+- Autenticación con contraseña scrypt, token firmado y sesión Angular.
+- Creación e inscripción por código en sala de espera. El creador arranca con un sorteo conjunto de once por participante, equilibrado por promedio de notas; los ingresos tardíos reciben once aleatorios libres.
+- Configuración en formulario, controller y entidad: nombre, liga, presupuesto, días de espera de cláusulas, cambios de alineación durante fecha y ejecución de cláusulas durante fecha.
+- Mercado, pujas, negociación, venta rápida, compra por cláusula y blindaje.
+- Capitán y cálculo de aportes, clasificaciones general y por fecha.
+- Sincronización deportiva local y jobs persistidos de cierre y postergados.
 
-# Cálculo de puntos
-Cada RealPlayer tendra un puntaje por Match por Matchday, en la api externa ese puntaje se llama "ranking". El puntaje que acumula un Participant en un Tournament consta de que cada vez que finalice una fecha (Matchday), se suma el puntaje que hayan obtenido cada uno de sus RealPlayers al puntaje total del Participant. 
-Por ende, si se obtiene un RealPlayer en la fecha 9, no se suman los puntajes obtenidos en las 8 fechas previas, y el Participant que era el dueño anterior del RealPlayer no pierde los puntos que éste le haya sumado.  
+Estos puntos existen en código; los defectos abiertos se enumeran abajo. No se presentan como funciones inexistentes ni se pide volver a confirmar sus configuraciones.
 
-# Fixture
-Cada vez que se actualiza el fixture se debe recuperar los resultados de los partidos ya jugados y de los que no se jugaron todavia guardar rivales, fecha, hora y gameId (ese es el ID con el que se buscara información luego en la API externa); esto para persistirlos en la base de datos con los datos necesarios para recuperar informacion sobre ellos luego mediante la api externa. 
-Si un partido es postpuesto, se deberia agregar la informacion del mismo (TeamHome, TeamAway, fecha, hora, gameId, fecha/stageNum) en un listado con el fin de actualizar la informacion mas tarde.
-Con los gameId de cada partido de cada fecha, si se jugo, se puede recuperar el "ranking" de los jugadores que participaron del mismo y persistir dicha informacion en la BdD.
+## Corrección actual: permisos y privacidad
 
-# Cláusulas (Shielding)
-Cuando un Participant compra un RealPlayer, ya sea mediante Bid o Negotiation, la cláusula (Shielding) de dicho RealPlayer se calcula sumando el precio que salió dicho RealPlayer mas el 150% de dicha cantidad de dinero.
-Si el RealPlayer es asignado al inicio al Participant, la cláusula (Shielding) es...
-El Participant puede aumentar el Shielding de cada uno de sus RealPlayer gastando el dinero que tengan disponible (availableMoney) a una razon de por cada unidad de dinero gastada/invertida en el RealPlayer, el Shielding aumenta dos unidades de dinero. Por ejemplo, si yo gasto 1 millon, el Shielding aumenta 2 millones.
+`gameAccessMiddleware` se ejecuta después de autenticar y antes de los routers de entidades. Autoriza las operaciones usando el usuario real y las relaciones persistidas. Las mutaciones nuevas requieren una política explícita; el CRUD administrativo queda reservado al superadmin.
 
-# Ranking
-Dentro de cada Tournament se debería poder observar en un apartado, una tabla que liste a los Users dentro de un Tournament (la relacion se da mediante Participant) ordenados de manera descendente por la cantidad de puntaje total de cada uno.
-Debe poder seleccionarse la fecha y ver un ranking ordenado tambien de manera descendete por los puntos de cada Participant, pero esta vez no por los puntos totales, sino que por los puntos obtenidos en dicha fecha por cada uno.
+- Crear/unirse/abandonar no permite suplantar otro usuario.
+- Solo el dueño opera sobre su plantel, sus pujas, sus ventas o su blindaje.
+- Ofertas y contraofertas verifican comprador, vendedor, torneo, jugador y turno de respuesta.
+- El perfil personal no admite cambios de rol.
+- Los roles de sesión se contrastan con la cuenta persistida para respetar bajas y revocaciones.
+- Las respuestas de pujas no contienen importes rivales ni relaciones anidadas que los revelen.
+- Las colecciones de partidas se filtran en MySQL; se conservan las consultas amplias a los datos deportivos locales, sin aumentar llamadas al proveedor.
+- Las colecciones de participantes conservan el banco público, pero solo el propietario o superadmin recibe el disponible y reservado.
+- Las relaciones de usuarios excluyen contraseña y correo. El perfil autenticado continúa mostrando su propio correo.
+- Las rutas del proveedor externo y sincronización requieren superadmin, incluso cuando usan GET.
 
-# Funcionamiento
-- Agregar que al persistir realPlayers, si el value es 'null', coloque valueCurrency = 'EUR' y value = 2000000.
-- Agregarle una columna a RealPlayer que seria precioTraducido que depende de la league, no porque la league tenga una regla de negocio, sino porque depende del value del RealPlayer más barato y del más caro de una league.
-- El valor de un realPlayer no debería ajustarse de manera lineal, sino según qué tan cerca esté de sus límites.
+La creación de la cláusula inicial desde la pantalla existente sigue permitida al dueño, pero el backend determina su valor. No se acepta un precio arbitrario enviado por el navegador.
 
-Si un realPlayer ya tiene un valor muy alto, como Aníbal Moreno en el ejemplo, significa que su precio está cerca del techo permitido. En ese caso, para sostenerse en ese valor debería rendir de forma casi perfecta de manera constante. Si empieza a encadenar matchs con puntajes muy bajos, su precio debería caer con fuerza. Si sus puntajes bajan pero siguen siendo aceptables, como varios 7 u 8, la caída debería existir, pero ser más moderada.
+## Pendientes acordados para siguientes correcciones
 
-En cambio, si un realPlayer ya tiene un valor muy bajo, significa que su precio está cerca del piso permitido. Para mantenerse en ese mínimo debería seguir teniendo rendimientos muy malos de forma sostenida. Si empieza a sacar buenas puntuaciones, su valor debería recuperarse. Y si encadena varios matchs buenos, el aumento tendría que ser importante, porque estaba subvaluado respecto de su rendimiento reciente.
+| Tema | Regla acordada | Estado de este cambio |
+|---|---|---|
+| Mercado | 3 jugadores por participante | Implementado: ingreso y renovación agregan 3; la renovación excluye también las compras recién adjudicadas. |
+| Cierre | Último inicio +5h; si sigue en curso, reintento +4h | Implementado con trabajos persistentes, reintentos, transacción y recuperación de postergados a inicio + 5h; requiere migración. |
+| Transferencias | Inmediatas/diferidas elegibles al crear | El selector específico no figura en el modelo/formulario actual; pendiente. |
+| Plantel | 11 titulares y 5 suplentes; solo 11 iniciales | Implementado: límites en servidor y transferencias, propiedad relacional y puestos explícitos; requiere migración 04. |
+| Capitán | Duplica puntos | Implementado; se conserva. |
+| Cláusula | Traducido + 3M, aumentos por torneo y conservación | Compra y blindaje pasan por el servicio común, con propiedad, límites y conservación del precio al transferir. |
+| Sorteo equilibrado | Promedio parecido de notas deportivas | Implementado: sala de espera, arranque por el creador y reparto conjunto por notas locales; ingresos tardíos con once libres y 3 nuevos de mercado. Requiere migración 07. |
+| Empates | Igual premio a igual puntaje | Implementado: misma posición y premio para puntajes iguales de la fecha. |
+| Precios | Evolución por rendimiento | Implementado: inicialización separada, signo del desvío corregido, orden por inicio del partido, base e historial idempotente; requiere migración 05. |
+| Puntos históricos | Alineación congelada por fecha; por partido si se permiten cambios | Implementado con revisiones y copias históricas; requiere aplicar la migración del punto 2 y verificar integración con MySQL. |
+| Economía | Reserva y registro de cada movimiento | Implementado: servicio común, reservas compartidas, movimientos, bloqueos y conciliación; pruebas con persistencia simulada. |
+| Experiencia móvil | Navegación, resúmenes y acciones más claras | Implementados navegación, resumen, movimientos privados, invitación, cancelación de pujas, controles sin arrastre y foco de modales. Sala de espera y arranque por el creador implementados; otros permisos de organizador siguen como ampliación. |
 
-En resumen, la lógica sería que los realPlayers cercanos al máximo sean más sensibles a una racha negativa, y los realPlayers cercanos al mínimo sean más sensibles a una racha positiva.
+## Alineaciones históricas
 
-Para hacer una traducción del precio inicial de cada RealPlayer de una league:
+El punto 2 está desarrollado en `docs/ALINEACIONES_HISTORICAS.md`. Los cambios de plantel se registran mediante un subscriber del ORM; el cálculo no utiliza el plantel más reciente para fechas viejas. El historial anterior a la instalación solo puede reconstruirse hasta donde existan datos fiables.
 
-	valueReal_MinDeLeague --------------- limiteMin 
-	valueReal_MaxDeLeague --------------- limiteMax 
-	valueReal_dePlayer ----------------- X?
+## Separación entre base local y proveedor deportivo
 
-	X = limiteMin + ((( valueReal_MaxDeLeague − valueReal_MinDeLeague ) / ( valueReal_dePlayer − valueReal_MinDeLeague )​) * (limiteMax − limiteMin ))
+El navegador consulta Express y Express lee las colecciones locales mediante MikroORM/MySQL. Filtrar esas consultas por permisos no consume cuota de SportsApiPro. Las sincronizaciones que sí consultan al proveedor permanecen centralizadas en el backend y restringidas al superadmin.
 
-Para hacer las correcciones en base al ultimo puntaje que obtuvo la ultima fecha:
+## Precios
 
-	1- Definir una nota esperada dependiendo del valor del jugador:
-        Se normaliza la posicion del jugador dentro del rango de precios:
-            p = ( valueTradActual − limiteMin ) / ( limiteMax − limiteMin )
+La traducción inicial correcta es:
 
-        Se decfine una nota esperada en funcion de esa posicion:
-            notaMinEsperada = 0
-            notaMaxEsperada = 10
-            notaEsperada = notaMinEsperada + p * ( notaMaxEsperada − notaMinEsperada )
+`mínimoJuego + ((valorRealJugador - mínimoRealLiga) / (máximoRealLiga - mínimoRealLiga)) * (máximoJuego - mínimoJuego)`
 
-	2- desvio = puntaje - notaEsperada
-		* Si desvío < 0, baja el percio.
-		* Si desvío > 0, sube el precio.
-		* Si desvío = 0, queda igual.
+Si máximo y mínimo reales coinciden se necesita un caso especial. La inicialización debe separarse de la evolución por forma reciente. El precio de cláusula se calcula aparte: valor traducido + 3M, más aumentos invertidos dentro del torneo.
 
-	3- Medir dónde está parado el value del realPlayer dentro del rango, se normaliza entre 0 y 1:
-		p = (valueTradActual - limiteMin) / (limiteMax - limiteMin)
-			* Si p aprox 0 -> está cerca del mínimo
-			* Si p aprox 1 -> está cerca del máximo
+## Verificación y base de datos
 
-	4- Realizar una corrección asimétrica, por ejemplo si debe subir y está cerca del mínimo, debe hacerlo en mayor medida a que si está cerca del máximo.
-		factorSubida = (1-p)
-		factorBajada = p
+`npm test` en `backend` ejecuta regresiones de seguridad, alineaciones históricas y automatización con persistencia simulada. Comprobar además compilación e integración con MySQL antes de desplegar. Los SQL y el modelo TXT históricos no deben usarse como si fueran migraciones actuales.
 
-	5- Función de corrección:
-		ajuste = k * desvío; k es una constante chica (0,03 ; 0,05)
+## Cierre automático
 
-		* Si puntaje > 6: nuevoValor = valorTradActual + ajuste * factorSubida * valorTradActual
-		* Si puntaje < 6: nuevoValor = valorTradActual + ajuste * factorBajada * valorTradActual
+Ver `docs/CIERRE_AUTOMATICO.md`: orden ratings → pujas → puntos → mercado → premios, hora de cierre, pendientes, migración y operación del scheduler. Las correcciones de un partido postergado actualizan puntos y rankings sin volver a pagar premios.
 
-Si quiero hacerlo en base a los ultimos partidos, no en base al ultimo, debo usar un promedio ponderado de los ultimos y utilizar dicho promedio en vez de, puntaje:
-    scoreForm = 0.5 * notaultimo​ + 0.3 * notapenultimo ​+ 0.2 * notaantepenultimo​
+## Correcciones 3, 4 y 5
 
-## Dudas
-- No se cómo invocar la función de suma de puntajes a los Participant. Tal vez hacerlo cada vez que se actualicen los puntajes de cada RealPlayer (si el Participant lo tiene referenciado, que se le sume dicho "ranking" al puntaje del mismo), pero como hago para que se sumen solamente los puntajes actualizados recientemente y no todos los previos. 
-* Capaz se podria hacer con un trigger? que cada vez que se cree un PlayerPerformance se sume el puntaje almacenado en la propiedad pointsObtained al puntaje del Participant en totalScore.
+Ver `docs/ECONOMIA_Y_PLANTELES.md`. Se conservan mercados/pujas cerrados, se registran movimientos y se validan reservas, posesión y puestos en transacciones. La migración 04 requiere ejecutar antes su preflight de solo lectura. No se aplicó SQL a una base real.
 
-## Futuro
-* Hay que mejorar el sistema de final de pujas. Si lo hace el superadmin es injusto, si lo hace un tiempo despues de la ultima puja no termina mas (se pueden hacer pujas indefinidas por $0), si lo hago a un tiempo despues del ultimo partido de la fecha se puede romper por partido postpuesto. ¿Qué hacer si dos personas ofertan la misma cantidad de dinero? Si hay una oferta = $0 tampoco deberia dar la puja por ganada.
-* Botones para modificar o eliminar entidades en el superadmin-menu.
-* Mantener esta modalidad de tournament, pero tambien incluir la opcion de draft. Esta modalidad de tournament consiste en que al crear un tournament se invita a los Users que participarán, estos eligirán los realPlayers por turnos hasta completar un 11 (previamente se elige la formación que utilizarán). Además, al final de cada fecha se otorga la posibilidad de elegir un realPlayer a cada participant por turnos, yendo desde el último en el ranking de puntos hasta el primero. Los turnos del draft pueden ser intercambiables, pero no se a cambio de qué.
-* Agregar entity de squad por matchday.
-* Que al apretar 'Recuperar rankings por jugador/fecha' no busque de todas las fechas, ya que al efectuarse cada fecha no hace falta las anteriores.
-* Agregar en la creacion de tournament switchs que permitan o no realizar clausulazos o cambios en la alineacion durante una fecha.
+## Actualización de puntos 7, 8 y 9
 
+Ver `docs/PRECIOS_EXPERIENCIA_Y_PRIVACIDAD.md`. El retiro conserva historial y evita repetir el sorteo (migración 06); las colecciones privadas se filtran también por torneo en el servidor y mantienen autorización. Las colecciones deportivas globales siguen siendo consultas locales, sin consumir cuota del proveedor. Desarrollo usa la API local; configuración de base externa mediante `.env`.
 
-## Listado ligas
-SPORTSAPIPRO V2:
-17 - Premier League - season ID: 76986
-480 - CONMEBOL Sudamericana - season ID: 87770
-384 - CONMEBOL Libertadores - season ID: 87760
-8 - La liga - season ID: 77559
-155 - Liga Profesional de Fútbol - season ID: 87913
-7 - UEFA champions league - season ID: 76953
-16 - World Cup
-679 - UEFA Europa league
-17015 - UEFA conference league
-357 - FIFA Club World Cup
-295 - World Cup Qual. CONMEBOL
-35 - Bundesliga - season ID:
-23 - Serie A - season ID:
-34 - Ligue 1 - season ID:
+## Sala de espera y sorteo por calidad
+
+La aclaración posterior reemplaza el equilibrio monetario por el promedio de notas locales. Ver `docs/SORTEO_Y_SALA_DE_ESPERA.md`. El sorteo inicial ocurre una sola vez cuando el creador arranca; luego siguen admitiéndose participantes con once libres, sin volver a repartir los equipos existentes.

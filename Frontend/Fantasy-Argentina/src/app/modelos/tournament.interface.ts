@@ -11,6 +11,9 @@ export interface tournamentI {
   squadSize: number;
   status: TournamentStatus;
   publicCode?: string;
+  creatorUserId?: number | null;
+  initialDrawState?: 'waiting' | 'completed' | 'legacy';
+  initialDrawCompletedAt?: Date | null;
   clauseEnableDate?: Date;
   allowSquadChangesDuringMatchday: boolean;
   allowClauseExecutionDuringMatchday: boolean;

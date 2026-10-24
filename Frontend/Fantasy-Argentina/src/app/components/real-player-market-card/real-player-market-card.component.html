@@ -23,15 +23,15 @@
 </ng-container>
 
 <div class="modal-backdrop" *ngIf="showBidModal && player">
-  <article class="panel">
+  <article class="panel" appAccessibleDialog aria-label="Puja por jugador" (dialogEscape)="closeBidModal()">
     <h3>Ofertar por {{ player.name }}</h3>
     <p>Dinero disponible: ${{ availableMoney }}</p>
     <p *ngIf="existingBidForSelectedPlayer" class="alert">Ya ofertaste por este jugador: ${{ existingBidForSelectedPlayer?.offeredAmount }}. Podés modificarla.</p>
     <label>
       Monto
-      <input type="number" min="0" [(ngModel)]="bidAmount" />
+      <input type="number" min="1" step="1" [(ngModel)]="bidAmount" />
       <p class="state" *ngIf="player">
-        La oferta debe ser 0 o mayor/igual a ${{ player.translatedValue | number:'1.2-2' }}
+        La oferta debe alcanzar la cotización del jugador, en unidades enteras.
       </p>
     </label>
     <p class="state error" *ngIf="bidError">{{ bidError }}</p>
@@ -39,7 +39,8 @@
       <button type="button" (click)="submitBid()" [disabled]="isBidInvalid()">
         {{ existingBidForSelectedPlayer ? "Modificar oferta" : "Confirmar oferta" }}
       </button>
-      <button type="button" (click)="closeBidModal()">Cancelar</button>
+      <button type="button" *ngIf="existingBidForSelectedPlayer" (click)="cancelBid()" [disabled]="isSubmitting">Cancelar puja y liberar reserva</button>
+      <button type="button" (click)="closeBidModal()" [disabled]="isSubmitting">Volver</button>
     </div>
   </article>
 </div>

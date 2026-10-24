@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ParticipantMatchdayPoints } from './participantMatchdayPoints.entity.js';
 import { orm } from '../../shared/db/orm.js';
+import { readScope } from '../../shared/security/game-access.js';
 
 const em = orm.em;
 
@@ -29,7 +30,7 @@ function sanitizeParticipantMatchdayPointsInput(req: Request, res: Response, nex
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(ParticipantMatchdayPoints, {}, { populate: ['participant', 'matchday'] });
+    const items = await em.find(ParticipantMatchdayPoints, readScope(req.authUser!, 'participant-matchday-points', req.query.tournamentId), { populate: ['participant', 'matchday'] });
     res.status(200).json({ message: 'found all participant matchday pointss', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

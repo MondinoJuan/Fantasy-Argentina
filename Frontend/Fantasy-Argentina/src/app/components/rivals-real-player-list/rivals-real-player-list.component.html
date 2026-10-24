@@ -37,7 +37,7 @@
 </div>
 
 <div class="modal-backdrop" *ngIf="showModal">
-  <div class="modal-content">
+  <div class="modal-content" appAccessibleDialog aria-label="Operar con jugador" (dialogEscape)="!isSubmitting && closeModal()">
     <h3>{{ selectedPlayer?.name }}</h3>
     <p>Valor: ${{ selectedPlayer?.translatedValue ?? 0 | number:'1.0-0' }}</p>
     <p>Cláusula: ${{ selectedPlayer?.clauseValue ?? 0 | number:'1.0-0' }}</p>
@@ -73,7 +73,7 @@
     </div>
 
     <div class="mini-confirm-backdrop" *ngIf="showQuickSaleConfirm">
-      <div class="mini-confirm-modal">
+      <div class="mini-confirm-modal" appAccessibleDialog aria-label="Confirmar venta rápida" (dialogEscape)="!isSubmitting && cancelQuickSellConfirmation()">
         <h4>¿Estás seguro?</h4>
         <p>Este jugador se venderá al 70% de su valor.</p>
         <p>Recibirás ${{ quickSaleValue | number:'1.0-0' }}.</p>

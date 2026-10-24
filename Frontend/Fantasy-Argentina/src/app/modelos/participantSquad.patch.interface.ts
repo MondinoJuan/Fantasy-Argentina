@@ -3,6 +3,7 @@ export interface participantSquadPatchI {
   id: number;
   participant?: number;
   startingRealPlayersIds?: number[];
+  startingSlots?: { slotId: string; realPlayerId: number | null }[];
   substitutesRealPlayersIds?: number[];
   captainRealPlayerId?: number | null;
   formation?: ParticipantFormation;

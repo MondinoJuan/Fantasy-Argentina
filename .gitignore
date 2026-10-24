@@ -82,6 +82,9 @@ Frontend/Fantasy-Argentina/pnpm-lock.yaml
 # Angular environment files (no subir secrets)
 Frontend/Fantasy-Argentina/src/environments/environment*.ts
 !Frontend/Fantasy-Argentina/src/environments/environment.example.ts
+# Public API destinations only; secrets belong in backend/.env.
+!Frontend/Fantasy-Argentina/src/environments/environment.ts
+!Frontend/Fantasy-Argentina/src/environments/environment.production.ts
 
 ###############################################################################
 # SQL / Database (repo-wide)

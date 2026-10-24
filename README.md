@@ -1,346 +1,94 @@
-# ⚽ Fantasy Argentina 🇦🇷
+# Fantasy Argentina
 
-> Aplicación web para jugar **Fantasy de Fútbol** con amigos, basada en la **Liga Profesional Argentina** y otras competiciones. Cuenta con un mercado de pujas "a sobre cerrado", sistema de cláusulas dinámicas, negociaciones directas y rankings actualizados por fecha.
+Web para jugar al fútbol fantasy con amigos: torneos privados, jugadores exclusivos por torneo, pujas a sobre cerrado, negociaciones, cláusulas y clasificación general y por fecha.
 
----
+## Documentación vigente
 
-## 📑 Índice
+- `Reglas.md`: reglamento acordado y decisiones de producto.
+- `Paso a paso.md`: flujos actuales, configuración existente y pendientes técnicos.
+- `docs/SORTEO_Y_SALA_DE_ESPERA.md`: arranque por el creador, promedio de notas e ingresos tardíos con once libres.
+- `docs/PRECIOS_EXPERIENCIA_Y_PRIVACIDAD.md`: correcciones 7–9, sorteo equilibrado, precios, interfaz, retiros y consultas locales.
+- `docs/SEGURIDAD.md`: permisos y privacidad de la API.
+- `docs/ECONOMIA_Y_PLANTELES.md`: correcciones 3, 4 y 5, reservas, movimientos, propiedad y puestos.
+- `docs/CIERRE_AUTOMATICO.md`: cierre automático a último inicio + 5h, reintento +4h si sigue en curso, mercados y postergados.
+- `docs/ALINEACIONES_HISTORICAS.md`: cortes por fecha/partido, cálculo y migración del punto 2.
+- `ANALISIS_PROYECTO.md`: diagnóstico original; sus hallazgos deben leerse con las actualizaciones posteriores.
 
-1. [Visión General](#-visión-general)
-2. [Arquitectura y Tecnologías](#-arquitectura-y-tecnologías)
-3. [Roles de Usuario](#-roles-de-usuario)
-4. [Modelo de Datos](#-modelo-de-datos)
-5. [Mecánicas de Juego](#-mecánicas-de-juego)
-6. [Mercado y Economía](#-mercado-y-economía)
-7. [Cláusulas y Blindajes](#-cláusulas-y-blindajes)
-8. [Sistema de Puntuación](#-sistema-de-puntuación)
-9. [Valoración de Activos](#-valoración-de-activos)
-10. [Ciclo de Vida de una Fecha](#-ciclo-de-vida-de-una-fecha)
-11. [Ligas Disponibles](#-ligas-disponibles)
-12. [API Externa](#-api-externa)
-13. [Superadministrador](#-superadministrador)
-14. [Roadmap](#-roadmap)
+`anterior_readme.md`, el modelo relacional TXT y los SQL de reset son históricos. Las migraciones actuales están en `backend/migrations/`.
 
----
+## Arquitectura real
 
-## 🚀 Visión General
+- Frontend: Angular 18, TypeScript, RxJS y Angular CDK.
+- Backend: Node.js, Express 5 y TypeScript.
+- Persistencia: MySQL con MikroORM 6.
+- Datos deportivos: SportsApiPro; se sincronizan y guardan en la base local.
+- `User` es la cuenta; `Participant` representa esa cuenta dentro de un `Tournament`.
 
-Cada usuario crea o se une a un torneo eligiendo nombre y liga. Al ingresar, recibe un **plantel inicial de 11 jugadores** al azar. Estos generan puntos fecha a fecha según su rendimiento real, obtenido a través de la API `SportsApiPro`. El objetivo es gestionar el presupuesto, comprar y vender jugadores inteligentemente, y acumular la mayor cantidad de puntos para liderar el ranking.
+Las colecciones deportivas locales pueden seguir descargándose completas. Las colecciones con datos de partidas se filtran en el backend según el usuario y sus torneos. Esas consultas a MySQL no son llamadas al proveedor deportivo.
 
-**Rankings generados:** General · Por Fecha · Por Liga
+## Reglas principales acordadas
 
----
+- Mercado: **3 jugadores por participante**.
+- Cierre automático: **5 horas después del último inicio previsto**; si sigue en curso, se reintenta **4 horas después**, sin consultas intermedias.
+- Transferencias: modalidad inmediata o diferida seleccionable al crear el torneo.
+- Plantel: 11 titulares y hasta 5 suplentes; inicialmente se entregan solo 11 jugadores en formación 4-4-2 (1 arquero, 4 defensores, 4 mediocampistas y 2 delanteros).
+- Capitán: duplica sus puntos.
+- Compra directa por cláusula: precio inicial igual al valor traducido + 3.000.000. Los aumentos son propios de cada torneo; el precio de la cláusula se conserva al cambiar de dueño hasta una nueva inversión.
+- Blindaje: por cada unidad invertida, la cláusula aumenta dos.
+- Venta rápida: 70 % del valor de mercado.
+- Empates de puntos: mismo premio económico para quienes empaten.
+- Los torneos nuevos abren una sala de espera. El creador pulsa Arrancar torneo y se reparten once a todos, equilibrando el promedio de las notas deportivas locales. Quienes ingresen después reciben once aleatorios libres del torneo.
 
-## 🛠️ Arquitectura y Tecnologías
+Estas reglas son el objetivo funcional. Los desajustes pendientes del código están identificados en `Paso a paso.md`; documentar una decisión no significa que ya se haya implementado.
 
-| Capa | Tecnología |
-|---|---|
-| Frontend | Angular |
-| Backend / Base de Datos | SQL (Modelo relacional normalizado) |
-| Integración de datos | API `SportsApiPro` |
+## Configuración de torneo ya existente
 
-```
-/
-├─ frontend/      # Angular
-├─ backend/       # API / servicios / lógica de negocio
-├─ database/      # Scripts SQL, modelo, migraciones
-└─ docs/          # Documentación funcional y técnica
-```
+La creación ya permite elegir nombre, liga, presupuesto, días de espera para las cláusulas, cambios de alineación durante la fecha y ejecución de cláusulas durante la fecha. Esos parámetros están conectados al formulario, al backend y a la entidad `Tournament`.
 
----
+La selección de transferencias inmediatas/diferidas es un requisito confirmado; no se encontró un campo específico para esa modalidad en la configuración actual. Su implementación queda para la corrección correspondiente.
 
-## 👥 Roles de Usuario
+La puntuación utiliza alineaciones históricas. Si se permiten cambios durante la fecha, cada partido usa la alineación vigente al comenzar ese partido. Aplicar `backend/migrations/20261017_02_historical_lineups.sql` antes de arrancar la versión con historial; ver la guía de alineaciones históricas para bases existentes.
 
-### 🔑 Superadmin
-- CRUD completo sobre todas las entidades del sistema.
-- Poblar la base de datos local con jugadores y fixtures.
-- Asignar/desasignar `RealPlayer`s a `Participant`s directamente (sin pasar por el mercado).
-- Modificar puntajes (`RealPlayerPerformance`) para pruebas o ajustes manuales.
-- Gestionar actualizaciones de claves foráneas (ej. traspasos reales de jugadores).
-- Ver registros de cambios de alineaciones y movimientos de mercado.
+El cierre automático también requiere `backend/migrations/20261017_03_matchday_closure.sql`. La economía y propiedad requieren además la comprobación previa y migración `20261017_04_economy_ownership`; ver la guía de economía y planteles. El backend debe permanecer en ejecución; los trabajos y reintentos se guardan en MySQL. Ver `docs/CIERRE_AUTOMATICO.md` antes de activarlo en una base con cierres anteriores.
 
-### 👤 User / Participant
-Usuario regular. La relación entre `User` y `Tournament` se gestiona a través de la entidad `Participant`, que contiene el presupuesto, el puntaje y el equipo asociado.
+Las correcciones 7–9 requieren además las migraciones `20261017_05_price_evolution.sql` y `20261017_06_retired_participants.sql`. La sala de espera requiere también `20261017_07_tournament_lobby.sql`; preserva los torneos anteriores como iniciados. No se ejecutaron contra una base real en esta revisión.
 
----
+## Desarrollo local
 
-## 🗄️ Modelo de Datos
+Backend:
 
-### Entidades Principales
-
-| Entidad | Descripción |
-|---|---|
-| `User` | Cuenta de usuario. Se relaciona con torneos a través de `Participant`. |
-| `Tournament` | Torneo con nombre, liga y configuraciones (ej. si habilita clausulazos). |
-| `Participant` | Join entre `User` y `Tournament`. Contiene presupuesto, puntaje y equipo. |
-| `RealPlayer` | Jugador real con valor, cláusula y dueño actual dentro del torneo. |
-| `RealPlayerPerformance` | Puntaje de un jugador en una fecha/partido específico. |
-| `Fixture` | Partido con equipos, fecha, hora y `gameId` para la API. |
-| `Market` | Pool dinámico de jugadores disponibles para pujas en cada fecha. |
-
-### 💰 Presupuesto del Participante
-
-| Campo | Descripción |
-|---|---|
-| `bankBudget` | Presupuesto total (visible). Se modifica solo al concretar compras/ventas. |
-| `availableMoney` | Dinero disponible para pujar o negociar (`bankBudget` − `reservedMoney`). |
-| `reservedMoney` | Dinero bloqueado en pujas o negociaciones activas. |
-
-### Restricciones Importantes
-
-- Un `RealPlayer` puede existir **una sola vez por torneo** (exclusividad).
-- Para que un participante obtenga un jugador que ya tiene rival, debe negociarlo o comprarlo por cláusula.
-- Si el `value` de un jugador es `null` al insertar, se asume `value = 2.000.000 EUR`.
-
----
-
-## 📜 Mecánicas de Juego
-
-### 🏆 Creación e Inicio de Torneo
-1. El usuario crea un torneo o se une con un código.
-2. Se genera automáticamente un `Participant` que vincula al `User` con el `Tournament`.
-3. Se asigna un **presupuesto base** y un **plantel de 11 jugadores** al azar respetando la formación **4-4-2**:
-
-| Posición | Cantidad |
-|---|---|
-| Arquero | 1 |
-| Defensores | 4 |
-| Mediocampistas | 4 |
-| Delanteros | 2 |
-
-### 📋 Alineación y Penalizaciones
-
-- Los participantes pueden cambiar su formación usando el mercado.
-- Los cambios deben confirmarse con el **botón de guardado** para que se apliquen.
-- **⚠️ Fuera de posición:** Se restan **3 puntos** por cada jugador alineado en una posición incorrecta.
-- **🔒 Bloqueo durante fecha:** No se puede modificar la alineación ni realizar clausulazos mientras la fecha está en curso.
-
-### 🤝 Negociaciones Directas
-- Un participante puede ver el equipo de un rival y hacerle una oferta por un jugador.
-- El dueño puede **aceptar**, **rechazar** o **contraofertar**.
-- El monto ofrecido no debe superar el `availableMoney` del comprador.
-
-### 💨 Venta Rápida al Sistema
-- Precio de venta: **70%** del valor de mercado actual del jugador.
-- El dinero se acredita de forma **inmediata** al banco del participante.
-
----
-
-## 💸 Mercado y Economía
-
-### 📅 Flujo del Mercado por Fecha
-
-```
-  Inicio de Fecha          Durante la Fecha          Cierre de Fecha
-  ─────────────────        ─────────────────        ─────────────────
-  Se genera el pool   →    Pujas "a ciegas"    →    Se resuelven pujas
-  (3-4 × jugadores)        Solo se ve cantidad       Ganador: mayor monto
-  Se habilitan pujas       de ofertas, no montos     Empate: el primero
-                           Fondos se reservan        en pujar gana
+```powershell
+cd backend
+pnpm install --frozen-lockfile
+pnpm build
+pnpm start:dev
 ```
 
-### Reglas de Puja
+Frontend, en otra terminal:
 
-| Regla | Detalle |
-|---|---|
-| Monto mínimo | ≥ valor de mercado del jugador |
-| Cancelar puja | Modificar el monto a `$0` |
-| Visibilidad | Solo se ve la **cantidad** de pujas, nunca los montos |
-| Desempate | Mayor monto; si hay empate, gana quien pujó **primero** en el tiempo |
-
-### 💳 Flujo del Dinero en una Puja
-
-```
-Al pujar:         availableMoney  ──►  reservedMoney   (bankBudget sin cambios)
-Si gana:          reservedMoney   ──►  cobro definitivo (bankBudget disminuye)
-Si pierde:        reservedMoney   ──►  availableMoney   (se devuelve)
+```powershell
+cd Frontend/Fantasy-Argentina
+npm ci
+npm start
 ```
 
-### 🏅 Premio Económico por Posición (Draft Prize)
+Hace falta MySQL y configurar `backend/.env`. Variables relevantes: `DATABASE_URL`, `NODE_ENV`, `AUTH_TOKEN_SECRET`, `CORS_ALLOWED_ORIGINS`, `PORT`, `SPORTSAPIPRO_BASE_URL_V2` y las claves `SPORTSAPIPRO_API_KEY1`, `SPORTSAPIPRO_API_KEY2`, etc. No versionar secretos.
 
-Se otorga dinero al finalizar cada fecha según el ranking obtenido **en esa fecha**:
+El frontend de desarrollo usa `/api` y el proxy local; producción usa `environment.production.ts`. Copiar `backend/.env.example` a `.env` y configurar MySQL y el secreto de autenticación. No activar `DB_SYNC_SCHEMA` en producción ni ejecutar scripts de reset sobre una partida existente.
 
-| Posición | Monto Recibido |
-|:---:|:---:|
-| 🥇 1° al 3° | $ 1.000.000 |
-| 🥈 4° al 6° | $ 1.500.000 |
-| 🥉 7° al 9° | $ 2.000.000 |
+## Verificación
 
----
-
-## 🧷 Cláusulas y Blindajes
-
-> ⚙️ Esta funcionalidad se habilita luego de una cantidad de días configurable al crear el torneo.
-
-### Valor Base de Cláusula
-Cuando un jugador es comprado en el mercado, su cláusula base se calcula así:
-
-$$\text{Cláusula} = \text{PrecioCompra} + (\text{PrecioCompra} \times 1.5)$$
-
-### Proceso de Blindaje (Aumentar Cláusula)
-
-La relación de inversión es **1:2**: por cada `$1M` invertido, la cláusula aumenta `$2M`.
-
-**Ejemplo:**
-
-| Paso | Valor |
-|---|---|
-| Cláusula actual | $ 4.000.000 |
-| Inversión del dueño | $ 1.000.000 |
-| Aumento (`× 2`) | + $ 2.000.000 |
-| **Nueva cláusula** | **$ 6.000.000** |
-
-### ⏱️ Cooldown post-clausulazo
-Tras efectuar un clausulazo, el jugador queda **bloqueado por unos minutos** para que el nuevo dueño tenga tiempo de aumentar su cláusula e impedir una recompra inmediata.
-
-> La cláusula se mantiene si el jugador cambia de dueño mediante negociación directa.
-
----
-
-## 📊 Sistema de Puntuación
-
-### Cálculo de Puntos
-- **Fuente:** API externa `SportsApiPro`.
-- Los puntos se obtienen del campo `ranking` del rendimiento real del jugador.
-- Si un jugador **no juega** o está lesionado, suma **0 puntos**.
-- Se normaliza la posición del jugador para calcular una "nota esperada" y comparar con su rendimiento real.
-
-### Penalizaciones
-
-| Situación | Penalización |
-|---|---|
-| Jugador fuera de su posición titular | −3 puntos por jugador |
-| Jugador no juega / lesionado | 0 puntos (sin penalización extra) |
-
-### Cierre de Fecha
-El cierre ocurre **4 horas después del último partido** de la fecha. En ese momento:
-1. Se resuelven las pujas del mercado.
-2. Se calculan los puntos de todos los participantes.
-3. Se otorgan los premios económicos (Draft Prize).
-4. Se ajustan los precios de los jugadores.
-5. Se renueva el mercado con nuevos jugadores libres.
-
-> Los traspasos y cambios de alineación se aceptan recién **4 horas después del cierre** para garantizar consistencia en los puntajes.
-
----
-
-## 📈 Valoración de Activos
-
-### 1. Traducción Inicial de Precio por Liga
-
-Se normaliza el valor real del jugador dentro de los topes económicos del juego:
-
-$$\text{Value} = \text{limiteMin} + \frac{\text{valueReal\\_Player} - \text{valueReal\\_MinDeLeague}}{\text{valueReal\\_MaxDeLeague} - \text{valueReal\\_MinDeLeague}} \times (\text{limiteMax} - \text{limiteMin})$$
-
-### 2. Fluctuación Post-Partido
-
-Se define la posición normalizada del jugador en el mercado:
-
-$$p = \frac{\text{valueTradActual} - \text{limiteMin}}{\text{limiteMax} - \text{limiteMin}}$$
-
-Con `p`, se calcula la **nota esperada**:
-
-$$\text{notaEsperada} = \text{notaMinEsperada} + p \times (\text{notaMaxEsperada} - \text{notaMinEsperada})$$
-
-### Lógica General de Fluctuación
-
-| Rendimiento vs. Nota Esperada | Efecto en el Valor |
-|---|---|
-| Muy por encima | Valor **sube** significativamente |
-| Por encima | Valor **sube** levemente |
-| Por debajo | Valor **baja** levemente |
-| Muy por debajo | Valor **baja** significativamente |
-
-> **Inercia:** Para cambios significativos de valor, el jugador debe encadenar **varios partidos consecutivos** con buen o mal rendimiento.
-
----
-
-## 🔄 Ciclo de Vida de una Fecha
-
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                         CICLO DE UNA FECHA                          │
-├─────────────┬──────────────────────────┬────────────────────────────┤
-│  DÍA 0      │  DURANTE LA FECHA        │  CIERRE (+4 hs)            │
-│  Apertura   │                          │                            │
-├─────────────┼──────────────────────────┼────────────────────────────┤
-│ • Generar   │ • Pujas "a sobre         │ • Resolver mercado         │
-│   mercado   │   cerrado" activas       │ • Calcular puntajes        │
-│   (3-4×N)   │ • Negociaciones directas │ • Aplicar penalizaciones   │
-│ • Habilitar │ • Alineación bloqueada   │ • Otorgar Draft Prize      │
-│   pujas     │ • Sin clausulazos        │ • Ajustar precios          │
-│             │                          │ • Renovar mercado          │
-└─────────────┴──────────────────────────┴────────────────────────────┘
-                                                    ▼
-                                    Período de Traspaso Libre (Día +4)
-                                    • Traspasos y negociaciones abiertas
-                                    • Clausulazos habilitados (según config)
-                                    • Reposición de dinero en bancos
+```powershell
+cd backend
+npm test
+pnpm build
 ```
 
----
+Las regresiones de permisos se ejecutan sin base de datos ni proveedor externo y comprueban también los tipos de la política de autorización. No sustituyen una prueba de integración con MySQL.
 
-## 🌐 Ligas Disponibles
+```powershell
+cd Frontend/Fantasy-Argentina
+npm run build -- --configuration development
+```
 
-| ID | Liga / Torneo | Season ID |
-|:---:|---|:---:|
-| 155 | 🇦🇷 Liga Profesional de Fútbol | 87913 |
-| 480 | 🏆 CONMEBOL Sudamericana | 87770 |
-| 384 | 🏆 CONMEBOL Libertadores | 87760 |
-| 17  | 🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League | 76986 |
-| 8   | 🇪🇸 La Liga | 77559 |
-
----
-
-## 🔌 API Externa
-
-**Proveedor:** `SportsApiPro`
-
-| Uso | Descripción |
-|---|---|
-| Jugadores | Obtener jugadores disponibles por liga y temporada |
-| Puntajes | Rendimiento real de los jugadores por partido |
-| Estado físico | Lesiones y disponibilidad de jugadores |
-
-**Optimización:**
-- Las llamadas a la API se realizan en **batch** al cierre de cada fecha (no en tiempo real).
-- Los datos se almacenan localmente para minimizar peticiones repetidas.
-- Los partidos postpuestos se registran y actualizan más tarde.
-
----
-
-## 🤖 Superadministrador
-
-El usuario con rol `admin` tiene acceso total al sistema:
-
-- ✅ Crear, editar y eliminar `Tournaments`, `Users` y cualquier entidad.
-- ✅ Asignar/desasignar jugadores a participantes directamente.
-- ✅ Modificar `RealPlayerPerformance` para pruebas o correcciones manuales.
-- ✅ Ver todos los registros de cambios de alineaciones y movimientos de mercado.
-
----
-
-## 🚀 Roadmap
-
-### MVP (En Desarrollo)
-- [x] Modelo de datos y arquitectura base
-- [x] Definición de reglas de negocio
-- [ ] Autenticación y gestión de usuarios (OAuth / JWT)
-- [ ] Creación de torneo e inyección inicial de planteles
-- [ ] Sistema de mercado base (pujas con reservas)
-- [ ] Lógica cron/jobs de cierre de fecha
-- [ ] Sistema de cláusulas con bloqueo temporal
-
-### Futuro
-- [ ] Mejoras en UX (interfaz de mercado más clara)
-- [ ] Seguridad: protección contra manipulaciones masivas de pujas
-- [ ] Sistema de chat privado entre participantes
-- [ ] Soporte para ligas adicionales
-
----
-
-<div align="center">
-
-**Fantasy Argentina** · Versión MVP · Documento de Referencia v1.0
-
-</div>
+El build de producción incorpora Google Fonts y necesita acceso a ese servicio. El diagnóstico inicial detectó problemas de resolución en las dependencias locales del backend; no debe confundirse una suite aislada aprobada con una compilación integral verificada.

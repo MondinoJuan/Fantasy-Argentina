@@ -49,6 +49,12 @@ export class MatchdayAutomationJob extends BaseEntity {
   payload?: Record<string, unknown> | null;
 
   @Property({ nullable: true })
+  leaseUntil?: Date | null;
+
+  @Property({ nullable: true, length: 36 })
+  leaseToken?: string | null;
+
+  @Property({ nullable: true })
   startedAt?: Date | null;
 
   @Property({ nullable: true })

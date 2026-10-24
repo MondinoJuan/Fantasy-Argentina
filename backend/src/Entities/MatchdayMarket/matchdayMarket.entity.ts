@@ -18,6 +18,9 @@ export class MatchdayMarket extends BaseEntity {
   @Property({ type: 'json', nullable: false })
   dependantPlayerIds: number[] = [];
 
+  @Property({ type: 'datetime', nullable: true })
+  closedAt?: Date | null;
+
   @Property({ nullable: false })
   minimumPrice!: number;
 
@@ -25,7 +28,7 @@ export class MatchdayMarket extends BaseEntity {
   origin!: MarketOrigin;
 
   @ManyToOne(() => Participant, { nullable: true, deleteRule: 'cascade' })
-  sellerParticipant?: Rel<Participant>;
+  sellerParticipant?: Rel<Participant> | null;
 
   @Property({ nullable: false })
   creationDate: Date = new Date();

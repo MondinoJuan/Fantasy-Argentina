@@ -14,6 +14,7 @@ import { Negotiation } from '../Negotiation/negotiation.entity.js';
 
 @Entity()
 @Unique({ properties: ['user', 'tournament'] })
+@Unique({ properties: ['id', 'tournament'] })
 export class Participant extends BaseEntity {
   @ManyToOne(() => User, { nullable: false, deleteRule: 'cascade' })
   user!: Rel<User>;
@@ -21,20 +22,26 @@ export class Participant extends BaseEntity {
   @ManyToOne(() => Tournament, { nullable: false, deleteRule: 'cascade' })
   tournament!: Rel<Tournament>;
 
-  @Property({ nullable: false })
+  @Property({ nullable: false, columnType: 'double' })
   bankBudget!: number;
 
-  @Property({ nullable: false, default: 0 })
+  @Property({ nullable: false, default: 0, hidden: true, columnType: 'double' })
   reservedMoney: number = 0;
 
-  @Property({ nullable: false, default: 0 })
+  @Property({ nullable: false, default: 0, hidden: true })
   availableMoney: number = 0;
 
-  @Property({ nullable: false, default: 0 })
+  @Property({ nullable: false, default: 0, columnType: 'double' })
   totalScore: number = 0;
 
   @Property({ nullable: false })
   joinDate: Date = new Date();
+
+  @Property({ type: 'datetime', nullable: true })
+  playingSince?: Date | null;
+
+  @Property({ type: 'datetime', nullable: true })
+  retiredAt?: Date | null = null;
 
 
   @OneToMany(() => ParticipantSquad, (participantSquad) => participantSquad.participant, {

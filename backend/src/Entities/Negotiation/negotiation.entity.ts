@@ -19,7 +19,10 @@ export class Negotiation extends BaseEntity {
   @ManyToOne(() => DependantPlayer, { nullable: false, deleteRule: 'cascade' })
   dependantPlayer!: Rel<DependantPlayer>;
 
-  @Property({ nullable: false })
+  @Property({ default: 0, columnType: 'double' })
+  reservedAmount = 0;
+
+  @Property({ nullable: false, columnType: 'double' })
   agreedAmount!: number;
 
   @Property({ nullable: false })

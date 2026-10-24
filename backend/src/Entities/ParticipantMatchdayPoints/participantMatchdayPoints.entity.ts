@@ -12,7 +12,7 @@ export class ParticipantMatchdayPoints extends BaseEntity {
   @ManyToOne(() => Matchday, { nullable: false, deleteRule: 'cascade' })
   matchday!: Rel<Matchday>;
 
-  @Property({ nullable: false })
+  @Property({ nullable: false, columnType: 'double' })
   matchdayPoints!: number;
 
   @Property({ nullable: true })

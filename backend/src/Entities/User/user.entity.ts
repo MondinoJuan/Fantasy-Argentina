@@ -8,10 +8,10 @@ export class User extends BaseEntity {
   @Property({ nullable: false })
   username!: string;
 
-  @Property({ nullable: false, unique: true })
+  @Property({ nullable: false, unique: true, hidden: true })
   mail!: string;
 
-  @Property({ nullable: false })
+  @Property({ nullable: false, hidden: true })
   password!: string;
 
   @Property({ nullable: false })

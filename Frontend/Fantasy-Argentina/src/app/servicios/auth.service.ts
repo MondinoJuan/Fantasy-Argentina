@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { RequestCacheService } from './request-cache.service';
 
 export interface SessionUser {
   id: number;
@@ -13,7 +14,10 @@ const USER_KEY = 'currentUser';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  constructor(private readonly requestCache: RequestCacheService) {}
+
   setSession(token: string, user: SessionUser): void {
+    this.requestCache.clear();
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     localStorage.setItem('currentUserId', String(user.id));
@@ -47,6 +51,7 @@ export class AuthService {
   }
 
   clearSession(): void {
+    this.requestCache.clear();
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(LEGACY_TOKEN_KEY);
     localStorage.removeItem(USER_KEY);

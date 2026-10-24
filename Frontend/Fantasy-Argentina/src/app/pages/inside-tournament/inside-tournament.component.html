@@ -32,22 +32,62 @@
           </div>
 
           <div class="summary-item">
-            <span class="summary-label">ID torneo</span>
-            <strong class="summary-value">{{ tournament?.id }}</strong>
+            <span class="summary-label">Participantes activos</span>
+            <strong class="summary-value">{{ participantsOrdered.length }}</strong>
           </div>
 
           <div class="summary-item">
-            <span class="summary-label">Código torneo</span>
+            <span class="summary-label">Código de invitación</span>
             <strong class="summary-code">{{ tournamentCode }}</strong>
           </div>
         </div>
       </div>
     </header>
 
-    <section class="panel">
-      <h2>Squad titular (11 jugadores)</h2>
+    <h1>{{ tournament?.name }}</h1>
+    <nav class="tournament-nav" aria-label="Secciones del torneo">
+      <button type="button" *ngFor="let item of sections" [disabled]="isWaitingForStart && item.id !== 'home' && item.id !== 'history'" [attr.aria-current]="activeSection === item.id ? 'page' : null" (click)="selectSection(item.id)">{{ item.label }}</button>
+    </nav>
+    <p role="status" aria-live="polite" *ngIf="notice">{{ notice }}</p>
+    <section class="panel" *ngIf="isWaitingForStart && activeSection === 'home'">
+      <h2>Sala de espera</h2>
+      <p>Invitá a tus amigos. Al arrancar se sortearán once titulares para cada participante, buscando promedios parecidos de las notas deportivas guardadas. Todavía no hay planteles ni mercado.</p>
+      <p>Participantes: {{ participantsOrdered.length }}</p>
+      <ul><li *ngFor="let member of participantsOrdered">{{ member?.user?.username ?? 'Participante' }}{{ member?.user?.id === tournament?.creatorUserId ? ' · creador' : '' }}</li></ul>
+      <button type="button" (click)="copyInvitation()">Copiar enlace de invitación</button>
+      <button type="button" (click)="refreshLobby()" [disabled]="isStartingTournament">Actualizar participantes</button>
+      <button type="button" *ngIf="canStartTournament" (click)="startTournament()" [disabled]="isStartingTournament">{{ isStartingTournament ? 'Sorteando…' : 'Arrancar torneo' }}</button>
+      <p *ngIf="!canStartTournament">El creador arrancará el torneo cuando estén listos. Usá Actualizar participantes para comprobar si ya empezó.</p>
+      <p role="alert" *ngIf="startTournamentError">{{ startTournamentError }}</p>
+      <p>Después podrán ingresar más amigos: recibirán once jugadores libres de este torneo, sin modificar los planteles existentes.</p>
+    </section>
+    <section class="panel" [hidden]="isWaitingForStart || activeSection !== 'home'">
+      <h2>Tu próxima decisión</h2>
+      <p>Ofertas pendientes de tu respuesta: <strong>{{ pendingNegotiations }}</strong>.</p>
+      <p>Tenés {{ loggedParticipantBidSummaries.length }} pujas con dinero reservado.</p>
+      <p *ngIf="currentMatchday as current">Fecha {{ current.matchdayNumber }}. Próxima resolución de pujas: {{ (scheduledClosure?.nextWorkerAttemptAt ?? current.autoUpdateAt) | date:'dd/MM/yyyy HH:mm' }}. Puede demorarse si un partido sigue en curso.</p>
+      <p *ngIf="currentMatchday as current">{{ tournament?.allowSquadChangesDuringMatchday ? 'Cada partido usa la alineación vigente a su inicio.' : 'La alineación cierra al comenzar la fecha.' }} Inicio de fecha: {{ current.startDate | date:'dd/MM/yyyy HH:mm' }}.</p>
+      <p *ngIf="automationSchedule !== null">Partidos pendientes de recuperación: {{ pendingMatchCount }}.</p>
+      <p *ngIf="automationSchedule === null">El estado de recuperación de partidos no está disponible.</p>
+      <p *ngIf="scheduledClosure?.closureLastError" role="status">La actualización encontró un problema y volverá a intentarse automáticamente.</p>
+      <p>El estado de guardado de la alineación aparece en Mi equipo. El capitán duplica sus puntos.</p>
+      <p>Los empatados reciben el mismo premio: 1M para el top 3, más 500k por cada tramo de tres posiciones posterior.</p>
+      <p>Datos cargados desde la base: {{ loadedAt | date:'dd/MM/yyyy HH:mm:ss' }}.</p>
+      <button type="button" (click)="copyInvitation()">Copiar enlace de invitación</button>
+      <button type="button" (click)="selectSection('market')">Revisar ofertas</button>
+    </section>
+    <section class="panel" [hidden]="activeSection !== 'history'">
+      <h2>Tus movimientos</h2>
+      <p *ngIf="historyLoading" role="status">Cargando historial…</p>
+      <p *ngIf="historyError" role="alert">{{ historyError }}</p>
+      <p *ngIf="!historyLoading && !historyError && !historyRows.length">Todavía no hay movimientos registrados.</p>
+      <ul class="activity-list"><li *ngFor="let row of historyRows">{{ row.creationDate | date:'dd/MM/yyyy HH:mm' }} · {{ statusLabel(row.type) }} · ${{ row.amount | number:'1.0-0' }}</li></ul>
+    </section>
+    <section class="panel" [hidden]="activeSection !== 'squad'">
+      <h2>Plantel titular (11 jugadores)</h2>
       <app-football-pitch
         [startingPlayers]="startingPlayersForPitch"
+        [startingSlots]="startingSlotsForPitch"
         [substitutePlayers]="substitutePlayersForPitch"
         [participantSquadId]="participantSquadId"
         [captainRealPlayerId]="participantCaptainRealPlayerId"
@@ -58,11 +98,11 @@
       />
     </section>
 
-    <section class="panel">
-      <h2>Market de la fecha</h2>
-      <p>Para anular una oferta deben modificar el monto a $0</p>
+    <section class="panel" [hidden]="activeSection !== 'market'">
+      <h2>Mercado de la fecha</h2>
+      <p>El dinero de tus pujas queda reservado. Al ganar se descuenta; al perder o cancelar vuelve a estar disponible.</p>
       <p>Total de ofertas: {{ bids.length }}</p>
-      <p>Total jugadores en market: {{ marketDependantIds.length }}</p>
+      <p>Jugadores en el mercado: {{ marketDependantIds.length }}</p>
       <p>Jugadores visibles con filtros: {{ filteredMarketDependantIds.length }}</p>
       <label class="market-bids-toggle">
         <input class="ui-switch" type="checkbox" [(ngModel)]="showLoggedParticipantBids">
@@ -124,7 +164,7 @@
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel" [hidden]="activeSection !== 'market'">
       <h2>Negociaciones</h2>
       <label class="negotiation-accepted-toggle">
         <input
@@ -141,11 +181,11 @@
         <article class="negotiation-item" *ngFor="let negotiation of visibleNegotiations">
           <strong>{{ getNegotiationPlayerName(negotiation) }}</strong>
           <p>
-            Comprador: {{ negotiation?.buyerParticipant?.user?.username ?? ('Participant #' + (negotiation?.buyerParticipant?.id ?? '?')) }}
+            Comprador: {{ negotiation?.buyerParticipant?.user?.username ?? ('Participante #' + (negotiation?.buyerParticipant?.id ?? '?')) }}
             —
-            Vendedor: {{ negotiation?.sellerParticipant?.user?.username ?? ('Participant #' + (negotiation?.sellerParticipant?.id ?? '?')) }}
+            Vendedor: {{ negotiation?.sellerParticipant?.user?.username ?? ('Participante #' + (negotiation?.sellerParticipant?.id ?? '?')) }}
           </p>
-          <p>Oferta: ${{ (negotiation?.agreedAmount ?? 0) | number:'1.0-0' }} — Estado: {{ negotiation?.status ?? 'active' }}</p>
+          <p>Oferta: ${{ (negotiation?.agreedAmount ?? 0) | number:'1.0-0' }} — Estado: {{ statusLabel(negotiation?.status ?? 'active') }}</p>
 
           <div class="actions">
             <button type="button" *ngIf="canCancelNegotiation(negotiation)" (click)="cancelNegotiation(negotiation)">Cancelar</button>
@@ -167,7 +207,7 @@
     </section>
 
     <div class="negotiation-modal-backdrop" *ngIf="showNegotiationAmountModal">
-      <div class="negotiation-modal">
+      <div class="negotiation-modal" appAccessibleDialog aria-label="Modificar negociación" (dialogEscape)="closeCounterNegotiationModal()">
         <h3>Modificar monto de negociación</h3>
         <label>
           Nuevo monto
@@ -181,15 +221,15 @@
       </div>
     </div>
 
-    <section class="panel">
-      <h2>Equipos rivales (otros participants)</h2>
+    <section class="panel" [hidden]="activeSection !== 'league'">
+      <h2>Equipos de la liga</h2>
       <p *ngIf="tournament?.clauseEnableDate as clauseEnableDate">
         El pago de cláusulas se habilita el {{ clauseEnableDate | date:'dd/MM/yyyy HH:mm' }}.
       </p>
       <p *ngIf="!tournament?.clauseEnableDate">
         El pago de cláusulas se habilita 14 días después de crear el torneo.
       </p>
-      <p *ngIf="participantsOrdered.length === 0">Por ahora no hay participants cargados en este torneo.</p>
+      <p *ngIf="participantsOrdered.length === 0">Por ahora no hay participantes cargados en este torneo.</p>
       <app-rivals-real-player-list
         *ngFor="let listedParticipant of participantsOrdered"
         [participant]="listedParticipant"
@@ -208,7 +248,7 @@
       />
     </section>
 
-    <section class="panel">
+    <section class="panel" [hidden]="activeSection !== 'league'">
       <h2>Ranking del torneo</h2>
       <div class="toolbar">
         <label>
@@ -219,7 +259,7 @@
         </label>
       </div>
       <ol>
-        <li *ngFor="let row of rankingRows">{{ row.participantName }} — {{ row.points }} pts</li>
+        <li *ngFor="let row of rankingRows; let i = index" [value]="rankAt(i)">{{ row.participantName }} — {{ row.points }} pts</li>
       </ol>
     </section>
   </ng-container>

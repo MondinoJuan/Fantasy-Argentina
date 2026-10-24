@@ -7,6 +7,7 @@
   "scripts": {
     "start:dev": "tsc-watch --noClear -p ./tsconfig.json --onSuccess \"node ./dist/app.js\"",
     "build": "tsc -p ./tsconfig.json",
+    "test": "node --test test/game-access.test.mjs test/lineup-history.test.mjs test/matchday-automation.test.mjs test/game-economy.test.mjs test/pitch-slots.test.mjs test/player-prices.test.mjs test/ui-interactions.test.mjs test/initial-draw.test.mjs test/tournament-lobby.test.mjs",
     "start": "node ./dist/app.js"
   },
   "keywords": [],

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { Shielding } from './shielding.entity.js';
 import { orm } from '../../shared/db/orm.js';
+import { readScope } from '../../shared/security/game-access.js';
 
 const em = orm.em;
 
@@ -27,7 +28,7 @@ function sanitizeShieldingInput(req: Request, res: Response, next: NextFunction)
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(Shielding, {}, { populate: ['playerClause', 'participant'] });
+    const items = await em.find(Shielding, readScope(req.authUser!, 'shieldings', req.query.tournamentId), { populate: ['playerClause', 'participant'] });
     res.status(200).json({ message: 'found all shieldings', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

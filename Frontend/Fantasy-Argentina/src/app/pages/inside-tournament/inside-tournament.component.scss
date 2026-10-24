@@ -299,3 +299,10 @@ ol {
 .ui-switch:checked { background: linear-gradient(125deg, var(--accent-2), var(--accent)); border-color: rgba(23,207,209,.95); }
 .ui-switch:checked::after { transform: translateX(1.28rem); }
 .market-bids-toggle, .negotiation-accepted-toggle { display: inline-flex; align-items: center; gap: .6rem; font-weight: 700; }
+
+[hidden] { display: none !important; }
+.tournament-nav { display: flex; gap: .5rem; position: sticky; top: 0; z-index: 5; padding: .6rem; background: #101c30; overflow-x: auto; }
+.tournament-nav button { flex: 1 0 auto; min-height: 44px; }
+.tournament-nav [aria-current="page"] { background: #24614a; color: white; outline: 2px solid #74d9aa; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #74d9aa; outline-offset: 3px; }
+.activity-list { padding-left: 1.2rem; line-height: 1.8; }

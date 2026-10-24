@@ -35,6 +35,18 @@ export class Tournament extends BaseEntity {
   @Property({ nullable: false, unique: true })
   publicCode!: string;
 
+  @Property({ type: 'integer', nullable: true })
+  creatorUserId?: number | null;
+
+  @Property({ default: 'waiting' })
+  initialDrawState: 'waiting' | 'completed' | 'legacy' = 'waiting';
+
+  @Property({ type: 'datetime', nullable: true })
+  initialDrawCompletedAt?: Date | null;
+
+  @Property({ type: 'json', nullable: true })
+  initialDrawSummary?: Record<string, unknown> | null;
+
   @Property({ nullable: true })
   clauseEnableDate?: Date;
 

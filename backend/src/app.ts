@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import express from 'express';
+import { initializeGameIntegrity } from './shared/services/gameEconomy.service.js';
 import { orm, syncSchema } from './shared/db/orm.js';
 import { RequestContext } from '@mikro-orm/mysql';
 import { UserRouter } from './Entities/User/user.routes.js';
@@ -31,6 +32,9 @@ import "dotenv/config";
 import { requireAuth } from './shared/http/auth.middleware.js';
 import { serverNow, serverNowMs } from './shared/time/serverClock.js';
 import { startMatchdayAutomationScheduler } from './automation/matchdayAutomation.service.js';
+import { gameAccessMiddleware } from './shared/http/game-access.middleware.js';
+import { MatchdayLineupRouter } from './Entities/MatchdayLineup/matchdayLineup.routes.js';
+import { initializeSquadHistory } from './shared/services/historicalLineup.service.js';
 
 function getAllowedCorsOrigins(): string[] {
   const raw = process.env.CORS_ALLOWED_ORIGINS ?? '';
@@ -174,6 +178,7 @@ app.use('/api', (req, res, next) => {
   return requireAuth(req, res, next);
 });
 app.use('/api', mutationRateLimitMiddleware);
+app.use('/api', gameAccessMiddleware);
 app.get('/api/time/now', (_req, res) => {
   const now = serverNow();
   return res.status(200).json({
@@ -194,6 +199,7 @@ app.use('/api/real-team-league-participations', RealTeamLeagueParticipationRoute
 app.use('/api/real-player-league-values', RealPlayerLeagueValueRouter)
 app.use('/api/dependant-players', DependantPlayerRouter)
 app.use('/api/participant-squads', ParticipantSquadRouter)
+app.use('/api/matchday-lineups', MatchdayLineupRouter)
 app.use('/api/matchdays', MatchdayRouter)
 app.use('/api/matches', GameMatchRouter)
 app.use('/api/matchday-markets', MatchdayMarketRouter)
@@ -226,6 +232,8 @@ app.listen(3000, '0.0.0.0', () => {
 const PORT = Number(process.env.PORT ?? 3000);
 const HOST = process.env.HOST ?? '0.0.0.0';
 
+await initializeSquadHistory(orm.em.fork());
+await initializeGameIntegrity(orm.em.fork());
 startMatchdayAutomationScheduler();
 
 app.listen(PORT, HOST, () => {

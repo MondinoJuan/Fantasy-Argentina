@@ -1,6 +1,8 @@
 import { NextFunction, Request, Response } from 'express';
 import { verifyAuthToken } from '../security/token.js';
 import { USER_TYPES, UserType } from '../domain-enums.js';
+import { orm } from '../db/orm.js';
+import { User } from '../../Entities/User/user.entity.js';
 
 export interface AuthenticatedUser {
   id: number;
@@ -20,7 +22,7 @@ function parseBearerToken(headerValue: string | undefined): string | null {
   return token;
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction) {
+export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const token = parseBearerToken(req.headers.authorization);
   if (!token) {
     return res.status(401).json({ message: 'Missing Bearer token' });
@@ -31,10 +33,10 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     return res.status(401).json({ message: 'Invalid or expired token' });
   }
 
-  req.authUser = {
-    id: payload.userId,
-    type: payload.userType,
-  };
+  // Re-read the role so deleted accounts and revoked privileges cannot use stale tokens.
+  const user = await orm.em.findOne(User, { id: payload.userId });
+  if (!user || !USER_TYPES.includes(user.type)) return res.status(401).json({ message: 'Invalid session' });
+  req.authUser = { id: payload.userId, type: user.type };
 
   return next();
 }

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { Transaction } from './transaction.entity.js';
 import { orm } from '../../shared/db/orm.js';
+import { readScope } from '../../shared/security/game-access.js';
 import { TRANSACTION_TYPES, isEnumValue } from '../../shared/domain-enums.js';
 
 const em = orm.em;
@@ -33,7 +34,7 @@ function sanitizeTransactionInput(req: Request, res: Response, next: NextFunctio
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(Transaction, {}, { populate: ['originParticipant', 'destinationParticipant', 'tournament'] });
+    const items = await em.find(Transaction, readScope(req.authUser!, 'transactions', req.query.tournamentId), { populate: ['originParticipant', 'destinationParticipant', 'tournament'] });
     res.status(200).json({ message: 'found all transactions', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -73,7 +74,8 @@ async function update(req: Request, res: Response) {
     }
 
     const id = parseId(req.params.id);
-    const itemToUpdate = await em.getReference(Transaction, id);
+    const itemToUpdate = await em.findOneOrFail(Transaction, { id });
+    if (itemToUpdate.eventKey) { res.status(409).json({ message: 'Los movimientos económicos son inmutables; registrá un ajuste compensatorio' }); return; }
     em.assign(itemToUpdate, req.body.sanitizeTransactionInput);
     await em.flush();
     res.status(200).json({ message: 'transaction updated', data: itemToUpdate });
@@ -85,7 +87,8 @@ async function update(req: Request, res: Response) {
 async function remove(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
-    const item = em.getReference(Transaction, id);
+    const item = await em.findOneOrFail(Transaction, { id });
+    if (item.eventKey) { res.status(409).json({ message: 'Los movimientos económicos no se pueden borrar' }); return; }
     em.remove(item);
     await em.flush();
     res.status(200).json({ message: 'transaction deleted' });

@@ -85,7 +85,7 @@ function parseRetryAfterHeader(value: string | undefined): number | null {
 function getJson(url: string, headers: Record<string, string>): Promise<unknown> {
   return new Promise((resolve, reject) => {
     https
-      .get(url, { headers }, (response) => {
+      .get(url, { headers, timeout: 30_000 }, (response) => {
         const chunks: Uint8Array[] = [];
 
         response.on('data', (chunk) => chunks.push(chunk));
@@ -111,6 +111,7 @@ function getJson(url: string, headers: Record<string, string>): Promise<unknown>
           }
         });
       })
+      .on('timeout', function (this: import('node:http').ClientRequest) { this.destroy(new Error('SportsApiPro request timed out')); })
       .on('error', reject);
   });
 }

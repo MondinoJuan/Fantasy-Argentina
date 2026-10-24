@@ -1,3 +1,4 @@
+import { environment } from '../../environments/environment';
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
@@ -209,7 +210,7 @@ export interface SyncLeagueKnockoutStageJob {
   providedIn: 'root'
 })
 export class ApiService {
-  private readonly url = 'https://fantasy-argentina-production.up.railway.app/api';
+  private readonly url = environment.apiUrl;
 
   constructor(private readonly http: HttpClient) {}
 
@@ -231,10 +232,11 @@ export class ApiService {
   removeUser(id: number | string) { return this.http.delete<responseUserI>(`${this.url}/users/${id}`); }
 
   // Tournaments
-  searchTournaments() { return this.http.get<tournamentCollectionI>(`${this.url}/tournaments`); }
+  searchTournaments(tournamentId?: number | null) { return this.http.get<tournamentCollectionI>(`${this.url}/tournaments${tournamentId ? "?tournamentId=" + tournamentId : ""}`); }
   searchTournamentById(id: number | string) { return this.http.get<responseTournamentI>(`${this.url}/tournaments/${id}`); }
   searchTournamentByPublicCode(publicCode: string) { return this.http.get<responseTournamentI>(`${this.url}/tournaments/by-public-code/${encodeURIComponent(publicCode)}`); }
   postTournament(tournament: addTournamentI) { return this.http.post<responseTournamentI>(`${this.url}/tournaments`, tournament); }
+  startTournament(id: number) { return this.http.post<any>(`${this.url}/tournaments/${id}/start`, {}); }
   updateTournament(tournament: tournamentI) { return this.http.put<responseTournamentI>(`${this.url}/tournaments/${tournament.id}`, tournament); }
   patchTournament(tournament: tournamentPatchI) { return this.http.patch<responseTournamentI>(`${this.url}/tournaments/${tournament.id}`, tournament); }
   removeTournament(id: number | string) { return this.http.delete<responseTournamentI>(`${this.url}/tournaments/${id}`); }
@@ -276,7 +278,7 @@ export class ApiService {
   }
 
   // Participants
-  searchParticipants() { return this.http.get<participantCollectionI>(`${this.url}/participants`); }
+  searchParticipants(tournamentId?: number | null) { return this.http.get<participantCollectionI>(`${this.url}/participants${tournamentId ? "?tournamentId=" + tournamentId : ""}`); }
   searchParticipantById(id: number | string) { return this.http.get<responseParticipantI>(`${this.url}/participants/${id}`); }
   postParticipant(participant: addParticipantI) { return this.http.post<responseParticipantI>(`${this.url}/participants`, participant); }
   updateParticipant(participant: participantI) { return this.http.put<responseParticipantI>(`${this.url}/participants/${participant.id}`, participant); }
@@ -327,7 +329,7 @@ export class ApiService {
   }
 
   // Participant Squads
-  searchParticipantSquads() { return this.http.get<participantSquadCollectionI>(`${this.url}/participant-squads`); }
+  searchParticipantSquads(tournamentId?: number | null) { return this.http.get<participantSquadCollectionI>(`${this.url}/participant-squads${tournamentId ? "?tournamentId=" + tournamentId : ""}`); }
   searchParticipantSquadById(id: number | string) { return this.http.get<responseParticipantSquadI>(`${this.url}/participant-squads/${id}`); }
   postParticipantSquad(participantSquad: addParticipantSquadI) { return this.http.post<responseParticipantSquadI>(`${this.url}/participant-squads`, participantSquad); }
   updateParticipantSquad(participantSquad: participantSquadI) { return this.http.put<responseParticipantSquadI>(`${this.url}/participant-squads/${participantSquad.id}`, participantSquad); }
@@ -352,11 +354,11 @@ export class ApiService {
 
 
   // Dependant Players
-  searchDependantPlayers() { return this.http.get<any>(`${this.url}/dependant-players`); }
+  searchDependantPlayers(tournamentId?: number | null) { return this.http.get<any>(`${this.url}/dependant-players${tournamentId ? "?tournamentId=" + tournamentId : ""}`); }
   searchDependantPlayerById(id: number | string) { return this.http.get<any>(`${this.url}/dependant-players/${id}`); }
 
   // Matchday Markets
-  searchMatchdayMarkets() { return this.http.get<matchdayMarketCollectionI>(`${this.url}/matchday-markets`); }
+  searchMatchdayMarkets(tournamentId?: number | null) { return this.http.get<matchdayMarketCollectionI>(`${this.url}/matchday-markets${tournamentId ? "?tournamentId=" + tournamentId : ""}`); }
   searchMatchdayMarketById(id: number | string) { return this.http.get<responseMatchdayMarketI>(`${this.url}/matchday-markets/${id}`); }
   postMatchdayMarket(matchdayMarket: addMatchdayMarketI) { return this.http.post<responseMatchdayMarketI>(`${this.url}/matchday-markets`, matchdayMarket); }
   updateMatchdayMarket(matchdayMarket: matchdayMarketI) { return this.http.put<responseMatchdayMarketI>(`${this.url}/matchday-markets/${matchdayMarket.id}`, matchdayMarket); }
@@ -364,7 +366,7 @@ export class ApiService {
   removeMatchdayMarket(id: number | string) { return this.http.delete<responseMatchdayMarketI>(`${this.url}/matchday-markets/${id}`); }
 
   // Bids
-  searchBids() { return this.http.get<bidCollectionI>(`${this.url}/bids`); }
+  searchBids(tournamentId?: number | null) { return this.http.get<bidCollectionI>(`${this.url}/bids${tournamentId ? "?tournamentId=" + tournamentId : ""}`); }
   searchBidById(id: number | string) { return this.http.get<responseBidI>(`${this.url}/bids/${id}`); }
   searchBidsByTournamentAndRealPlayer(tournamentId: number | string, realPlayerId: number | string) { return this.http.get<responseBidByTournamentRealPlayerI>(`${this.url}/bids/tournament/${tournamentId}/real-player/${realPlayerId}`); }
   postBid(bid: addBidI) { return this.http.post<responseBidI>(`${this.url}/bids`, bid); }
@@ -381,7 +383,7 @@ export class ApiService {
   removePlayerPerformance(id: number | string) { return this.http.delete<responsePlayerPerformanceI>(`${this.url}/player-performances/${id}`); }
 
   // Participant Matchday Points
-  searchParticipantMatchdayPoints() { return this.http.get<participantMatchdayPointsCollectionI>(`${this.url}/participant-matchday-points`); }
+  searchParticipantMatchdayPoints(tournamentId?: number | null) { return this.http.get<participantMatchdayPointsCollectionI>(`${this.url}/participant-matchday-points${tournamentId ? "?tournamentId=" + tournamentId : ""}`); }
   searchParticipantMatchdayPointsById(id: number | string) { return this.http.get<responseParticipantMatchdayPointsI>(`${this.url}/participant-matchday-points/${id}`); }
   postParticipantMatchdayPoints(participantMatchdayPoints: addParticipantMatchdayPointsI) { return this.http.post<responseParticipantMatchdayPointsI>(`${this.url}/participant-matchday-points`, participantMatchdayPoints); }
   updateParticipantMatchdayPoints(participantMatchdayPoints: participantMatchdayPointsI) { return this.http.put<responseParticipantMatchdayPointsI>(`${this.url}/participant-matchday-points/${participantMatchdayPoints.id}`, participantMatchdayPoints); }
@@ -397,7 +399,7 @@ export class ApiService {
   removePlayerPointsBreakdown(id: number | string) { return this.http.delete<responsePlayerPointsBreakdownI>(`${this.url}/player-points-breakdowns/${id}`); }
 
   // Player Clauses
-  searchPlayerClauses() { return this.http.get<playerClauseCollectionI>(`${this.url}/player-clauses`); }
+  searchPlayerClauses(tournamentId?: number | null) { return this.http.get<playerClauseCollectionI>(`${this.url}/player-clauses${tournamentId ? "?tournamentId=" + tournamentId : ""}`); }
   searchPlayerClauseById(id: number | string) { return this.http.get<responsePlayerClauseI>(`${this.url}/player-clauses/${id}`); }
   postPlayerClause(playerClause: addPlayerClauseI) { return this.http.post<responsePlayerClauseI>(`${this.url}/player-clauses`, playerClause); }
   applyShieldingToPlayerClause(payload: { playerClauseId: number; participantId: number; amount: number }) {
@@ -427,7 +429,7 @@ export class ApiService {
   removeShielding(id: number | string) { return this.http.delete<responseShieldingI>(`${this.url}/shieldings/${id}`); }
 
   // Transactions
-  searchTransactions() { return this.http.get<transactionCollectionI>(`${this.url}/transactions`); }
+  searchTransactions(tournamentId?: number | null) { return this.http.get<transactionCollectionI>(`${this.url}/transactions${tournamentId ? "?tournamentId=" + tournamentId : ""}`); }
   searchTransactionById(id: number | string) { return this.http.get<responseTransactionI>(`${this.url}/transactions/${id}`); }
   postTransaction(transaction: addTransactionI) { return this.http.post<responseTransactionI>(`${this.url}/transactions`, transaction); }
   updateTransaction(transaction: transactionI) { return this.http.put<responseTransactionI>(`${this.url}/transactions/${transaction.id}`, transaction); }
@@ -435,7 +437,7 @@ export class ApiService {
   removeTransaction(id: number | string) { return this.http.delete<responseTransactionI>(`${this.url}/transactions/${id}`); }
 
   // Negotiations
-  searchNegotiations() { return this.http.get<negotiationCollectionI>(`${this.url}/negotiations`); }
+  searchNegotiations(tournamentId?: number | null) { return this.http.get<negotiationCollectionI>(`${this.url}/negotiations${tournamentId ? "?tournamentId=" + tournamentId : ""}`); }
   searchNegotiationById(id: number | string) { return this.http.get<responseNegotiationI>(`${this.url}/negotiations/${id}`); }
   postNegotiation(negotiation: addNegotiationI) { return this.http.post<responseNegotiationI>(`${this.url}/negotiations`, negotiation); }
   updateNegotiation(negotiation: negotiationI) { return this.http.put<responseNegotiationI>(`${this.url}/negotiations/${negotiation.id}`, negotiation); }
@@ -552,12 +554,13 @@ export class ApiService {
   }
 
 
-  postTournamentSettleMarketAndRefreshByLeague(payload: { leagueId: number }) {
+  postTournamentSettleMarketAndRefreshByLeague(payload: { leagueId: number; matchdayNumber: number; season: string }) {
     return this.http.post<any>(`${this.url}/tournaments/settle-market-and-refresh-by-league`, payload);
   }
 
-  getTournamentMatchdayAutomationSchedule(filters?: { leagueId?: number | string }) {
+  getTournamentMatchdayAutomationSchedule(filters?: { leagueId?: number | string; tournamentId?: number }) {
     const params: string[] = [];
+    if (filters?.tournamentId) params.push(`tournamentId=${filters.tournamentId}`);
     if (filters?.leagueId !== undefined && filters?.leagueId !== null) {
       params.push(`leagueId=${filters.leagueId}`);
     }

@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { AccessibleDialogDirective } from '../accessible-dialog.directive';
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CdkAccordionModule } from '@angular/cdk/accordion';
@@ -19,7 +20,7 @@ interface RivalPlayerRow {
 @Component({
   selector: 'app-rivals-real-player-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, CdkAccordionModule],
+  imports: [CommonModule, FormsModule, CdkAccordionModule, AccessibleDialogDirective],
   templateUrl: './rivals-real-player-list.component.html',
   styleUrl: './rivals-real-player-list.component.scss',
 })

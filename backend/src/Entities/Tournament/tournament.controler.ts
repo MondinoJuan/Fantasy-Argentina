@@ -1,3 +1,9 @@
+import { startTournament } from '../../shared/services/tournamentStart.service.js';
+import { gameError } from '../../shared/http/game-error.js';
+import { LockMode, EntityManager } from '@mikro-orm/core';
+import { reconcileOwnership, recordInitialBudget } from '../../shared/services/gameEconomy.service.js';
+import { money } from '../../shared/domain/game-rules.js';
+import { RealPlayerLeagueValue } from '../RealPlayerLeagueValue/realPlayerLeagueValue.entity.js';
 import { Request, Response, NextFunction } from 'express';
 import { writeFile, readFile } from 'node:fs/promises';
 import { Tournament } from './tournament.entity.js';
@@ -11,20 +17,20 @@ import { GameMatch } from '../GameMatch/gameMatch.entity.js';
 import { getCompetitionTeamsBySportAndCompetitionService } from '../ExternalApi/services/index.js';
 import { requestSportsApiPro } from '../../integrations/sportsapipro/sportsapipro.client.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
-import { PlayerPointsBreakdown } from '../PlayerPointsBreakdown/playerPointsBreakdown.entity.js';
 import { ParticipantMatchdayPoints } from '../ParticipantMatchdayPoints/participantMatchdayPoints.entity.js';
-import { ParticipantSquad } from '../ParticipantSquad/participantSquad.entity.js';
-import { MatchdayMarket } from '../MatchdayMarket/matchdayMarket.entity.js';
-import { Bid } from '../Bid/bid.entity.js';
-import { DependantPlayer } from '../DependantPlayer/dependantPlayer.entity.js';
 import { MatchdayAutomationJob } from '../MatchdayAutomationJob/matchdayAutomationJob.entity.js';
 import { TOURNAMENT_STATUSES, MATCHDAY_STATUSES, MATCH_STATUSES, MARKET_ORIGINS, isEnumValue } from '../../shared/domain-enums.js';
 import { setupParticipantAfterJoin } from './tournament-participation.service.js';
 import { serverNow } from '../../shared/time/serverClock.js';
 import { getTeamIdsByLeague } from '../RealTeamLeagueParticipation/realTeamLeagueParticipation.service.js';
 import { upsertRealPlayerLeagueTranslatedValue } from '../RealPlayerLeagueValue/realPlayerLeagueValue.service.js';
+import { readScope } from '../../shared/security/game-access.js';
+import { recalculateMatchdayPoints } from './services/matchdayPoints.service.js';
+import { runLeagueMatchdayClosure } from '../../automation/matchdayAutomation.service.js';
+import { LineupHistoryError } from '../../shared/domain/lineup-history.js';
 
 const em = orm.em;
+const idOfMatch = (value: any) => Number(value?.id ?? value);
 const POSTPONED_MATCHES_PATH = 'src/Entities/Tournament/data/postponedMatches.json';
 const FIXED_TRANSLATED_MIN = 1_000_000;
 const FIXED_TRANSLATED_MAX = 7_000_000;
@@ -151,69 +157,6 @@ function pickRandom<T>(values: T[], limit: number): T[] {
   }
 
   return selected;
-}
-
-function pickWeightedRandom<T>(values: T[], limit: number, weightResolver: (value: T) => number): T[] {
-  const pool = [...values];
-  const selected: T[] = [];
-
-  while (pool.length > 0 && selected.length < limit) {
-    const weights = pool.map((item) => {
-      const weight = Number(weightResolver(item));
-      return Number.isFinite(weight) && weight > 0 ? weight : 0;
-    });
-    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
-    if (totalWeight <= 0) break;
-
-    let target = Math.random() * totalWeight;
-    let selectedIndex = 0;
-    for (let index = 0; index < pool.length; index += 1) {
-      target -= weights[index];
-      if (target <= 0) {
-        selectedIndex = index;
-        break;
-      }
-    }
-
-    selected.push(pool[selectedIndex]);
-    pool.splice(selectedIndex, 1);
-  }
-
-  return selected;
-}
-
-function sortParticipantsByScoreWithRandomTieBreak(
-  participants: Participant[],
-  scoreResolver: (participant: Participant) => number = (participant) => Number(participant.totalScore ?? 0),
-): Participant[] {
-  const byScore = new Map<number, Participant[]>();
-
-  for (const participant of participants) {
-    const score = Number(scoreResolver(participant) ?? 0);
-    const bucket = byScore.get(score) ?? [];
-    bucket.push(participant);
-    byScore.set(score, bucket);
-  }
-
-  const scoresDesc = [...byScore.keys()].sort((a, b) => b - a);
-  const ranked: Participant[] = [];
-
-  for (const score of scoresDesc) {
-    const tied = [...(byScore.get(score) ?? [])];
-
-    while (tied.length > 0) {
-      const index = Math.floor(Math.random() * tied.length);
-      ranked.push(tied[index]);
-      tied.splice(index, 1);
-    }
-  }
-
-  return ranked;
-}
-
-function rewardAmountByPosition(position: number): number {
-  const tier = Math.floor((Math.max(1, position) - 1) / 3);
-  return 1_000_000 + (tier * 500_000);
 }
 
 function groupFixtureByDate(fixture: UnknownRecord[]): Array<{ key: string; games: UnknownRecord[] }> {
@@ -529,19 +472,19 @@ async function syncPostponedMatchesAndPersistPlayerRatings(tournamentId: number)
   return stillPending;
 }
 
-async function translateLeagueRealPlayersValues(leagueId: number): Promise<void> {
-  const league = await em.findOne(League, { id: leagueId });
+async function translateLeagueRealPlayersValues(leagueId: number, dataEm: EntityManager = em, onlyMissing = false): Promise<void> {
+  const league = await dataEm.findOne(League, { id: leagueId });
   if (!league) {
     return;
   }
 
-  const realTeamsIds = await getTeamIdsByLeague(em as any, leagueId);
+  const realTeamsIds = await getTeamIdsByLeague(dataEm as any, leagueId);
 
   if (realTeamsIds.length === 0) {
     return;
   }
 
-  const realPlayers = await em.find(RealPlayer, { realTeam: { $in: realTeamsIds } } as any);
+  const realPlayers = await dataEm.find(RealPlayer, { realTeam: { $in: realTeamsIds } } as any);
   if (realPlayers.length === 0) {
     return;
   }
@@ -556,10 +499,11 @@ async function translateLeagueRealPlayersValues(leagueId: number): Promise<void>
   const maxValue = Math.max(...values);
 
   for (const player of realPlayers) {
+    if (onlyMissing && (await dataEm.findOne(RealPlayerLeagueValue, { realPlayer: player, league }))?.translatedValue != null) continue;
     const playerValue = typeof player.value === 'number' && Number.isFinite(player.value) ? Number(player.value) : null;
 
     if (playerValue === null) {
-      await upsertRealPlayerLeagueTranslatedValue(em as any, {
+      await upsertRealPlayerLeagueTranslatedValue(dataEm as any, {
         realPlayer: player,
         league,
         translatedValue: null,
@@ -568,7 +512,7 @@ async function translateLeagueRealPlayersValues(leagueId: number): Promise<void>
     }
 
     if (maxValue === minValue || playerValue === minValue) {
-      await upsertRealPlayerLeagueTranslatedValue(em as any, {
+      await upsertRealPlayerLeagueTranslatedValue(dataEm as any, {
         realPlayer: player,
         league,
         translatedValue: FIXED_TRANSLATED_MIN,
@@ -579,7 +523,7 @@ async function translateLeagueRealPlayersValues(leagueId: number): Promise<void>
     const normalized = (playerValue - minValue) / (maxValue - minValue);
     const translated = FIXED_TRANSLATED_MIN + (normalized * (FIXED_TRANSLATED_MAX - FIXED_TRANSLATED_MIN));
     const clamped = Math.max(FIXED_TRANSLATED_MIN, Math.min(FIXED_TRANSLATED_MAX, translated));
-    await upsertRealPlayerLeagueTranslatedValue(em as any, {
+    await upsertRealPlayerLeagueTranslatedValue(dataEm as any, {
       realPlayer: player,
       league,
       translatedValue: Number.isFinite(clamped) ? clamped : FIXED_TRANSLATED_MIN,
@@ -589,34 +533,13 @@ async function translateLeagueRealPlayersValues(leagueId: number): Promise<void>
 
 async function findAll(req: Request, res: Response) {
   try {
-    const userId = Number.parseInt(String(req.query.userId ?? ''), 10);
-
-    if (Number.isFinite(userId)) {
-      let participants: Participant[] = [];
-
-      try {
-        participants = await em.find(Participant, { user: userId }, { populate: ['tournament', 'tournament.league'] });
-      } catch {
-        participants = await em.find(Participant, { user: userId }, { populate: ['tournament'] });
-      }
-
-      const items = participants.map((participant) => participant.tournament);
-      res.status(200).json({ message: 'found tournaments for user', data: items });
-      return;
-    }
-
-    let items: Tournament[] = [];
-
-    try {
-      items = await em.find(Tournament, {}, { populate: ['league'] });
-    } catch {
-      items = await em.find(Tournament, {});
-    }
-
-    res.status(200).json({ message: 'found all tournaments', data: items });
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
+    const userId = req.authUser!.type === 'SUPERADMIN'
+      ? Number.parseInt(String(req.query.userId ?? ''), 10) : req.authUser!.id;
+    const where = { $and: [readScope(req.authUser!, 'tournaments', req.query.tournamentId),
+      Number.isFinite(userId) ? { participants: { user: userId, retiredAt: null } } : {}] };
+    const items = await em.find(Tournament, where, { populate: ['league'] });
+    res.status(200).json({ message: 'found tournaments for user', data: items });
+  } catch (error) { gameError(res, error); }
 }
 
 async function findOne(req: Request, res: Response) {
@@ -667,7 +590,10 @@ async function findOneByPublicCode(req: Request, res: Response) {
 async function getMatchdayAutomationSchedule(req: Request, res: Response) {
   try {
     const leagueIdFilter = toInt(req.query?.leagueId);
-    const tournaments = await em.find(Tournament, leagueIdFilter ? { league: { id: leagueIdFilter } } as any : {}, { populate: ['league'] });
+    const tournaments = await em.find(Tournament, {
+      ...readScope(req.authUser!, 'tournaments', req.query.tournamentId),
+      ...(leagueIdFilter ? { league: { id: leagueIdFilter } } : {}),
+    }, { populate: ['league'] });
 
     const leagueById = new Map<number, League>();
     for (const tournament of tournaments) {
@@ -696,7 +622,7 @@ async function getMatchdayAutomationSchedule(req: Request, res: Response) {
     const jobs = matchdayIds.length > 0
       ? await em.find(MatchdayAutomationJob, {
         matchday: { $in: matchdayIds },
-        step: { $in: ['matchday_closure', 'postponed_match_sum'] },
+        step: { $in: ['matchday_closure', 'postponed_match_sum', 'postponed_recheck'] },
       } as any, {
         populate: ['matchday'],
         orderBy: [{ runAt: 'desc' }, { id: 'desc' }],
@@ -715,6 +641,7 @@ async function getMatchdayAutomationSchedule(req: Request, res: Response) {
       return acc;
     }, new Map<number, MatchdayAutomationJob[]>());
 
+    const pendingMatches = await em.find(GameMatch, { matchday: { $in: matchdayIds }, pendingRecovery: true }, { populate: ['matchday'] });
     const rows = matchdays.map((matchday) => {
       const matchdayId = Number(matchday.id ?? 0);
       const jobsForMatchday = jobsByMatchday.get(matchdayId) ?? [];
@@ -733,7 +660,15 @@ async function getMatchdayAutomationSchedule(req: Request, res: Response) {
         startDate: matchday.startDate,
         endDate: matchday.endDate,
         closureScheduledAt: matchday.autoUpdateAt ?? null,
-        nextPostponedCheckAt: matchday.nextPostponedCheckAt ?? null,
+        nextWorkerAttemptAt: latestClosure?.status === 'pending' ? latestClosure.runAt : null,
+        closureCompletedAt: matchday.closureCompletedAt ?? null,
+        closureLastError: latestClosure?.lastError ?? null,
+        pendingMatches: pendingMatches.filter(m => m.matchday.id === matchdayId).map(m => ({
+          id: m.id, homeTeam: m.homeTeam, awayTeam: m.awayTeam, status: m.status,
+          originalStart: m.pendingOriginalStart, startDateTime: m.startDateTime,
+          recoveryScheduledAt: jobsForMatchday.find(j => j.step === 'postponed_match_sum' && idOfMatch(j.gameMatch) === m.id && j.status === 'pending' && (!j.payload?.kickoff || j.payload.kickoff === m.startDateTime.toISOString()))?.runAt ?? null,
+        })),
+        nextPostponedCheckAt: jobsForMatchday.find(j => j.step === 'postponed_recheck' && j.status === 'pending')?.runAt ?? null,
         closureJobStatus: latestClosure?.status ?? null,
         pointsAndMarketUpdatedAt: latestCompletedClosure?.finishedAt ?? null,
         latestPostponedPointsUpdateAt: latestCompletedPostponedSum?.finishedAt ?? null,
@@ -802,33 +737,18 @@ async function add(req: Request, res: Response) {
 
     const publicCode = await generateUniqueTournamentPublicCode();
 
-    const item = em.create(Tournament, {
-      ...tournamentInput,
-      league,
-      publicCode,
+    tournamentInput.initialBudget = money(tournamentInput.initialBudget);
+    tournamentInput.squadSize = 16;
+    const item = await orm.em.fork().transactional(async tx => {
+      await tx.findOneOrFail(League, { id: league.id }, { lockMode: LockMode.PESSIMISTIC_WRITE });
+      const game = tx.create(Tournament, { ...tournamentInput, league, publicCode, creatorUserId, initialDrawState: 'waiting' });
+      const creator = tx.create(Participant, { user: creatorUserId, tournament: game, bankBudget: game.initialBudget, reservedMoney: 0,
+        availableMoney: game.initialBudget, totalScore: 0, joinDate: new Date(), createdAt: new Date(), updatedAt: new Date() });
+      await translateLeagueRealPlayersValues(league.id!, tx, true);
+      await setupParticipantAfterJoin(game, creator, tx);
+      await tx.flush(); await reconcileOwnership(tx, game, 'initial_assignment'); await recordInitialBudget(tx, creator); await tx.flush();
+      return game;
     });
-
-    const creatorParticipant = em.create(Participant, {
-      user: creatorUserId,
-      tournament: item,
-      bankBudget: item.initialBudget,
-      reservedMoney: 0,
-      availableMoney: item.initialBudget,
-      totalScore: 0,
-      joinDate: new Date(),
-    } as any);
-
-    await setupParticipantAfterJoin(item, creatorParticipant, em);
-    await translateLeagueRealPlayersValues(
-      league.id ?? (() => { throw new Error("league.id es undefined"); })()
-    );
-
-    const leagueId = Number(league.id);
-    if (Number.isFinite(leagueId) && leagueId > 0) {
-      await translateLeagueRealPlayersValues(leagueId);
-    }
-
-    await em.flush();
 
     res.status(201).json({
       message: 'tournament created',
@@ -839,6 +759,13 @@ async function add(req: Request, res: Response) {
   }
 }
 
+
+async function start(req: Request, res: Response) {
+  try {
+    const result = await startTournament(orm.em.fork(), Number(req.params.id), req.authUser!);
+    res.status(200).json({ message: result.alreadyStarted ? 'tournament already started' : 'tournament started', data: result });
+  } catch (error) { gameError(res, error); }
+}
 
 async function syncPostponedMatches(req: Request, res: Response) {
   try {
@@ -859,87 +786,6 @@ async function syncPostponedMatches(req: Request, res: Response) {
 
 
 
-
-const FORMATION_SLOT_POSITIONS: Record<string, Array<'goalkeeper' | 'defender' | 'midfielder' | 'forward'>> = {
-  '4-4-2': ['forward', 'forward', 'midfielder', 'midfielder', 'midfielder', 'midfielder', 'defender', 'defender', 'defender', 'defender', 'goalkeeper'],
-  '4-3-3': ['forward', 'forward', 'forward', 'midfielder', 'midfielder', 'midfielder', 'defender', 'defender', 'defender', 'defender', 'goalkeeper'],
-  '3-4-3': ['forward', 'forward', 'forward', 'midfielder', 'midfielder', 'midfielder', 'midfielder', 'defender', 'defender', 'defender', 'goalkeeper'],
-  '5-4-1': ['forward', 'midfielder', 'midfielder', 'midfielder', 'midfielder', 'defender', 'defender', 'defender', 'defender', 'defender', 'goalkeeper'],
-};
-
-function getExpectedSlotPositions(formationRaw: unknown): Array<'goalkeeper' | 'defender' | 'midfielder' | 'forward'> {
-  const formation = String(formationRaw ?? '4-4-2');
-  return FORMATION_SLOT_POSITIONS[formation] ?? FORMATION_SLOT_POSITIONS['4-4-2'];
-}
-
-async function getLatestParticipantSquad(participant: Participant): Promise<ParticipantSquad | null> {
-  const squads = await em.find(ParticipantSquad, { participant }, { orderBy: { acquisitionDate: 'desc' } });
-
-  if (squads.length === 0) {
-    return null;
-  }
-
-  const active = squads.find((squad) => !squad.releaseDate);
-  return active ?? squads[0];
-}
-
-function buildPreferredLatestSquadByParticipant(squads: ParticipantSquad[]): Map<number, ParticipantSquad> {
-  const mostRecentByParticipantId = new Map<number, ParticipantSquad>();
-  const activeByParticipantId = new Map<number, ParticipantSquad>();
-
-  for (const squad of squads) {
-    const participantId = Number((squad.participant as any)?.id ?? squad.participant);
-    if (!Number.isFinite(participantId) || participantId <= 0) {
-      continue;
-    }
-
-    if (!mostRecentByParticipantId.has(participantId)) {
-      mostRecentByParticipantId.set(participantId, squad);
-    }
-
-    if (!squad.releaseDate && !activeByParticipantId.has(participantId)) {
-      activeByParticipantId.set(participantId, squad);
-    }
-  }
-
-  const preferredByParticipantId = new Map<number, ParticipantSquad>();
-  for (const [participantId, mostRecentSquad] of mostRecentByParticipantId.entries()) {
-    preferredByParticipantId.set(participantId, activeByParticipantId.get(participantId) ?? mostRecentSquad);
-  }
-
-  return preferredByParticipantId;
-}
-
-function buildPositionMismatchMapFromSquad(
-  squad: ParticipantSquad | null,
-  playerPositionById: Map<number, RealPlayer['position']>,
-): Map<number, boolean> {
-  const mismatchMap = new Map<number, boolean>();
-
-  if (!squad) {
-    return mismatchMap;
-  }
-
-  const expectedSlotPositions = getExpectedSlotPositions(squad.formation);
-  const startingIds = (squad.startingRealPlayersIds ?? []).slice(0, expectedSlotPositions.length);
-
-  if (startingIds.length === 0) {
-    return mismatchMap;
-  }
-
-  startingIds.forEach((realPlayerId, index) => {
-    const expected = expectedSlotPositions[index] ?? 'midfielder';
-    const actual = playerPositionById.get(realPlayerId);
-
-    if (!actual) {
-      return;
-    }
-
-    mismatchMap.set(realPlayerId, actual !== expected);
-  });
-
-  return mismatchMap;
-}
 
 async function sumEndOfMatchdayPoints(req: Request, res: Response) {
   try {
@@ -980,225 +826,11 @@ async function sumEndOfMatchdayPoints(req: Request, res: Response) {
       return;
     }
 
-    let processedParticipants = 0;
-    let upsertedBreakdowns = 0;
-    const selectedMatchId = selectedMatch?.id ?? null;
-
-    await em.transactional(async (transactionalEm) => {
-      const tournaments = await transactionalEm.find(Tournament, { league });
-      const tournamentIds = tournaments
-        .map((tournament) => Number(tournament.id ?? 0))
-        .filter((id) => Number.isFinite(id) && id > 0);
-
-      if (tournamentIds.length === 0) {
-        return;
-      }
-
-      const participants = await transactionalEm.find(Participant, { tournament: { $in: tournamentIds } });
-      const participantIds = participants
-        .map((participant) => Number(participant.id ?? 0))
-        .filter((id) => Number.isFinite(id) && id > 0);
-
-      processedParticipants = participants.length;
-
-      if (participantIds.length === 0) {
-        return;
-      }
-
-      const squads = await transactionalEm.find(ParticipantSquad, { participant: { $in: participantIds } }, {
-        orderBy: [{ participant: 'asc' }, { acquisitionDate: 'desc' }],
-      });
-      const latestSquadByParticipantId = buildPreferredLatestSquadByParticipant(squads);
-
-      const allStartingRealPlayerIds = new Set<number>();
-      for (const squad of latestSquadByParticipantId.values()) {
-        for (const rawId of squad.startingRealPlayersIds ?? []) {
-          const parsed = Number.parseInt(String(rawId), 10);
-          if (Number.isFinite(parsed) && parsed > 0) {
-            allStartingRealPlayerIds.add(parsed);
-          }
-        }
-      }
-
-      const realPlayers = allStartingRealPlayerIds.size > 0
-        ? await transactionalEm.find(RealPlayer, { id: { $in: [...allStartingRealPlayerIds] } })
-        : [];
-      const playerPositionById = new Map<number, RealPlayer['position']>(
-        realPlayers
-          .map((player) => [Number(player.id ?? 0), player.position] as const)
-          .filter(([id]) => Number.isFinite(id) && id > 0),
-      );
-
-      const performances = allStartingRealPlayerIds.size > 0
-        ? await transactionalEm.find(PlayerPerformance, {
-          matchday,
-          league,
-          realPlayer: { $in: [...allStartingRealPlayerIds] },
-          ...(selectedMatch ? { match: selectedMatch } : {}),
-        }, { populate: ['realPlayer'] })
-        : [];
-
-      const performancesByRealPlayer = new Map<number, PlayerPerformance[]>();
-      for (const performance of performances) {
-        const realPlayerId = Number((performance.realPlayer as any)?.id);
-        if (!Number.isFinite(realPlayerId) || realPlayerId <= 0) {
-          continue;
-        }
-        const list = performancesByRealPlayer.get(realPlayerId) ?? [];
-        list.push(performance);
-        performancesByRealPlayer.set(realPlayerId, list);
-      }
-
-      for (const entries of performancesByRealPlayer.values()) {
-        entries.sort((left, right) => new Date(right.updateDate).getTime() - new Date(left.updateDate).getTime());
-      }
-
-      const existingMatchdayBreakdowns = await transactionalEm.find(
-        PlayerPointsBreakdown,
-        { participant: { $in: participantIds }, matchday },
-        { populate: selectedMatch ? ['playerPerformance.match'] : [] },
-      );
-
-      const existingByParticipantAndPlayer = new Map<string, PlayerPointsBreakdown>();
-      for (const breakdown of existingMatchdayBreakdowns) {
-        const participantId = Number((breakdown.participant as any)?.id ?? breakdown.participant);
-        const realPlayerId = Number((breakdown.realPlayer as any)?.id ?? breakdown.realPlayer);
-        if (!Number.isFinite(participantId) || participantId <= 0 || !Number.isFinite(realPlayerId) || realPlayerId <= 0) {
-          continue;
-        }
-        existingByParticipantAndPlayer.set(`${participantId}:${realPlayerId}`, breakdown);
-      }
-
-      if (!selectedMatchId) {
-        await transactionalEm.nativeDelete(PlayerPointsBreakdown, { participant: { $in: participantIds }, matchday });
-        existingByParticipantAndPlayer.clear();
-      } else {
-        for (const breakdown of existingMatchdayBreakdowns) {
-          if (breakdown.playerPerformance?.match?.id === selectedMatchId) {
-            transactionalEm.remove(breakdown);
-            const participantId = Number((breakdown.participant as any)?.id ?? breakdown.participant);
-            const realPlayerId = Number((breakdown.realPlayer as any)?.id ?? breakdown.realPlayer);
-            existingByParticipantAndPlayer.delete(`${participantId}:${realPlayerId}`);
-          }
-        }
-      }
-
-      for (const participant of participants) {
-        const participantId = participant.id;
-        if (!participantId) {
-          continue;
-        }
-        const participantSquad = latestSquadByParticipantId.get(participantId) ?? null;
-        const captainRealPlayerId = Number.parseInt(String(participantSquad?.captainRealPlayerId ?? ''), 10);
-        const realPlayerIds = [...new Set((participantSquad?.startingRealPlayersIds ?? [])
-          .map((id) => Number.parseInt(String(id), 10))
-          .filter((id): id is number => Number.isFinite(id) && id > 0))];
-
-        const mismatchMap = buildPositionMismatchMapFromSquad(participantSquad, playerPositionById);
-
-        for (const realPlayerId of realPlayerIds) {
-          const playerPerformances = performancesByRealPlayer.get(realPlayerId) ?? [];
-          if (playerPerformances.length === 0) {
-            continue;
-          }
-
-          const hasPositionMismatch = mismatchMap.get(realPlayerId) === true;
-          const rawPoints = playerPerformances.reduce((total, performance) => total + Number(performance.pointsObtained ?? 0), 0);
-          const contributedPoints = hasPositionMismatch ? rawPoints - 3 : rawPoints;
-          const finalContributedPoints = Number.isFinite(captainRealPlayerId) && captainRealPlayerId > 0 && realPlayerId === captainRealPlayerId
-            ? contributedPoints * 2
-            : contributedPoints;
-          const latestPerformance = playerPerformances[0];
-
-          const key = `${participantId}:${realPlayerId}`;
-          let breakdown = existingByParticipantAndPlayer.get(key);
-
-          if (!breakdown) {
-            breakdown = transactionalEm.create(PlayerPointsBreakdown, {
-              participant,
-              matchday,
-              realPlayer: realPlayerId,
-              contributedPoints: finalContributedPoints,
-              playerPerformance: latestPerformance,
-            } as any);
-            existingByParticipantAndPlayer.set(key, breakdown);
-          } else {
-            breakdown.contributedPoints = finalContributedPoints;
-            breakdown.playerPerformance = latestPerformance;
-          }
-
-          upsertedBreakdowns += 1;
-        }
-      }
-
-      await transactionalEm.flush();
-
-      const refreshedMatchdayBreakdowns = await transactionalEm.find(PlayerPointsBreakdown, { participant: { $in: participantIds }, matchday });
-      const matchdayPointsByParticipant = new Map<number, number>();
-      for (const breakdown of refreshedMatchdayBreakdowns) {
-        const participantId = Number((breakdown.participant as any)?.id ?? breakdown.participant);
-        if (!Number.isFinite(participantId) || participantId <= 0) {
-          continue;
-        }
-        matchdayPointsByParticipant.set(participantId, (matchdayPointsByParticipant.get(participantId) ?? 0) + Number(breakdown.contributedPoints ?? 0));
-      }
-
-      const existingParticipantMatchdayPoints = await transactionalEm.find(ParticipantMatchdayPoints, {
-        participant: { $in: participantIds },
-        matchday,
-      });
-
-      const participantMatchdayPointsByParticipant = new Map<number, ParticipantMatchdayPoints>();
-      for (const item of existingParticipantMatchdayPoints) {
-        const participantId = Number((item.participant as any)?.id ?? item.participant);
-        if (Number.isFinite(participantId) && participantId > 0) {
-          participantMatchdayPointsByParticipant.set(participantId, item);
-        }
-      }
-
-      for (const participant of participants) {
-        const participantId = participant.id;
-        if (!participantId) {
-          continue;
-        }
-
-        const matchdayPoints = Number(matchdayPointsByParticipant.get(participantId) ?? 0);
-        let participantMatchdayPoints = participantMatchdayPointsByParticipant.get(participantId);
-
-        if (!participantMatchdayPoints) {
-          participantMatchdayPoints = transactionalEm.create(ParticipantMatchdayPoints, {
-            participant,
-            matchday,
-            matchdayPoints,
-            calculationDate: new Date(),
-          } as any);
-          participantMatchdayPointsByParticipant.set(participantId, participantMatchdayPoints);
-        } else {
-          participantMatchdayPoints.matchdayPoints = matchdayPoints;
-          participantMatchdayPoints.calculationDate = new Date();
-        }
-      }
-
-      const allBreakdowns = await transactionalEm.find(PlayerPointsBreakdown, { participant: { $in: participantIds } });
-      const totalByParticipant = new Map<number, number>();
-      for (const breakdown of allBreakdowns) {
-        const participantId = Number((breakdown.participant as any)?.id ?? breakdown.participant);
-        if (!Number.isFinite(participantId) || participantId <= 0) {
-          continue;
-        }
-        totalByParticipant.set(participantId, (totalByParticipant.get(participantId) ?? 0) + Number(breakdown.contributedPoints ?? 0));
-      }
-
-      for (const participant of participants) {
-        const participantId = participant.id;
-        if (!participantId) {
-          continue;
-        }
-        participant.totalScore = Number(totalByParticipant.get(participantId) ?? 0);
-      }
-
-      await transactionalEm.flush();
-    });
+    // A postponed correction rebuilds this date from all persisted performances;
+    // it must neither replace other matches' contributions nor consult today's squad.
+    const { processedParticipants, upsertedBreakdowns } = await em.transactional(
+      (tx) => recalculateMatchdayPoints(tx, league, matchday),
+    );
 
     res.status(200).json({
       message: 'end of matchday points added successfully',
@@ -1213,6 +845,10 @@ async function sumEndOfMatchdayPoints(req: Request, res: Response) {
       },
     });
   } catch (error: any) {
+    if (error instanceof LineupHistoryError) {
+      res.status(409).json({ message: error.message, code: 'LINEUP_HISTORY_UNAVAILABLE' });
+      return;
+    }
     res.status(500).json({ message: error.message });
   }
 }
@@ -1220,324 +856,14 @@ async function sumEndOfMatchdayPoints(req: Request, res: Response) {
 async function settleMarketAndRefreshByLeague(req: Request, res: Response) {
   try {
     const leagueId = toInt(req.body?.leagueId);
-    const rewardMatchdayNumber = toInt(req.body?.matchdayNumber ?? req.body?.nroFecha);
-    const rewardSeason = typeof req.body?.season === 'string' && req.body.season.trim().length > 0
-      ? req.body.season.trim()
-      : null;
-
-    if (leagueId === null) {
-      res.status(400).json({ message: 'leagueId is required number' });
-      return;
+    const matchdayNumber = toInt(req.body?.matchdayNumber ?? req.body?.nroFecha);
+    if (!leagueId || !matchdayNumber || !req.body?.season) {
+      res.status(400).json({ message: 'leagueId, matchdayNumber and season are required' }); return;
     }
-
-    const league = await em.findOne(League, { id: leagueId });
-    if (!league) {
-      res.status(404).json({ message: 'league not found' });
-      return;
-    }
-
-    const now = new Date();
-
-    let tournamentsCount = 0;
-    let settledMarkets = 0;
-    let processedBids = 0;
-    let awardedPlayers = 0;
-    let createdMarketEntries = 0;
-    let rewardedParticipants = 0;
-    let distributedReward = 0;
-    let rewardBasedOnMatchday: number | null = null;
-    let rewardBasedOnSeason: string | null = null;
-
-    await em.transactional(async (transactionalEm) => {
-      const tournaments = await transactionalEm.find(Tournament, { league });
-      tournamentsCount = tournaments.length;
-
-      const rewardMatchdayWhere = rewardMatchdayNumber !== null
-        ? (rewardSeason
-          ? { league, matchdayNumber: rewardMatchdayNumber, season: rewardSeason }
-          : { league, matchdayNumber: rewardMatchdayNumber })
-        : null;
-      const rewardMatchday = rewardMatchdayWhere
-        ? await transactionalEm.findOne(
-          Matchday,
-          rewardMatchdayWhere as any,
-          rewardSeason ? undefined : { orderBy: { startDate: 'desc' } as any },
-        )
-        : null;
-      rewardBasedOnMatchday = rewardMatchday?.matchdayNumber ?? null;
-      rewardBasedOnSeason = rewardMatchday?.season ?? null;
-
-      for (const tournament of tournaments) {
-        const tournamentId = tournament.id;
-        if (!tournamentId) {
-          continue;
-        }
-
-        const participants = await transactionalEm.find(Participant, { tournament });
-        const participantIds = participants
-          .map((participant) => Number(participant.id ?? 0))
-          .filter((id) => Number.isFinite(id) && id > 0);
-
-        const matchday = await transactionalEm.findOne(Matchday, {
-          league,
-          status: { $in: [MATCHDAY_STATUSES[1], MATCHDAY_STATUSES[2]] },
-        }, { orderBy: { matchdayNumber: 'asc' } })
-          ?? await transactionalEm.findOne(Matchday, { league, matchdayNumber: 1 })
-          ?? transactionalEm.create(Matchday, {
-            league,
-            season: String(new Date().getFullYear()),
-            matchdayNumber: 1,
-            startDate: now,
-            endDate: new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000),
-            autoUpdateAt: new Date(now.getTime() + (6 * 24 * 60 * 60 * 1000) + (4 * 60 * 60 * 1000)),
-            nextPostponedCheckAt: null,
-            status: MATCHDAY_STATUSES[1],
-          } as any);
-
-        const currentMarkets = await transactionalEm.find(MatchdayMarket, { tournament }, { populate: ['matchday'] });
-        const dependantPlayerIdsFromMarket = [...new Set(currentMarkets.flatMap((market) => (
-          Array.isArray(market.dependantPlayerIds)
-            ? market.dependantPlayerIds.map((id) => Number.parseInt(String(id), 10)).filter((id) => Number.isFinite(id) && id > 0)
-            : []
-        )))];
-
-        const dependantPlayers = dependantPlayerIdsFromMarket.length > 0
-          ? await transactionalEm.find(DependantPlayer, { id: { $in: dependantPlayerIdsFromMarket } }, { populate: ['realPlayer'] })
-          : [];
-        const dependantById = new Map<number, DependantPlayer>(dependantPlayers
-          .filter((dependantPlayer) => Number.isFinite(dependantPlayer.id))
-          .map((dependantPlayer) => [Number(dependantPlayer.id), dependantPlayer]));
-
-        const realPlayerIdsInMarket = [...new Set(dependantPlayers
-          .map((dependantPlayer) => Number(dependantPlayer.realPlayer?.id ?? 0))
-          .filter((id) => Number.isFinite(id) && id > 0))];
-
-        const bids = realPlayerIdsInMarket.length > 0
-          ? await transactionalEm.find(Bid, {
-            tournament,
-            realPlayer: { $in: realPlayerIdsInMarket },
-          }, {
-            populate: ['participant'],
-            orderBy: [{ realPlayer: 'asc' }, { offeredAmount: 'desc' }, { bidDate: 'asc' }],
-          })
-          : [];
-
-        const bidsByRealPlayerId = new Map<number, Bid[]>();
-        for (const bid of bids) {
-          const realPlayerId = Number((bid.realPlayer as any)?.id ?? bid.realPlayer);
-          if (!Number.isFinite(realPlayerId) || realPlayerId <= 0) {
-            continue;
-          }
-          const list = bidsByRealPlayerId.get(realPlayerId) ?? [];
-          list.push(bid);
-          bidsByRealPlayerId.set(realPlayerId, list);
-        }
-
-        const squads = participantIds.length > 0
-          ? await transactionalEm.find(ParticipantSquad, { participant: { $in: participantIds } }, { orderBy: [{ participant: 'asc' }, { acquisitionDate: 'desc' }] })
-          : [];
-        const latestSquadByParticipantId = buildPreferredLatestSquadByParticipant(squads);
-        const ownedRealPlayerIds = new Set<number>();
-        for (const latestSquad of latestSquadByParticipantId.values()) {
-          const starters = Array.isArray(latestSquad.startingRealPlayersIds) ? latestSquad.startingRealPlayersIds : [];
-          const substitutes = Array.isArray(latestSquad.substitutesRealPlayersIds) ? latestSquad.substitutesRealPlayersIds : [];
-          for (const rawId of [...starters, ...substitutes]) {
-            const realPlayerId = Number(rawId);
-            if (Number.isFinite(realPlayerId) && realPlayerId > 0) {
-              ownedRealPlayerIds.add(realPlayerId);
-            }
-          }
-        }
-
-        for (const market of currentMarkets) {
-          const dependantPlayerIds = Array.isArray(market.dependantPlayerIds)
-            ? market.dependantPlayerIds.map((id) => Number.parseInt(String(id), 10)).filter((id) => Number.isFinite(id) && id > 0)
-            : [];
-
-          for (const dependantPlayerId of dependantPlayerIds) {
-            const dependantPlayer = dependantById.get(dependantPlayerId);
-            const realPlayerId = Number(dependantPlayer?.realPlayer?.id ?? 0);
-            if (!dependantPlayer || !Number.isFinite(realPlayerId) || realPlayerId <= 0) {
-              continue;
-            }
-
-            const playerBids = bidsByRealPlayerId.get(realPlayerId) ?? [];
-            if (playerBids.length === 0) {
-              continue;
-            }
-
-            processedBids += playerBids.length;
-            const competitiveBids = playerBids.filter((bid) => Number(bid.offeredAmount ?? 0) > 0);
-
-            if (competitiveBids.length === 0) {
-              for (const bid of playerBids) {
-                const participant = bid.participant as Participant;
-                const offeredAmount = Number(bid.offeredAmount ?? 0);
-                participant.reservedMoney = Math.max(0, Number(participant.reservedMoney ?? 0) - offeredAmount);
-                participant.availableMoney = Number(participant.availableMoney ?? 0) + offeredAmount;
-                bid.status = 'lost';
-                bid.cancellationDate = now;
-              }
-              continue;
-            }
-
-            const winnerBid = competitiveBids[0];
-            const winnerParticipant = winnerBid.participant as Participant;
-            const winnerParticipantId = Number(winnerParticipant.id);
-            const winnerAmount = Number(winnerBid.offeredAmount ?? 0);
-
-            winnerParticipant.bankBudget = Math.max(0, Number(winnerParticipant.bankBudget ?? 0) - winnerAmount);
-            winnerParticipant.reservedMoney = Math.max(0, Number(winnerParticipant.reservedMoney ?? 0) - winnerAmount);
-
-            const latestSquad = latestSquadByParticipantId.get(winnerParticipantId);
-            if (latestSquad) {
-              const currentSubs = Array.isArray(latestSquad.substitutesRealPlayersIds) ? latestSquad.substitutesRealPlayersIds : [];
-              if (!currentSubs.includes(realPlayerId)) {
-                latestSquad.substitutesRealPlayersIds = [...currentSubs, realPlayerId];
-                awardedPlayers += 1;
-              }
-            }
-
-            winnerBid.status = 'won';
-
-            for (const lostBid of playerBids) {
-              if (lostBid === winnerBid) {
-                continue;
-              }
-              const loser = lostBid.participant as Participant;
-              const offeredAmount = Number(lostBid.offeredAmount ?? 0);
-              loser.reservedMoney = Math.max(0, Number(loser.reservedMoney ?? 0) - offeredAmount);
-              loser.availableMoney = Number(loser.availableMoney ?? 0) + offeredAmount;
-              lostBid.status = 'lost';
-              lostBid.cancellationDate = now;
-            }
-          }
-
-          settledMarkets += 1;
-          transactionalEm.remove(market);
-        }
-
-        const dependantPlayersInTournament = await transactionalEm.find(DependantPlayer, { tournament }, { populate: ['realPlayer'] });
-        const dependantByRealPlayerId = new Map<number, DependantPlayer>();
-        for (const dependant of dependantPlayersInTournament) {
-          const realPlayerId = Number(dependant.realPlayer?.id ?? 0);
-          if (!Number.isFinite(realPlayerId) || realPlayerId <= 0) continue;
-          dependantByRealPlayerId.set(realPlayerId, dependant);
-        }
-
-        const quantityToAdd = participants.length * 4;
-        if (quantityToAdd > 0) {
-          const teamIdsForLeague = await getTeamIdsByLeague(transactionalEm as any, leagueId);
-          const candidates = teamIdsForLeague.length > 0
-            ? await transactionalEm.find(RealPlayer, {
-              active: true,
-              ...(ownedRealPlayerIds.size > 0 ? { id: { $nin: [...ownedRealPlayerIds] } } : {}),
-              realTeam: { $in: teamIdsForLeague },
-            }, { limit: 1000 })
-            : [];
-
-          const chosen = pickWeightedRandom(candidates, quantityToAdd, (player) => {
-            const realPlayerId = Number(player.id ?? 0);
-            const dependant = dependantByRealPlayerId.get(realPlayerId);
-            const appearances = Number(dependant?.marketAppearances ?? 0);
-            return 1 / (1 + Math.max(0, appearances));
-          });
-
-          const selectedDependants: DependantPlayer[] = [];
-          for (const player of chosen) {
-            const realPlayerId = Number(player.id ?? 0);
-            if (!Number.isFinite(realPlayerId) || realPlayerId <= 0) continue;
-
-            let dependant = dependantByRealPlayerId.get(realPlayerId);
-            if (!dependant) {
-              dependant = transactionalEm.create(DependantPlayer, {
-                tournament,
-                realPlayer: player,
-                marketValue: 0,
-                marketAppearances: 0,
-              } as any);
-              transactionalEm.persist(dependant);
-              dependantByRealPlayerId.set(realPlayerId, dependant);
-            }
-
-            dependant.marketAppearances = Number(dependant.marketAppearances ?? 0) + 1;
-            selectedDependants.push(dependant);
-          }
-
-          if (selectedDependants.length > 0) {
-            await transactionalEm.flush();
-          }
-
-          const dependantIds = selectedDependants
-            .map((dependant) => Number(dependant.id ?? 0))
-            .filter((id) => Number.isFinite(id) && id > 0);
-
-          if (dependantIds.length > 0) {
-            transactionalEm.create(MatchdayMarket, {
-              tournament,
-              matchday,
-              dependantPlayerIds: dependantIds,
-              minimumPrice: 100,
-              origin: MARKET_ORIGINS[0],
-              creationDate: now,
-            } as any);
-            createdMarketEntries += 1;
-          }
-        }
-
-        const participantMatchdayRows = rewardMatchday && participantIds.length > 0
-          ? await transactionalEm.find(ParticipantMatchdayPoints, {
-            participant: { $in: participantIds },
-            matchday: rewardMatchday,
-          })
-          : [];
-        const matchdayPointsByParticipantId = new Map<number, number>();
-        for (const row of participantMatchdayRows) {
-          const participantId = Number((row.participant as any)?.id ?? row.participant);
-          if (!Number.isFinite(participantId) || participantId <= 0) {
-            continue;
-          }
-          matchdayPointsByParticipantId.set(participantId, Number(row.matchdayPoints ?? 0));
-        }
-
-        const rankedParticipants = rewardMatchday
-          ? sortParticipantsByScoreWithRandomTieBreak(
-            participants,
-            (participant) => Number(matchdayPointsByParticipantId.get(Number(participant.id ?? 0)) ?? 0),
-          )
-          : sortParticipantsByScoreWithRandomTieBreak(participants);
-
-        rankedParticipants.forEach((participant, index) => {
-          const position = index + 1;
-          const reward = rewardAmountByPosition(position);
-          participant.bankBudget = Number(participant.bankBudget ?? 0) + reward;
-          participant.availableMoney = Number(participant.availableMoney ?? 0) + reward;
-          rewardedParticipants += 1;
-          distributedReward += reward;
-        });
-      }
-
-      await transactionalEm.flush();
-    });
-
-    res.status(200).json({
-      message: 'markets settled and refreshed successfully',
-      data: {
-        leagueId,
-        tournaments: tournamentsCount,
-        settledMarkets,
-        processedBids,
-        awardedPlayers,
-        createdMarketEntries,
-        rewardedParticipants,
-        distributedReward,
-        rewardBasedOnMatchday,
-        rewardBasedOnSeason,
-      },
-    });
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
+    const date = await em.findOneOrFail(Matchday, { league: leagueId, matchdayNumber, season: String(req.body.season) });
+    const result = await runLeagueMatchdayClosure(date.id!);
+    res.status(result.completed ? 200 : 202).json({ message: result.completed ? 'matchday closure completed' : 'waiting for closure time', data: result });
+  } catch (error: any) { res.status(500).json({ message: error.message }); }
 }
 
 async function update(req: Request, res: Response) {
@@ -1570,4 +896,4 @@ async function remove(req: Request, res: Response) {
   }
 }
 
-export { sanitizeTournamentInput, findAll, findOne, findOneByPublicCode, getMatchdayAutomationSchedule, add, update, remove, syncPostponedMatches, syncPostponedMatchesAndPersistPlayerRatings, sumEndOfMatchdayPoints, settleMarketAndRefreshByLeague, translateLeagueRealPlayersValues };
+export { sanitizeTournamentInput, findAll, findOne, findOneByPublicCode, getMatchdayAutomationSchedule, add, update, remove, start, syncPostponedMatches, syncPostponedMatchesAndPersistPlayerRatings, sumEndOfMatchdayPoints, settleMarketAndRefreshByLeague, translateLeagueRealPlayersValues };

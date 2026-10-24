@@ -60,11 +60,11 @@
           <div class="switches-grid tournament-permissions">
             <label class="switch-label">
               <input type="checkbox" formControlName="allowSquadChangesDuringMatchday" />
-              Permitir modificar squad durante matchday
+              Permitir modificar el plantel durante la fecha
             </label>
             <label class="switch-label">
               <input type="checkbox" formControlName="allowClauseExecutionDuringMatchday" />
-              Permitir ejecutar cláusulas durante matchday
+              Permitir ejecutar cláusulas durante la fecha
             </label>
           </div>
           @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
@@ -77,7 +77,7 @@
 
       <section class="join-panel">
         <h2>Unirme con código público</h2>
-        <p>Pegá el publicCode del torneo para entrar automáticamente.</p>
+        <p>Pegá el código de invitación del torneo para entrar automáticamente.</p>
         <form [formGroup]="joinTournamentForm" (ngSubmit)="joinTournamentByCode()">
           <label>
             Código público
@@ -115,13 +115,13 @@
           <button
             type="button"
             class="danger-trash-btn"
-            aria-label="Eliminar mi participación del torneo"
+            aria-label="Retirarme del torneo"
             (click)="openLeaveTournamentModal(tournament, $event)"
           >
             🗑️
           </button>
           <h3>{{ tournament.name }}</h3>
-          <p><strong>Estado:</strong> {{ tournament.status }}</p>
+          <p><strong>Estado:</strong> {{ tournament.initialDrawState === 'waiting' ? 'Sala de espera' : tournament.status }}</p>
           <p><strong>Creado:</strong> {{ tournament.creationDate | date: 'dd/MM/yyyy' }}</p>
           <p><strong>Deporte:</strong> {{ tournament.sport }}</p>
           <p><strong>Plantel:</strong> {{ tournament.squadSize }} jugadores</p>
@@ -141,13 +141,14 @@
 
 @if (showLeaveModal && selectedTournamentToLeave) {
   <div class="modal-backdrop">
-    <div class="modal-card">
+    <div class="modal-card" appAccessibleDialog aria-label="Retirarse del torneo" (dialogEscape)="!isLeaving && closeLeaveTournamentModal()">
       <h3>¿Está seguro de la acción?</h3>
-      <p>Vas a eliminar tu participación del torneo <strong>{{ selectedTournamentToLeave.name }}</strong>.</p>
-      <div class="modal-actions">
+      <p>Vas a retirarte del torneo <strong>{{ selectedTournamentToLeave.name }}</strong>.</p>
+      <p>Se liberan tus jugadores y reservas. Tu historial permanece y no podrás volver a sortear un plantel en este torneo.</p>
+        <div class="modal-actions">
         <button type="button" class="secondary" (click)="closeLeaveTournamentModal()">Cancelar</button>
         <button type="button" class="danger" [disabled]="isLeaving" (click)="confirmLeaveTournament()">
-          {{ isLeaving ? 'Eliminando...' : 'Eliminar participación' }}
+          {{ isLeaving ? 'Saliendo...' : 'Retirarme' }}
         </button>
       </div>
     </div>

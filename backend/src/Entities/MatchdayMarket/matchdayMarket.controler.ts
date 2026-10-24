@@ -1,6 +1,11 @@
+import { gameTransaction, changeMoney } from '../../shared/services/gameEconomy.service.js';
+import { entityId } from '../../shared/domain/game-rules.js';
+import { Bid } from '../Bid/bid.entity.js';
+import { gameError } from '../../shared/http/game-error.js';
 import { Request, Response, NextFunction } from 'express';
 import { MatchdayMarket } from './matchdayMarket.entity.js';
 import { orm } from '../../shared/db/orm.js';
+import { readScope } from '../../shared/security/game-access.js';
 import { MARKET_ORIGINS, isEnumValue } from '../../shared/domain-enums.js';
 
 const em = orm.em;
@@ -45,7 +50,7 @@ function sanitizeMatchdayMarketInput(req: Request, res: Response, next: NextFunc
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(MatchdayMarket, {}, { populate: ['tournament', 'matchday', 'sellerParticipant'] });
+    const items = await em.find(MatchdayMarket, { $and: [readScope(req.authUser!, 'matchday-markets', req.query.tournamentId), req.query.includeClosed === 'true' ? {} : { closedAt: null }] }, { populate: ['tournament', 'matchday', 'sellerParticipant'] });
     res.status(200).json({ message: 'found all matchday markets', data: items });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -96,14 +101,15 @@ async function update(req: Request, res: Response) {
 
 async function remove(req: Request, res: Response) {
   try {
-    const id = parseId(req.params.id);
-    const item = em.getReference(MatchdayMarket, id);
-    em.remove(item);
-    await em.flush();
-    res.status(200).json({ message: 'matchday market deleted' });
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
+    const original = await orm.em.fork().findOneOrFail(MatchdayMarket, { id: parseId(req.params.id) });
+    await gameTransaction(orm.em.fork(), entityId(original.tournament), 'market_archive', async tx => {
+      const market = await tx.findOneOrFail(MatchdayMarket, { id: original.id });
+      for (const bid of await tx.find(Bid, { matchdayMarket: market, status: 'active' }, { populate: ['participant'] })) {
+        await changeMoney(tx, bid.participant, 0, -bid.offeredAmount, 'release', undefined, 'bid', String(bid.id)); bid.status = 'cancelled'; bid.cancellationDate = new Date();
+      }
+      market.closedAt = new Date();
+    }); res.status(200).json({ message: 'market archived' });
+  } catch (error) { gameError(res, error); }
 }
 
 export { sanitizeMatchdayMarketInput, findAll, findOne, add, update, remove };

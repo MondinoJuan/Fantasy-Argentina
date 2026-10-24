@@ -14,4 +14,13 @@ export class RealPlayerLeagueValue extends BaseEntity {
 
   @Property({ type: 'float', nullable: true })
   translatedValue?: number | null = null;
+
+  @Property({ type: 'double', nullable: true })
+  evolutionBase?: number | null = null;
+
+  @Property()
+  evolutionStartedAt: Date = new Date();
+
+  @Property({ type: 'json', nullable: true })
+  evolutionHistory?: Array<{ matchId: number; kickoff: number; score: number; form: number; before: number; after: number }> | null = null;
 }

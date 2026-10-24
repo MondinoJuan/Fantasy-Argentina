@@ -85,6 +85,7 @@ export const FORMATION_LAYOUTS: Record<string, Omit<PitchSlot, 'players'>[]> = {
 export class FootballPitchComponent implements OnChanges {
   @Input() participantSquadId: number | null = null;
   @Input() startingPlayers: PitchPlayer[] = [];
+  @Input() startingSlots: { slotId: string; realPlayerId: number | null }[] = [];
   @Input() substitutePlayers: PitchPlayer[] = [];
   @Input() captainRealPlayerId: number | null = null;
   @Input() formation = '4-4-2';
@@ -99,6 +100,32 @@ export class FootballPitchComponent implements OnChanges {
   hasUnsavedChanges = false;
   isSaving = false;
   saveError = '';
+  selectedMovePlayerId = 0;
+  selectedMoveTarget = '';
+
+  positionName(position: string): string {
+    return ({ forward: 'Delantero', midfielder: 'Mediocampista', defender: 'Defensor', goalkeeper: 'Arquero' } as Record<string, string>)[position] ?? position;
+  }
+
+  slotLabel(slot: PitchSlot): string {
+    return this.positionName(slot.position) + ' ' + (Number(slot.slotId.split('-').pop()) + 1)
+      + ' · ' + (slot.players[0]?.name ?? 'Vacío');
+  }
+
+  get movablePlayers(): PitchPlayer[] { return [...this.slots.flatMap(s => s.players), ...this.substitutes]; }
+
+  moveSelectedPlayer(): void {
+    const source = this.slots.find(s => s.players.some(p => p.id === Number(this.selectedMovePlayerId)));
+    const sourcePlayers = source?.players ?? this.substitutes;
+    const index = sourcePlayers.findIndex(p => p.id === Number(this.selectedMovePlayerId));
+    const target = this.slots.find(s => s.slotId === this.selectedMoveTarget);
+    const targetPlayers = target?.players ?? (this.selectedMoveTarget === 'substitutes-drop-list' ? this.substitutes : null);
+    if (index < 0 || !targetPlayers || sourcePlayers === targetPlayers) return;
+    if (targetPlayers.length >= (target ? 1 : 5)) {
+      [sourcePlayers[index], targetPlayers[0]] = [targetPlayers[0], sourcePlayers[index]];
+    } else targetPlayers.push(sourcePlayers.splice(index, 1)[0]);
+    this.updateDirtyState();
+  }
 
   private initialStartingIds: number[] = [];
   private initialSubstituteIds: number[] = [];
@@ -110,7 +137,7 @@ export class FootballPitchComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (
-      changes['startingPlayers'] ||
+      changes['startingPlayers'] || changes['startingSlots'] ||
       changes['substitutePlayers'] ||
       changes['formation'] ||
       changes['playerPerformances'] ||
@@ -131,7 +158,13 @@ export class FootballPitchComponent implements OnChanges {
     if (event.previousContainer === event.container) {
       moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
     } else {
-      transferArrayItem(event.previousContainer.data, event.container.data, event.previousIndex, event.currentIndex);
+      const target = event.container.data;
+      const source = event.previousContainer.data;
+      const capacity = event.container.id === 'substitutes-drop-list' ? 5 : 1;
+      if (target.length >= capacity) {
+        const targetIndex = Math.min(event.currentIndex, target.length - 1);
+        [source[event.previousIndex], target[targetIndex]] = [target[targetIndex], source[event.previousIndex]];
+      } else transferArrayItem(source, target, event.previousIndex, event.currentIndex);
     }
 
     this.updateDirtyState();
@@ -146,12 +179,13 @@ export class FootballPitchComponent implements OnChanges {
     this.apiService.patchParticipantSquad({
       id: this.participantSquadId,
       formation: this.formation as any,
-      startingRealPlayersIds: this.getCurrentStartingPlayers().map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id))),
+      startingSlots: this.slots.map(slot => ({ slotId: slot.slotId, realPlayerId: slot.players[0]?.id ?? null })),
+      startingRealPlayersIds: this.getCurrentStartingIds(),
       substitutesRealPlayersIds: this.substitutes.map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id))),
       captainRealPlayerId: this.selectedCaptainRealPlayerId,
     }).subscribe({
       next: () => {
-        this.initialStartingIds = this.getCurrentStartingPlayers().map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id)));
+        this.initialStartingIds = this.getCurrentStartingIds();
         this.initialSubstituteIds = this.substitutes.map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id)));
         this.initialFormation = this.formation;
         this.initialCaptainRealPlayerId = this.selectedCaptainRealPlayerId;
@@ -212,6 +246,15 @@ export class FootballPitchComponent implements OnChanges {
 
     this.substitutes = normalizedSubstitutes;
     this.buildSlotsFromPlayers(normalizedStarting);
+    if (this.startingSlots.length === 11) {
+      const byId = new Map(normalizedStarting.map(player => [player.id, player]));
+      for (const slot of this.slots) {
+        const id = this.startingSlots.find(saved => saved.slotId === slot.slotId)?.realPlayerId;
+        const player = id ? byId.get(id) : undefined;
+        slot.players = player ? [{ ...player }] : [];
+      }
+    }
+    this.initialStartingIds = this.getCurrentStartingIds();
     this.hasUnsavedChanges = false;
     this.saveError = '';
   }
@@ -232,12 +275,16 @@ export class FootballPitchComponent implements OnChanges {
     }
   }
 
+  private getCurrentStartingIds(): number[] {
+    return this.slots.map(slot => slot.players[0]?.id ?? 0);
+  }
+
   private getCurrentStartingPlayers(): PitchPlayer[] {
     return this.slots.flatMap((slot) => slot.players ?? []);
   }
 
   private updateDirtyState(): void {
-    const currentStarting = this.getCurrentStartingPlayers().map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id)));
+    const currentStarting = this.getCurrentStartingIds();
     const currentSubstitutes = this.substitutes.map((player) => player.id).filter((id): id is number => Number.isFinite(Number(id)));
     const captainStillStarting = this.selectedCaptainRealPlayerId !== null && currentStarting.includes(this.selectedCaptainRealPlayerId);
     if (!captainStillStarting) {

@@ -4,6 +4,7 @@ import { Participant } from '../Participant/participant.entity.js';
 import { Matchday } from '../Matchday/matchday.entity.js';
 import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
 import { PlayerPerformance } from '../PlayerPerformance/playerPerformance.entity.js';
+import type { PerformanceContribution } from '../../shared/domain/lineup-history.js';
 
 @Entity()
 @Unique({ properties: ['participant', 'matchday', 'realPlayer'] })
@@ -17,8 +18,11 @@ export class PlayerPointsBreakdown extends BaseEntity {
   @ManyToOne(() => RealPlayer, { nullable: false, deleteRule: 'cascade' })
   realPlayer!: Rel<RealPlayer>;
 
-  @Property({ nullable: false })
+  @Property({ nullable: false, columnType: 'double' })
   contributedPoints!: number;
+
+  @Property({ type: 'json', nullable: true })
+  performanceContributions?: PerformanceContribution[] | null;
 
   @ManyToOne(() => PlayerPerformance, { nullable: false, deleteRule: 'cascade' })
   playerPerformance!: Rel<PlayerPerformance>;

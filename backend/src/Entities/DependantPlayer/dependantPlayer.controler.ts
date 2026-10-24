@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { orm } from '../../shared/db/orm.js';
 import { DependantPlayer } from './dependantPlayer.entity.js';
 import { getRealPlayerLeagueTranslatedValuesMap } from '../RealPlayerLeagueValue/realPlayerLeagueValue.service.js';
+import { readScope } from '../../shared/security/game-access.js';
 
 const em = orm.em;
 
@@ -12,7 +13,7 @@ function parseId(idParam: string | string[] | undefined) {
 
 async function findAll(req: Request, res: Response) {
   try {
-    const items = await em.find(DependantPlayer, {}, { populate: ['tournament', 'tournament.league', 'realPlayer', 'realPlayer.realTeam'] });
+    const items = await em.find(DependantPlayer, readScope(req.authUser!, 'dependant-players', req.query.tournamentId), { populate: ['tournament', 'tournament.league', 'realPlayer', 'realPlayer.realTeam'] });
     const leagueIdByTournamentId = new Map<number, number>();
     for (const item of items) {
       const tournamentId = Number((item.tournament as any)?.id ?? item.tournament);

@@ -1,7 +1,8 @@
 import { Component, OnInit } from '@angular/core';
+import { AccessibleDialogDirective } from '../../components/accessible-dialog.directive';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { ApiService } from '../../servicios/api.service';
@@ -14,7 +15,7 @@ import { AuthService } from '../../servicios/auth.service';
 @Component({
   selector: 'app-landing-page',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, FormsModule, ReactiveFormsModule, LoadingSpinnerComponent],
+  imports: [DatePipe, DecimalPipe, FormsModule, ReactiveFormsModule, LoadingSpinnerComponent, AccessibleDialogDirective],
   templateUrl: './landing-page.component.html',
   styleUrl: './landing-page.component.scss'
 })
@@ -54,7 +55,8 @@ export class LandingPageComponent implements OnInit {
     private readonly fb: FormBuilder,
     private readonly apiService: ApiService,
     private readonly authService: AuthService,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly route: ActivatedRoute,
   ) {
     this.createTournamentForm = this.fb.nonNullable.group({
       name: ['', [Validators.required, Validators.minLength(4)]],
@@ -73,6 +75,12 @@ export class LandingPageComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    const invite = this.route.snapshot.queryParamMap.get('invite') ?? sessionStorage.getItem('pendingTournamentInvite');
+    if (invite && /^[A-Za-z0-9-]{3,100}$/.test(invite)) {
+      this.joinTournamentForm.patchValue({ publicCode: invite });
+      this.showCreateForm = true;
+      sessionStorage.removeItem('pendingTournamentInvite');
+    }
     const userId = Number(localStorage.getItem('currentUserId'));
 
     if (!userId) {

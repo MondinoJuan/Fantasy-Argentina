@@ -1,7 +1,22 @@
-# Backend
+BACKEND (desde la raíz del repositorio)
 cd backend
+pnpm install --frozen-lockfile
+pnpm build
 pnpm start:dev
 
-# Frontend
-cd "Frontend/Fantasy-Argentina"
-ng serve -o
+PRUEBAS DE SEGURIDAD (desde backend)
+npm test
+
+FRONTEND (otra terminal, desde la raíz)
+cd Frontend/Fantasy-Argentina
+npm ci
+npm start
+
+BUILD FRONTEND SIN INCORPORAR FUENTES REMOTAS
+npm run build -- --configuration development
+
+Desarrollo usa /api y el proxy a localhost:3000. Producción usa environment.production.ts.
+Configurar MySQL y backend/.env; no subir secretos al repositorio.
+
+Copiar backend/.env.example a backend/.env y completar DATABASE_URL y AUTH_TOKEN_SECRET.
+Aplicar migraciones 02 a 07, con el preflight de 04, antes de iniciar esta versión sobre una base existente.

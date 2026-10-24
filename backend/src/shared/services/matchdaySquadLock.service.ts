@@ -60,7 +60,7 @@ export async function resolveSquadLockWindowByLeague(
   // Usamos la última fecha que ya comenzó como referencia de bloqueo.
   // Así evitamos bloquear por fechas viejas reprogramadas (ej: fecha 9)
   // y también bloqueamos al llegar el startDate aunque el status aún no haya migrado a in_progress.
-  if (latestStartedMatchday.status === 'completed' || latestStartedMatchday.status === 'cancelled') {
+  if (latestStartedMatchday.closureCompletedAt || latestStartedMatchday.status === 'cancelled') {
     return {
       locked: false,
       leagueId,
@@ -76,9 +76,7 @@ export async function resolveSquadLockWindowByLeague(
     ? new Date(latestStartedMatchday.autoUpdateAt)
     : (latestStartedMatchday.endDate ? new Date(latestStartedMatchday.endDate) : null);
 
-  if (lockStartsAt && lockEndsAt
-    && referenceDate.getTime() >= lockStartsAt.getTime()
-    && referenceDate.getTime() < lockEndsAt.getTime()) {
+  if (lockStartsAt && referenceDate.getTime() >= lockStartsAt.getTime()) {
     return {
       locked: true,
       leagueId,

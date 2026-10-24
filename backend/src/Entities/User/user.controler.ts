@@ -1,8 +1,10 @@
+import { Participant } from '../Participant/participant.entity.js';
 import { Request, Response, NextFunction } from 'express';
 import { User } from './user.entity.js';
 import { orm } from '../../shared/db/orm.js';
 import { USER_TYPES, isEnumValue } from '../../shared/domain-enums.js';
 import { hashPassword, isPasswordHashed } from '../../shared/security/password.js';
+import { AccessError, profileUpdate } from '../../shared/security/game-access.js';
 
 const em = orm.em;
 
@@ -114,12 +116,10 @@ async function update(req: Request, res: Response) {
     }
 
     const itemToUpdate = await em.getReference(User, id);
-    const userInput = {
-      ...req.body.sanitizeUserInput,
-      ...(req.body.sanitizeUserInput.type !== undefined
-        ? { type: isEnumValue(USER_TYPES, req.body.sanitizeUserInput.type) ? req.body.sanitizeUserInput.type : 'USER' }
-        : {}),
-    };
+    const userInput = profileUpdate(req.body.sanitizeUserInput, req.authUser);
+    if (userInput.type !== undefined && !isEnumValue(USER_TYPES, userInput.type)) {
+      return res.status(400).json({ message: 'Invalid user type' });
+    }
 
     if (typeof userInput.password === 'string' && !isPasswordHashed(userInput.password)) {
       userInput.password = hashPassword(userInput.password);
@@ -129,6 +129,7 @@ async function update(req: Request, res: Response) {
     await em.flush();
     res.status(200).json({ message: 'user updated', data: sanitizeUserOutput(itemToUpdate) });
   } catch (error: any) {
+    if (error instanceof AccessError) return res.status(error.status).json({ message: error.message });
     res.status(500).json({ message: error.message });
   }
 }
@@ -136,6 +137,7 @@ async function update(req: Request, res: Response) {
 async function remove(req: Request, res: Response) {
   try {
     const id = parseId(req.params.id);
+    if (await em.count(Participant, { user: id })) return res.status(409).json({ message: 'La cuenta tiene historial de torneos y no puede eliminarse físicamente sin perderlo' });
     const item = em.getReference(User, id);
     em.remove(item);
     await em.flush();

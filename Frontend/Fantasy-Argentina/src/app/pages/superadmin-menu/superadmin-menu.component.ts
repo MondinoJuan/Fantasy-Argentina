@@ -272,7 +272,7 @@ export class SuperadminMenuComponent {
         season: String(form.season ?? '').trim() || undefined,
         gameMatchId: Number(form.gameMatchId) > 0 ? Number(form.gameMatchId) : undefined,
       }),
-      settleMarketByLeague: () => this.apiService.postTournamentSettleMarketAndRefreshByLeague({ leagueId: Number(form.leagueId) }),
+      settleMarketByLeague: () => this.apiService.postTournamentSettleMarketAndRefreshByLeague({ leagueId: Number(form.leagueId), matchdayNumber: Number(form.matchdayNumber), season: String(form.season ?? '').trim() }),
       translateRealPlayerPrices: () => this.apiService.postRealPlayerTranslatePricesByLeague({
         leagueId: Number(form.leagueId),
       }),

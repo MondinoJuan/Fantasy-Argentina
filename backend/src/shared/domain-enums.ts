@@ -19,7 +19,7 @@ export type BidStatus = (typeof BID_STATUSES)[number];
 export const NEGOTIATION_STATUSES = ['active', 'accepted', 'rejected', 'countered', 'cancelled'] as const;
 export type NegotiationStatus = (typeof NEGOTIATION_STATUSES)[number];
 
-export const TRANSACTION_TYPES = ['bid_purchase', 'negotiation_purchase', 'instant_sale', 'clause_execution', 'shielding_investment', 'refund', 'admin_adjustment'] as const;
+export const TRANSACTION_TYPES = ['bid_purchase', 'negotiation_purchase', 'instant_sale', 'clause_execution', 'shielding_investment', 'refund', 'admin_adjustment', 'reserve', 'release', 'matchday_reward', 'initial_budget'] as const;
 export type TransactionType = (typeof TRANSACTION_TYPES)[number];
 
 export const PLAYER_POSITIONS = ['goalkeeper', 'defender', 'midfielder', 'forward'] as const;

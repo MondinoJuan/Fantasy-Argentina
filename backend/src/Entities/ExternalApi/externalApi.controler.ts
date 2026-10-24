@@ -1,3 +1,5 @@
+import { evolveLeaguePrices } from '../../shared/services/playerPrices.service.js';
+import { sportsMatchStatus } from '../../automation/closure-policy.js';
 import { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import { orm } from '../../shared/db/orm.js';
@@ -142,30 +144,8 @@ function toNullableDateFromIsoOrUnix(value: unknown): Date | null {
   return null;
 }
 
-function normalizeMatchStatusFromApi(statusTypeRaw: unknown, hasValidScore: boolean): typeof MATCH_STATUSES[number] {
-  if (hasValidScore) {
-    return 'finalizado';
-  }
-
-  const statusType = typeof statusTypeRaw === 'string' ? statusTypeRaw.trim().toLowerCase() : '';
-  if (!statusType) {
-    return 'scheduled';
-  }
-
-  if (statusType.includes('finish') || statusType.includes('end')) {
-    return 'finalizado';
-  }
-  if (statusType.includes('progress') || statusType.includes('live') || statusType.includes('half')) {
-    return 'in_progress';
-  }
-  if (statusType.includes('postpon')) {
-    return 'postponed';
-  }
-  if (statusType.includes('cancel')) {
-    return 'cancelled';
-  }
-
-  return 'scheduled';
+function normalizeMatchStatusFromApi(statusTypeRaw: unknown, _hasValidScore: boolean): typeof MATCH_STATUSES[number] {
+  return sportsMatchStatus(statusTypeRaw);
 }
 
 function extractMatchNodeFromMatchPayload(payload: UnknownRecord): UnknownRecord {
@@ -234,7 +214,7 @@ async function persistFixtureCompetitionInDb(
     const closureAnchor = lastNonPostponedStart
       ? new Date(lastNonPostponedStart)
       : lastDate;
-    const autoUpdateAt = new Date(closureAnchor.getTime() + (4 * 60 * 60 * 1000));
+    const autoUpdateAt = new Date(closureAnchor.getTime() + 5 * 60 * 60 * 1000); // no status polling before kickoff + 5h
 
     const startDate = new Date(firstDate);
     const endDate = new Date(lastDate);
@@ -260,7 +240,7 @@ async function persistFixtureCompetitionInDb(
     } else {
       matchday.startDate = startDate;
       matchday.endDate = endDate;
-      matchday.autoUpdateAt = autoUpdateAt;
+      if (!matchday.closureCompletedAt) matchday.autoUpdateAt = autoUpdateAt;
     }
 
     if (expectedMatchesPerRound > 0 && group.games.length !== expectedMatchesPerRound) {
@@ -292,13 +272,16 @@ async function persistFixtureCompetitionInDb(
       const homeScore = toNullableScore(asRecord(fixtureMatch.home).score);
       const awayScore = toNullableScore(asRecord(fixtureMatch.away).score);
       const hasFinalScore = homeScore !== null && awayScore !== null;
-      const hasFinalStatus = statusText.includes('final');
-      if (!hasFinalScore && !hasFinalStatus) {
+      const hasFinalStatus = sportsMatchStatus(statusText) === 'finalizado';
+      if (!hasFinalStatus) {
         allMatchesCompleted = false;
       }
 
       const existing = await em.findOne(GameMatch, { externalApiId: String(gameId) });
       if (existing) {
+        if ((existing.status === 'postponed' || sportsMatchStatus(fixtureMatch.statusText) === 'postponed') && !existing.pendingRecovery && !existing.recoveryCompletedAt) {
+          existing.pendingRecovery = true; existing.pendingOriginalStart = new Date(existing.startDateTime);
+        }
         existing.matchday = matchday;
         existing.league = league;
         existing.homeTeam = String(asRecord(fixtureMatch.home).name ?? existing.homeTeam ?? 'TBD');
@@ -306,11 +289,7 @@ async function persistFixtureCompetitionInDb(
         existing.startDateTime = new Date(String(fixtureMatch.startTime ?? existing.startDateTime?.toISOString?.() ?? startDate.toISOString()));
         existing.homeScore = homeScore;
         existing.awayScore = awayScore;
-        existing.status = homeScore !== null && awayScore !== null
-          ? 'finalizado'
-          : isEnumValue(MATCH_STATUSES, fixtureMatch.statusText)
-            ? fixtureMatch.statusText
-            : existing.status;
+        existing.status = sportsMatchStatus(fixtureMatch.statusText);
         continue;
       }
 
@@ -321,11 +300,9 @@ async function persistFixtureCompetitionInDb(
         homeTeam: String(asRecord(fixtureMatch.home).name ?? 'TBD'),
         awayTeam: String(asRecord(fixtureMatch.away).name ?? 'TBD'),
         startDateTime: new Date(String(fixtureMatch.startTime ?? startDate.toISOString())),
-        status: homeScore !== null && awayScore !== null
-          ? 'finalizado'
-          : isEnumValue(MATCH_STATUSES, fixtureMatch.statusText)
-            ? fixtureMatch.statusText
-            : MATCH_STATUSES[0],
+        status: sportsMatchStatus(fixtureMatch.statusText),
+        pendingRecovery: sportsMatchStatus(fixtureMatch.statusText) === 'postponed',
+        pendingOriginalStart: sportsMatchStatus(fixtureMatch.statusText) === 'postponed' ? new Date(String(fixtureMatch.startTime ?? startDate.toISOString())) : null,
         homeScore,
         awayScore,
       } as any);
@@ -339,8 +316,10 @@ async function persistFixtureCompetitionInDb(
       matchday.nextPostponedCheckAt = null;
     }
 
-    if (allMatchesCompleted) {
+    if (matchday.closureCompletedAt) {
       matchday.status = 'completed';
+    } else if (allMatchesCompleted) {
+      matchday.status = 'in_progress';
     } else if (hasPostponedMatches) {
       matchday.status = 'postponed';
     } else if (hasInProgressMatches) {
@@ -1157,8 +1136,7 @@ async function runSyncPlayedResultsJob(jobId: string): Promise<void> {
         const resolvedStartDateTime = toNullableDateFromIsoOrUnix(
           apiPayload.startTime
           ?? apiMatch.startTime
-          ?? apiMatch.startTimestamp
-          ?? apiMatch.currentPeriodStartTimestamp,
+          ?? apiMatch.startTimestamp,
         );
 
         if (typeof homeTeam.name === 'string' && homeTeam.name.trim().length > 0) {
@@ -1167,6 +1145,9 @@ async function runSyncPlayedResultsJob(jobId: string): Promise<void> {
         if (typeof awayTeam.name === 'string' && awayTeam.name.trim().length > 0) {
           match.awayTeam = awayTeam.name.trim();
         }
+        if ((match.status === 'postponed' || sportsMatchStatus(statusNode.type ?? statusNode.description) === 'postponed') && !match.pendingRecovery && !match.recoveryCompletedAt) {
+          match.pendingRecovery = true; match.pendingOriginalStart = new Date(match.startDateTime);
+        }
         if (resolvedStartDateTime) {
           match.startDateTime = resolvedStartDateTime;
         }
@@ -1174,6 +1155,9 @@ async function runSyncPlayedResultsJob(jobId: string): Promise<void> {
         match.homeScore = homeScore;
         match.awayScore = awayScore;
         match.status = normalizeMatchStatusFromApi(statusNode.type ?? statusNode.description ?? statusNode.code, hasValidScore);
+        if (match.status === 'finalizado') {
+          match.finishedAt = toNullableDateFromIsoOrUnix(apiMatch.endTimestamp ?? apiMatch.endTime ?? apiPayload.endTime) ?? match.finishedAt ?? now;
+        } else match.finishedAt = null;
 
         job.updatedMatches += 1;
       } catch (error: any) {
@@ -1199,7 +1183,7 @@ async function runSyncPlayedResultsJob(jobId: string): Promise<void> {
   }
 }
 
-async function syncPlayedMatchesResultsForCompetition(competitionId: number): Promise<{
+async function syncPlayedMatchesResultsForCompetition(competitionId: number, matchIds?: number[]): Promise<{
   scannedMatches: number;
   processedMatches: number;
   updatedMatches: number;
@@ -1209,8 +1193,7 @@ async function syncPlayedMatchesResultsForCompetition(competitionId: number): Pr
   const jobEm = orm.em.fork();
   const now = new Date();
   const where = {
-    startDateTime: { $lt: now },
-    status: { $ne: 'finalizado' },
+    ...(matchIds ? { id: { $in: matchIds } } : { startDateTime: { $lt: now }, status: { $ne: 'finalizado' } }),
     matchday: { league: { idEnApi: competitionId } },
   };
 
@@ -1265,6 +1248,9 @@ async function syncPlayedMatchesResultsForCompetition(competitionId: number): Pr
       if (typeof awayTeam.name === 'string' && awayTeam.name.trim().length > 0) {
         match.awayTeam = awayTeam.name.trim();
       }
+      if ((match.status === 'postponed' || sportsMatchStatus(statusNode.type ?? statusNode.description) === 'postponed') && !match.pendingRecovery && !match.recoveryCompletedAt) {
+        match.pendingRecovery = true; match.pendingOriginalStart = new Date(match.startDateTime);
+      }
       if (resolvedStartDateTime) {
         match.startDateTime = resolvedStartDateTime;
       }
@@ -1272,6 +1258,9 @@ async function syncPlayedMatchesResultsForCompetition(competitionId: number): Pr
       match.homeScore = homeScore;
       match.awayScore = awayScore;
       match.status = normalizeMatchStatusFromApi(statusNode.type ?? statusNode.description ?? statusNode.code, hasValidScore);
+      if (match.status === 'finalizado') {
+        match.finishedAt = toNullableDateFromIsoOrUnix(apiMatch.endTimestamp ?? apiMatch.endTime ?? apiPayload.endTime) ?? match.finishedAt ?? now;
+      } else match.finishedAt = null;
 
       result.updatedMatches += 1;
     } catch (error: any) {
@@ -1354,137 +1343,10 @@ async function getSportsApiProSyncPlayedMatchesResultsJob(req: Request, res: Res
 }
 
 
-function computeWeightedFormScore(values: number[]): number {
-  const weights = [0.5, 0.3, 0.2, 0.1, 0.05];
-  const limited = values.slice(0, 5);
-  const appliedWeights = weights.slice(0, limited.length);
-  const weightSum = appliedWeights.reduce((acc, item) => acc + item, 0);
-
-  if (limited.length === 0 || weightSum <= 0) {
-    return 0;
-  }
-
-  const weighted = limited.reduce((acc, value, index) => acc + (value * appliedWeights[index]), 0);
-  return weighted / weightSum;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
 async function updateRealPlayerTranslatedValuesByLatestFormForCompetition(competitionId: number, localEm: typeof orm.em) {
   const league = await localEm.findOne(League, { idEnApi: competitionId });
   if (!league) return { skipped: true, reason: 'league not found locally' };
-  const limiteMin = typeof league.limiteMin === 'number' && Number.isFinite(league.limiteMin)
-    ? Number(league.limiteMin)
-    : 1_000_000;
-  const limiteMax = typeof league.limiteMax === 'number' && Number.isFinite(league.limiteMax)
-    ? Number(league.limiteMax)
-    : 7_000_000;
-  const range = limiteMax - limiteMin;
-
-  if (!Number.isFinite(range) || range <= 0) {
-    return { skipped: true, reason: 'invalid league limits', limiteMin, limiteMax, leagueId: league.id };
-  }
-
-  const resolvedLeagueId = Number(league.id);
-  if (!Number.isFinite(resolvedLeagueId) || resolvedLeagueId <= 0) {
-    return { skipped: true, reason: 'invalid league id' };
-  }
-
-  const teamIds = await getTeamIdsByLeague(localEm as any, resolvedLeagueId);
-
-  if (teamIds.length === 0) {
-    return { skipped: true, reason: 'no real teams in league', leagueId: league.id };
-  }
-
-  const players = await localEm.find(RealPlayer, { realTeam: { $in: teamIds } } as any);
-
-  // ✅ UNA sola query para todas las performances de todos los jugadores
-  const playerIds = players.map((p: any) => p.id);
-  const allPerformances = await localEm.find(
-    PlayerPerformance,
-    { realPlayer: { $in: playerIds }, league: { id: league.id } } as any,
-    { orderBy: { updateDate: 'desc' } as any },
-  );
-
-  // Agrupar en memoria: Map<playerId, performances[]>
-  const performancesByPlayer = new Map<number, typeof allPerformances>();
-  for (const perf of allPerformances) {
-    const pid = Number((perf as any).realPlayer?.id ?? (perf as any).realPlayer);
-    if (!Number.isFinite(pid)) continue;
-
-    const existing = performancesByPlayer.get(pid) ?? [];
-    if (existing.length < 5) {
-      existing.push(perf);
-      performancesByPlayer.set(pid, existing);
-    }
-  }
-
-  let updatedPlayers = 0;
-
-  for (const player of players) {
-    const performances = performancesByPlayer.get(Number((player as any).id)) ?? [];
-    const recentScores = performances
-      .map((item) => Number(item.pointsObtained))
-      .filter((score) => Number.isFinite(score));
-
-    if (recentScores.length === 0) continue;
-
-    const scoreForm = computeWeightedFormScore(recentScores);
-    const currentLeagueTranslatedValue = await localEm.findOne(
-      RealPlayerLeagueValue as any,
-      { realPlayer: { id: Number((player as any).id) }, league: { id: resolvedLeagueId } } as any,
-    );
-    const currentLeagueTranslatedValueNumber = Number((currentLeagueTranslatedValue as any)?.translatedValue);
-    const valorTradActual =
-      Number.isFinite(currentLeagueTranslatedValueNumber)
-        ? currentLeagueTranslatedValueNumber
-        : limiteMin;
-
-    const pRaw = (valorTradActual - limiteMin) / range;
-    const p = clamp(Number.isFinite(pRaw) ? pRaw : 0, 0, 1);
-    const notaEsperada = p * 10;
-    const desvio = scoreForm - notaEsperada;
-
-    if (desvio === 0) {
-      await upsertRealPlayerLeagueTranslatedValue(localEm as any, {
-        realPlayer: player,
-        league,
-        translatedValue: clamp(valorTradActual, limiteMin, limiteMax),
-      });
-      updatedPlayers += 1;
-      continue;
-    }
-
-    const k = 0.05;
-    const ajuste = k * desvio;
-
-    let nuevoValor = valorTradActual;
-    if (scoreForm > 6) {
-      nuevoValor = valorTradActual + ajuste * (1 - p) * valorTradActual;
-    } else if (scoreForm < 6) {
-      nuevoValor = valorTradActual + ajuste * p * valorTradActual;
-    }
-
-    await upsertRealPlayerLeagueTranslatedValue(localEm as any, {
-      realPlayer: player,
-      league,
-      translatedValue: clamp(nuevoValor, limiteMin, limiteMax),
-    });
-    updatedPlayers += 1;
-  }
-
-  await localEm.flush();
-
-  return {
-    skipped: false,
-    leagueId: league.id,
-    limiteMin,
-    limiteMax,
-    playersInLeague: players.length,
-    updatedPlayers,
-  };
+  return evolveLeaguePrices(localEm, league.id!);
 }
 
 async function runWithConcurrency<T>(
@@ -1555,7 +1417,7 @@ async function runRankingsProcessWithCompetitionLock(competitionId: number): Pro
   }
 }
 
-async function processRankingsInBackground(competitionId: number, localEm: typeof orm.em) {
+async function processRankingsInBackground(competitionId: number, localEm: typeof orm.em, options?: { matchIds: number[]; strict: boolean }) {
   const tag = `[rankings][competition=${competitionId}]`;
   const startedAt = Date.now();
   console.log(`${tag} ▶ Inicio del proceso`);
@@ -1564,10 +1426,11 @@ async function processRankingsInBackground(competitionId: number, localEm: typeo
   console.log(`${tag} 🔍 Buscando partidos finalizados en la DB...`);
   const matches = await localEm.find(
     GameMatch,
-    { status: 'finalizado', matchday: { league: { idEnApi: competitionId } } } as any,
+    { status: 'finalizado', matchday: { league: { idEnApi: competitionId } }, ...(options ? { id: { $in: options.matchIds } } : {}) } as any,
     { populate: ['matchday', 'matchday.league'] },
   );
   console.log(`${tag} ✅ ${matches.length} partidos encontrados`);
+  if (options?.strict && matches.length !== options.matchIds.length) throw new Error('Some requested matches are no longer final');
 
   if (matches.length === 0) {
     console.log(`${tag} ⚠️  Sin partidos para procesar. Finalizando.`);
@@ -1617,7 +1480,7 @@ async function processRankingsInBackground(competitionId: number, localEm: typeo
     if (abortedByRateLimit) return;
 
     const apiMatchId = Number.parseInt(String(match.externalApiId ?? ''), 10);
-    if (!Number.isFinite(apiMatchId)) return;
+    if (!Number.isFinite(apiMatchId)) { errors.push({ matchId: match.id!, message: 'missing external match id' }); return; }
 
     const matchLabel = `partido ${index + 1}/${matches.length} [apiId=${apiMatchId}]`;
     console.log(`${tag}   → Procesando ${matchLabel} | ${match.homeTeam} vs ${match.awayTeam}`);
@@ -1636,6 +1499,9 @@ async function processRankingsInBackground(competitionId: number, localEm: typeo
         ...asArray(asRecord(data.away).players),
       ];
 
+      if (options?.strict && (!asArray(asRecord(data.home).players).length || !asArray(asRecord(data.away).players).length || !allPlayers.some(p => asRecord(p).played === true))) {
+        throw new Error('API returned incomplete lineups');
+      }
       let playersInMatch = 0;
 
       for (const playerNode of allPlayers) {
@@ -1652,6 +1518,7 @@ async function processRankingsInBackground(competitionId: number, localEm: typeo
         const realPlayer = realPlayerByApiId.get(playerIdEnApi);
         if (!realPlayer) {
           missingLocalPlayers += 1;
+          if (options?.strict) throw new Error(`Player ${playerIdEnApi} missing locally; synchronize competition players`);
           continue;
         }
 
@@ -1701,15 +1568,21 @@ async function processRankingsInBackground(competitionId: number, localEm: typeo
     }
   });
 
+  if (options?.strict && (errors.length || abortedByRateLimit)) {
+    throw new Error(`Ratings incomplete: ${errors.map(e => e.message).join('; ')}`);
+  }
+
   // ─── 5. Guardar en DB ─────────────────────────────────────────────────────
   console.log(`${tag} 💾 Guardando performances en la DB...`);
   await localEm.flush();
   console.log(`${tag} ✅ Flush completado (created=${createdPerformances}, updated=${updatedPerformances})`);
 
   // ─── 6. Actualizar valores de jugadores ───────────────────────────────────
-  console.log(`${tag} 📊 Actualizando translatedValues de jugadores...`);
-  await updateRealPlayerTranslatedValuesByLatestFormForCompetition(competitionId, localEm);
-  console.log(`${tag} ✅ TranslatedValues actualizados`);
+  if (!options?.strict) {
+    console.log(`${tag} 📊 Actualizando translatedValues de jugadores...`);
+    await updateRealPlayerTranslatedValuesByLatestFormForCompetition(competitionId, localEm);
+    console.log(`${tag} ✅ TranslatedValues actualizados`);
+  }
 
   const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
   console.log(`${tag} 🏁 Proceso finalizado en ${elapsed}s`, {
@@ -1722,6 +1595,14 @@ async function processRankingsInBackground(competitionId: number, localEm: typeo
     abortedByRateLimit,
     errors: errors.length > 0 ? errors : 'ninguno',
   });
+}
+
+export async function fetchMatchRatingsForAutomation(competitionId: number, matchIds: number[]): Promise<void> {
+  if (!matchIds.length) return;
+  if (runningRankingsCompetitions.has(competitionId)) throw new Error('Ratings process busy; retry later');
+  runningRankingsCompetitions.add(competitionId);
+  try { await processRankingsInBackground(competitionId, orm.em.fork(), { matchIds, strict: true }); }
+  finally { runningRankingsCompetitions.delete(competitionId); }
 }
 
 async function processRankingsForCompetition(competitionId: number): Promise<void> {

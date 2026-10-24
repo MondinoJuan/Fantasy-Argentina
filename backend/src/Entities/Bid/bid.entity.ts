@@ -7,7 +7,7 @@ import { RealPlayer } from '../RealPlayer/realPlayer.entity.js';
 import { Tournament } from '../Tournament/tournament.entity.js';
 
 @Entity()
-@Unique({ properties: ['tournament', 'participant', 'realPlayer'] })
+@Unique({ properties: ['matchdayMarket', 'participant', 'realPlayer'] })
 export class Bid extends BaseEntity {
   @ManyToOne(() => MatchdayMarket, { nullable: false, deleteRule: 'cascade' })
   matchdayMarket!: Rel<MatchdayMarket>;
@@ -21,7 +21,7 @@ export class Bid extends BaseEntity {
   @ManyToOne(() => Tournament, { nullable: false, deleteRule: 'cascade' })
   tournament!: Rel<Tournament>;
 
-  @Property({ nullable: false })
+  @Property({ nullable: false, hidden: true, columnType: 'double' })
   offeredAmount!: number;
 
   @Property({ nullable: false })
@@ -29,6 +29,9 @@ export class Bid extends BaseEntity {
 
   @Property({ nullable: false })
   bidDate: Date = new Date();
+
+  @Property({ nullable: true })
+  lastModifiedAt?: Date | null;
 
   @Property({ nullable: true })
   cancellationDate?: Date;

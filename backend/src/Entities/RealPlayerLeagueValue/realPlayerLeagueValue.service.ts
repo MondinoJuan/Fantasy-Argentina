@@ -13,6 +13,12 @@ export async function upsertRealPlayerLeagueTranslatedValue(
   });
 
   if (existing) {
+    // An explicit administrator reset establishes a new baseline, never replay old changes onto it.
+    if (existing.translatedValue !== params.translatedValue) {
+      existing.evolutionBase = null;
+      existing.evolutionHistory = null;
+      existing.evolutionStartedAt = new Date();
+    }
     existing.translatedValue = params.translatedValue;
     return existing;
   }
@@ -21,6 +27,7 @@ export async function upsertRealPlayerLeagueTranslatedValue(
     realPlayer: params.realPlayer,
     league: params.league,
     translatedValue: params.translatedValue,
+    evolutionStartedAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
   });

@@ -6,10 +6,10 @@ import { TransactionType } from '../../shared/domain-enums.js';
 
 @Entity()
 export class Transaction extends BaseEntity {
-  @ManyToOne(() => Participant, { nullable: true, deleteRule: 'cascade' })
+  @ManyToOne(() => Participant, { nullable: true, deleteRule: 'set null' })
   originParticipant?: Rel<Participant>;
 
-  @ManyToOne(() => Participant, { nullable: true, deleteRule: 'cascade' })
+  @ManyToOne(() => Participant, { nullable: true, deleteRule: 'set null' })
   destinationParticipant?: Rel<Participant>;
 
   @ManyToOne(() => Tournament, { nullable: false, deleteRule: 'cascade' })
@@ -18,7 +18,13 @@ export class Transaction extends BaseEntity {
   @Property({ nullable: false })
   type!: TransactionType;
 
-  @Property({ nullable: false })
+  @Property({ nullable: true, unique: true })
+  eventKey?: string | null;
+
+  @Property({ type: 'json', nullable: true })
+  balanceChange?: Record<string, unknown> | null;
+
+  @Property({ nullable: false, columnType: 'double' })
   amount!: number;
 
   @Property({ nullable: false })

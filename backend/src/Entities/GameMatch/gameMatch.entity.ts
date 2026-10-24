@@ -31,6 +31,18 @@ export class GameMatch extends BaseEntity {
 
 
   @Property({ nullable: true })
+  finishedAt?: Date | null;
+
+  @Property({ default: false })
+  pendingRecovery = false;
+
+  @Property({ nullable: true })
+  recoveryCompletedAt?: Date | null;
+
+  @Property({ nullable: true })
+  pendingOriginalStart?: Date | null;
+
+  @Property({ nullable: true })
   homeScore?: number | null;
 
   @Property({ nullable: true })

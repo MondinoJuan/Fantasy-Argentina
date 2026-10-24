@@ -13,6 +13,12 @@
   </div>
 
   <p class="save-error" *ngIf="saveError">{{ saveError }}</p>
+  <p role="status">{{ hasUnsavedChanges ? 'Hay cambios sin guardar.' : 'Alineación guardada.' }}</p>
+  <div class="formation-bar">
+    <label>Jugador <select [(ngModel)]="selectedMovePlayerId"><option [ngValue]="0">Elegí un jugador</option><option *ngFor="let player of movablePlayers" [ngValue]="player.id">{{ player.name }}</option></select></label>
+    <label>Asignar a <select [(ngModel)]="selectedMoveTarget"><option value="">Elegí un puesto</option><option *ngFor="let slot of slots" [value]="slot.slotId">{{ slotLabel(slot) }}</option><option value="substitutes-drop-list">Suplentes (intercambia el primero si están completos)</option></select></label>
+    <button type="button" (click)="moveSelectedPlayer()" [disabled]="!selectedMovePlayerId || !selectedMoveTarget || isSaving">Mover / intercambiar</button>
+  </div>
 
   <div class="pitch-wrapper">
     <img class="pitch-img" src="assets/cancha-futbol.png" alt="" />
@@ -30,10 +36,10 @@
         [cdkDropListData]="slot.players"
         (cdkDropListDropped)="dropSlot($any($event))"
       >
-        <span class="slot-pos">{{ slot.position | uppercase }}</span>
+        <span class="slot-pos">{{ positionName(slot.position) }}</span>
 
         <article *ngFor="let player of slot.players" class="pitch-card" cdkDrag [cdkDragData]="player">
-          <small class="pc-team">{{ player.position | uppercase }}</small>
+          <small class="pc-team">{{ positionName(player.position) }}</small>
           <p class="pc-name">{{ player.name }}</p>
           <small class="pc-team">{{ player.teamName }}</small>
           <label class="captain-toggle">
@@ -64,7 +70,7 @@
       (cdkDropListDropped)="dropSlot($any($event))"
     >
       <article *ngFor="let player of substitutes" class="pitch-card subs-card" cdkDrag [cdkDragData]="player">
-        <small class="pc-team">{{ player.position | uppercase }}</small>
+        <small class="pc-team">{{ positionName(player.position) }}</small>
         <p class="pc-name">{{ player.name }}</p>
         <small class="pc-team">{{ player.teamName }}</small>
         <span class="pc-score">{{ player.lastScore ?? 0 }} pts</span>

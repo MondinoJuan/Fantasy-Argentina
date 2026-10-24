@@ -1,3 +1,8 @@
+MODELO HISTÓRICO, NO ES EL ESQUEMA VIGENTE.
+Las entidades actuales se encuentran en backend/src/Entities.
+Reglamento: Reglas.md. Estado técnico: Paso a paso.md.
+Los nombres, relaciones y restricciones de este borrador no deben usarse como migraciones.
+
 ================================================================================
 MODELO RELACIONAL CORREGIDO - FANTASY ARGENTINA
 ================================================================================

@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { AccessibleDialogDirective } from '../accessible-dialog.directive';
 import { Component, Input, Output, EventEmitter, OnChanges, OnInit, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
@@ -20,7 +21,7 @@ export interface ResolvedMarketPlayer {
 @Component({
   selector: 'app-real-player-market-card',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AccessibleDialogDirective],
   templateUrl: './real-player-market-card.component.html',
   styleUrl: './real-player-market-card.component.scss',
 })
@@ -47,6 +48,7 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
   bidAmount = 0;
   bidError = '';
   existingBidForSelectedPlayer: any = null;
+  isSubmitting = false;
 
   private _pendingRealPlayerId = 0;
   private _pendingRealPlayer: any = null;
@@ -73,7 +75,7 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
 
 
   onBidClick(): void {
-    this.bidAmount = Number(this.player?.translatedValue ?? 0);
+    this.bidAmount = Math.ceil(Number(this.player?.translatedValue ?? 0));
     this.bidError = '';
     this.existingBidForSelectedPlayer = null;
     this.showBidModal = true;
@@ -105,6 +107,7 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
   }
 
   closeBidModal(): void {
+    if (this.isSubmitting) return;
     this.showBidModal = false;
     this.bidAmount = 0;
     this.bidError = '';
@@ -112,6 +115,7 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
   }
 
   submitBid(): void {
+    if (this.isSubmitting) return;
     if (!this.player?.realPlayerId || !this.participantId) {
       this.bidError = 'No se pudo identificar el jugador para ofertar.';
       return;
@@ -120,9 +124,9 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
     const amount = Number(this.bidAmount);
     const previousAmount = Number(this.existingBidForSelectedPlayer?.offeredAmount ?? 0);
     const requiredIncrement = amount - previousAmount;
-    const translatedValue = Number(this.player?.translatedValue ?? 0);
+    const translatedValue = Math.ceil(Number(this.player?.translatedValue ?? 0));
 
-    if (!Number.isFinite(amount) || amount < 0) {
+    if (!Number.isSafeInteger(amount) || amount <= 0) {
       this.bidError = 'Ingresá un monto válido.';
       return;
     }
@@ -156,15 +160,28 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
           bidDate: new Date(),
         });
 
+    this.isSubmitting = true;
     request$.subscribe({
       next: () => {
+        this.isSubmitting = false;
         this.closeBidModal();
         this.bidSaved.emit();
         this.resolvePlayer();
       },
       error: (error) => {
+        this.isSubmitting = false;
         this.bidError = error?.error?.message ?? 'No se pudo registrar la oferta.';
       },
+    });
+  }
+
+  cancelBid(): void {
+    const id = this.extractId(this.existingBidForSelectedPlayer);
+    if (!id || this.isSubmitting) return;
+    this.isSubmitting = true;
+    this.apiService.removeBid(id).subscribe({
+      next: () => { this.isSubmitting = false; this.closeBidModal(); this.bidSaved.emit(); },
+      error: error => { this.isSubmitting = false; this.bidError = error?.error?.message ?? 'No se pudo cancelar la puja.'; },
     });
   }
 
@@ -295,11 +312,11 @@ export class RealPlayerMarketCardComponent implements OnInit, OnChanges {
     if (!this.player) return true;
 
     const amount = Number(this.bidAmount);
-    const translatedValue = Number(this.player.translatedValue ?? 0);
+    const translatedValue = Math.ceil(Number(this.player.translatedValue ?? 0));
     const previousAmount = Number(this.existingBidForSelectedPlayer?.offeredAmount ?? 0);
     const requiredIncrement = amount - previousAmount;
 
-    if (!Number.isFinite(amount) || amount < 0) return true;
+    if (this.isSubmitting || !Number.isSafeInteger(amount) || amount <= 0) return true;
     if (amount !== 0 && amount < translatedValue) return true;
     if (requiredIncrement > Number(this.availableMoney)) return true;
 

@@ -30,6 +30,12 @@ export class Matchday extends BaseEntity {
   autoUpdateAt?: Date | null;
 
   @Property({ type: DateTimeType, nullable: true })
+  closureCompletedAt?: Date | null;
+
+  @Property({ type: 'json', nullable: true })
+  closureSummary?: Record<string, unknown> | null;
+
+  @Property({ type: DateTimeType, nullable: true })
   nextPostponedCheckAt?: Date | null;
 
   @Property({ nullable: false })

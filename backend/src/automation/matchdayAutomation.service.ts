@@ -1,460 +1,222 @@
+import { evolveLeaguePrices } from '../shared/services/playerPrices.service.js';
+import { randomUUID } from 'node:crypto';
+import { LockMode } from '@mikro-orm/core';
 import { orm } from '../shared/db/orm.js';
-import { RequestContext } from '@mikro-orm/mysql';
 import { Tournament } from '../Entities/Tournament/tournament.entity.js';
+import { Participant } from '../Entities/Participant/participant.entity.js';
 import { Matchday } from '../Entities/Matchday/matchday.entity.js';
-import { MatchdayAutomationJob } from '../Entities/MatchdayAutomationJob/matchdayAutomationJob.entity.js';
+import { MatchdayAutomationJob, type MatchdayAutomationJobStep } from '../Entities/MatchdayAutomationJob/matchdayAutomationJob.entity.js';
 import { GameMatch } from '../Entities/GameMatch/gameMatch.entity.js';
 import { League } from '../Entities/League/league.entity.js';
-import { processRankingsForCompetition, syncPlayedMatchesResultsForCompetition } from '../Entities/ExternalApi/externalApi.controler.js';
-import { settleMarketAndRefreshByLeague, sumEndOfMatchdayPoints, translateLeagueRealPlayersValues } from '../Entities/Tournament/tournament.controler.js';
-import type { Request, Response } from 'express';
+import { fetchMatchRatingsForAutomation, syncPlayedMatchesResultsForCompetition } from '../Entities/ExternalApi/externalApi.controler.js';
+import { captureDueLineups } from '../shared/services/historicalLineup.service.js';
+import { recalculateMatchdayPoints } from '../Entities/Tournament/services/matchdayPoints.service.js';
+import { commitLeagueClosure } from './leagueClosure.service.js';
+import { closureTime, hoursAfter } from './closure-policy.js';
 
 let schedulerStarted = false;
 let processing = false;
 let seeding = false;
-
-const seedIntervalMs = Number.parseInt(process.env.MATCHDAY_AUTOMATION_SEED_INTERVAL_MS ?? '', 10) || (10 * 60 * 1000);
-const processIntervalMs = Number.parseInt(process.env.MATCHDAY_AUTOMATION_PROCESS_INTERVAL_MS ?? '', 10) || (60 * 1000);
 const enabled = (process.env.MATCHDAY_AUTOMATION_ENABLED ?? 'true').toLowerCase() !== 'false';
+const seedIntervalMs = Math.max(60_000, Number(process.env.MATCHDAY_AUTOMATION_SEED_INTERVAL_MS) || 600_000);
+const processIntervalMs = Math.max(10_000, Number(process.env.MATCHDAY_AUTOMATION_PROCESS_INTERVAL_MS) || 60_000);
+const later = (minutes: number) => new Date(Date.now() + minutes * 60_000);
+const timingPolicy = 'kickoff-plus-5h-v2';
+const idOf = (v: any): number => Number(v?.id ?? v);
 
-function createIdempotencyKey(prefix: string, ids: Array<number | null | undefined>): string {
-  return `${prefix}:${ids.map((value) => Number.isFinite(value as number) ? Number(value) : 'na').join(':')}`;
-}
-
-function addHours(date: Date, hours: number): Date {
-  return new Date(date.getTime() + (hours * 60 * 60 * 1000));
-}
-
-function addMinutes(date: Date, minutes: number): Date {
-  return new Date(date.getTime() + (minutes * 60 * 1000));
-}
-
-function addDays(date: Date, days: number): Date {
-  return new Date(date.getTime() + (days * 24 * 60 * 60 * 1000));
-}
-
-function toValidDate(value: unknown): Date | null {
-  if (value instanceof Date && Number.isFinite(value.getTime())) {
-    return value;
+async function ensureJob(league: League, matchday: Matchday, step: MatchdayAutomationJobStep, runAt: Date, key: string, match?: GameMatch) {
+  const em = orm.em.fork();
+  const existing = await em.findOne(MatchdayAutomationJob, { idempotencyKey: key });
+  const payload = { timingPolicy, plannedAt: runAt.toISOString(), ...(match ? { kickoff: match.startDateTime.toISOString() } : {}) };
+  if (existing) {
+    // Upgrade old schedules and follow fixture edits, without erasing a four-hour live-game retry.
+    if (step === 'matchday_closure' && ['pending', 'failed'].includes(existing.status)
+      && (existing.payload?.timingPolicy !== timingPolicy || existing.payload?.plannedAt !== payload.plannedAt)) {
+      await em.nativeUpdate(MatchdayAutomationJob, { id: existing.id, status: existing.status }, { status: 'pending', runAt, payload });
+    }
+    return;
   }
+  em.create(MatchdayAutomationJob, { league, matchday, gameMatch: match ?? null, step, runAt,
+    idempotencyKey: key, status: 'pending', attempts: 0, createdAt: new Date(), updatedAt: new Date(),
+    payload });
+  try { await em.flush(); }
+  catch (error) {
+    // Two workers may seed simultaneously; the unique key decides the winner.
+    if (!await orm.em.fork().findOne(MatchdayAutomationJob, { idempotencyKey: key })) throw error;
+  }
+}
 
-  if (typeof value === 'string' || typeof value === 'number') {
-    const parsed = new Date(value);
-    if (Number.isFinite(parsed.getTime())) {
-      return parsed;
+/** The persistent flag survives a change from postponed back to scheduled/finalizado. */
+async function trackPending(leagueId: number, classifyDateId?: number) {
+  const em = orm.em.fork();
+  const matches = await em.find(GameMatch, { league: leagueId }, { populate: ['matchday', 'league'] });
+  const now = new Date();
+  for (const match of matches) {
+    const unplayed = match.status === 'postponed' || (match.matchday.id === classifyDateId && match.status === 'scheduled'
+      && hoursAfter(match.startDateTime, 5) <= now);
+    if (unplayed && !match.pendingRecovery && !match.recoveryCompletedAt) {
+      match.pendingRecovery = true; match.pendingOriginalStart = new Date(match.startDateTime);
     }
   }
+  await em.flush();
+  for (const match of matches) {
+    if (!match.pendingRecovery || match.status === 'cancelled' || match.status === 'postponed') continue;
+    const rescheduled = match.pendingOriginalStart && match.startDateTime.getTime() !== match.pendingOriginalStart.getTime();
+    if (rescheduled || ['finalizado', 'in_progress'].includes(match.status)) {
+      await ensureJob(match.league, match.matchday, 'postponed_match_sum', hoursAfter(match.startDateTime, 5),
+        'recovery:' + match.id + ':' + match.startDateTime.getTime(), match);
+    }
+  }
+}
 
+async function synchronize(competitionId: number, ids: number[]) {
+  if (!ids.length) return;
+  const result = await syncPlayedMatchesResultsForCompetition(competitionId, ids);
+  if (result.errors.length || result.missingPayloadData) {
+    throw new Error('Match status incomplete: ' + result.errors.map(e => e.message).join('; ') + '; missing=' + result.missingPayloadData);
+  }
+}
+
+/** Started automatically by app.ts; the administrator endpoint uses the same kickoff-based gate. */
+export async function runLeagueMatchdayClosure(matchdayId: number): Promise<{ completed: boolean; retryAt?: Date; data?: unknown }> {
+  let em = orm.em.fork();
+  let date = await em.findOneOrFail(Matchday, { id: matchdayId }, { populate: ['league'] });
+  if (date.closureCompletedAt) return { completed: true, data: date.closureSummary };
+  if (!date.league.idEnApi) throw new Error('League has no external competition id');
+  // Local scheduling uses no external requests, including when someone presses the admin button early.
+  await trackPending(idOf(date.league));
+  const initial = await em.find(GameMatch, { matchday: date });
+  const plannedAt = closureTime(initial);
+  if (!plannedAt) return { completed: false, retryAt: hoursAfter(new Date(), 4) };
+  const nextAttemptAt = date.autoUpdateAt && date.autoUpdateAt > plannedAt ? date.autoUpdateAt : plannedAt;
+  if (nextAttemptAt > new Date()) return { completed: false, retryAt: nextAttemptAt };
+  const matches = await em.find(GameMatch, { league: date.league,
+    $or: [{ matchday: date }, { pendingRecovery: true }], status: { $ne: 'cancelled' },
+  });
+  await synchronize(date.league.idEnApi, matches.map(m => m.id!));
+  await trackPending(idOf(date.league), date.id!);
+  em = orm.em.fork();
+  date = await em.findOneOrFail(Matchday, { id: matchdayId }, { populate: ['league'] });
+  const current = await em.find(GameMatch, { matchday: date });
+  const due = closureTime(current);
+  // The one scheduled status request may reveal a changed kickoff or a game still in progress.
+  const retryAt = current.some(m => m.status === 'in_progress') ? hoursAfter(new Date(), 4)
+    : due && due > new Date() ? due : null;
+  date.autoUpdateAt = retryAt ?? due;
+  await em.flush();
+  if (retryAt) return { completed: false, retryAt };
+  // 1. Fetch every played player's rating in this round. Partial failures prevent economic effects.
+  await fetchMatchRatingsForAutomation(date.league.idEnApi!, current.filter(m => m.status === 'finalizado').map(m => m.id!));
+  await evolveLeaguePrices(orm.em.fork(), idOf(date.league));
+  // 2 -> 3 -> 4 -> 5, committed atomically with a durable completion marker.
+  const data = await commitLeagueClosure(orm.em.fork(), date.id!);
+  return { completed: true, data };
+}
+
+async function recoverMatch(job: MatchdayAutomationJob): Promise<Date | null> {
+  let em = orm.em.fork();
+  let match = await em.findOneOrFail(GameMatch, { id: idOf(job.gameMatch) }, { populate: ['league', 'matchday'] });
+  if (!match.pendingRecovery || match.recoveryCompletedAt || match.status === 'cancelled') return null;
+  const plannedAt = hoursAfter(match.startDateTime, 5);
+  if (plannedAt > new Date()) return plannedAt;
+  await synchronize(match.league.idEnApi!, [match.id!]);
+  await trackPending(idOf(match.league));
+  em = orm.em.fork();
+  match = await em.findOneOrFail(GameMatch, { id: match.id }, { populate: ['league', 'matchday'] });
+  // A new kickoff creates a different durable job. The old schedule must not fetch ratings early.
+  if (job.payload?.kickoff && match.startDateTime.toISOString() !== job.payload.kickoff) return null;
+  const due = hoursAfter(match.startDateTime, 5);
+  if (due > new Date()) return due;
+  if (match.status !== 'finalizado') return hoursAfter(new Date(), 4);
+  await fetchMatchRatingsForAutomation(match.league.idEnApi!, [match.id!]);
+  await evolveLeaguePrices(orm.em.fork(), idOf(match.league));
+  await em.transactional(async tx => {
+    await tx.findOneOrFail(League, { id: idOf(match.league) }, { lockMode: LockMode.PESSIMISTIC_WRITE });
+    const fresh = await tx.findOneOrFail(GameMatch, { id: match.id }, { populate: ['matchday', 'league'], lockMode: LockMode.PESSIMISTIC_WRITE });
+    if (fresh.recoveryCompletedAt) return;
+    // Whole-round rebuild preserves other matches and updates only historical contributions.
+    await recalculateMatchdayPoints(tx, fresh.league, fresh.matchday);
+    fresh.pendingRecovery = false; fresh.recoveryCompletedAt = new Date();
+    await tx.flush();
+  });
   return null;
 }
 
-async function invokeController(handler: (req: Request, res: Response) => Promise<void>, body: Record<string, unknown>) {
-  return await new Promise((resolve, reject) => {
-    RequestContext.create(orm.em, async () => {
-      try {
-        let statusCode = 200;
-        let jsonPayload: any;
-
-        const req = { body, params: {}, query: {} } as Request;
-        const res = {
-          status(code: number) {
-            statusCode = code;
-            return this;
-          },
-          json(payload: any) {
-            jsonPayload = payload;
-            return this;
-          },
-        } as unknown as Response;
-
-        await handler(req, res);
-
-        if (statusCode >= 400) {
-          reject(new Error(jsonPayload?.message ?? `controller error with status ${statusCode}`));
-          return;
-        }
-
-        resolve(jsonPayload);
-      } catch (error) {
-        reject(error);
-      }
-    });
-  });
-}
-
-async function ensureJob(params: {
-  league: League;
-  matchday?: Matchday | null;
-  gameMatch?: GameMatch | null;
-  step: 'matchday_closure' | 'postponed_recheck' | 'postponed_match_sum';
-  runAt: Date;
-  idempotencyKey: string;
-  payload?: Record<string, unknown>;
-}) {
-  const localEm = orm.em.fork();
-  const existing = await localEm.findOne(MatchdayAutomationJob, { idempotencyKey: params.idempotencyKey });
-  if (existing) {
-    // Si el job anterior falló, lo reseteamos a pending para que reintente.
-    // Si está completed/running/pending lo dejamos como está.
-    if (existing.status === 'failed') {
-      existing.status = 'pending';
-      existing.runAt = params.runAt;
-      existing.lastError = null;
-      await localEm.flush();
-    }
-    return existing;
-  }
-
-  const job = localEm.create(MatchdayAutomationJob, {
-    league: params.league,
-    matchday: params.matchday ?? null,
-    gameMatch: params.gameMatch ?? null,
-    step: params.step,
-    runAt: params.runAt,
-    status: 'pending',
-    attempts: 0,
-    idempotencyKey: params.idempotencyKey,
-    payload: params.payload ?? null,
-  } as any);
-
-  await localEm.flush();
-  return job;
-}
-
-async function seedJobs() {
-  if (!enabled || seeding) {
-    return;
-  }
-
+export async function seedMatchdayJobs() {
+  if (!enabled || seeding) return;
   seeding = true;
   try {
-    const localEm = orm.em.fork();
-    const now = new Date();
-
-    const tournaments = await localEm.find(Tournament, {}, { populate: ['league'] });
-    const leagueMap = new Map<number, League>();
-    for (const tournament of tournaments) {
-      const leagueId = Number(tournament.league?.id ?? 0);
-      if (Number.isFinite(leagueId) && leagueId > 0) {
-        leagueMap.set(leagueId, tournament.league as League);
+    const em = orm.em.fork();
+    const tournaments = await em.find(Tournament, { initialDrawState: { $ne: 'waiting' } }, { populate: ['league'] });
+    const members = tournaments.length ? await em.find(Participant, { tournament: { $in: tournaments.map(t => t.id!) }, retiredAt: null }) : [];
+    const activeTournamentIds = new Set(members.map(p => idOf(p.tournament)));
+    const leagues = new Map(tournaments.filter(t => activeTournamentIds.has(t.id!)).map(t => [idOf(t.league), t.league]));
+    for (const league of leagues.values()) {
+      await trackPending(league.id!);
+      const dates = await em.find(Matchday, { league, closureCompletedAt: null, status: { $ne: 'cancelled' } }, { orderBy: [{ season: 'asc' }, { matchdayNumber: 'asc' }] });
+      for (const date of dates) {
+        const matches = await em.find(GameMatch, { matchday: date });
+        if (!matches.length) continue;
+        const plannedAt = closureTime(matches)!;
+        await ensureJob(league, date, 'matchday_closure', plannedAt, 'closure:' + league.id + ':' + date.id);
+        const job = await orm.em.fork().findOne(MatchdayAutomationJob, { idempotencyKey: 'closure:' + league.id + ':' + date.id });
+        date.autoUpdateAt = job?.runAt ?? plannedAt;
       }
+      await em.flush();
     }
-
-    // Armar una cola de fechas pendientes por liga (más antigua primero).
-    // Al encontrar la primera 'completed' (iterando desc) cortamos — todo lo anterior ya fue procesado.
-    const pendingByLeague = new Map<number, Array<{ matchday: Matchday; league: League }>>();
-
-    for (const league of leagueMap.values()) {
-      const matchdays = await localEm.find(Matchday, { league }, { populate: ['league'], orderBy: { matchdayNumber: 'desc' } });
-      const pending: Array<{ matchday: Matchday; league: League }> = [];
-
-      for (const matchday of matchdays) {
-        if (matchday.status === 'completed') {
-          break;
-        }
-        pending.push({ matchday, league });
-      }
-
-      // Invertir: procesar de más antigua a más reciente dentro de cada liga.
-      pending.reverse();
-
-      if (pending.length > 0) {
-        pendingByLeague.set(Number(league.id), pending);
-      }
-    }
-
-    // Round-robin: en cada vuelta tomamos UNA fecha de cada liga,
-    // hasta agotar todas las colas.
-    const leagueQueues = [...pendingByLeague.values()];
-    let roundHasWork = true;
-
-    while (roundHasWork) {
-      roundHasWork = false;
-
-      for (const queue of leagueQueues) {
-        const entry = queue.shift();
-        if (!entry) {
-          continue;
-        }
-
-        roundHasWork = true;
-        const { matchday, league } = entry;
-        const autoUpdateAt = toValidDate(matchday.autoUpdateAt);
-
-        // isLatest: true solo si es la última fecha pendiente de la cola (la más reciente).
-        const isLatest = queue.length === 0;
-
-        if (autoUpdateAt && autoUpdateAt.getTime() <= now.getTime()) {
-          await ensureJob({
-            league,
-            matchday,
-            step: 'matchday_closure',
-            runAt: autoUpdateAt,
-            idempotencyKey: createIdempotencyKey('closure', [league.id, matchday.id]),
-            payload: {
-              leagueId: league.id,
-              matchdayNumber: matchday.matchdayNumber,
-              season: matchday.season,
-              isLatest,
-            },
-          });
-        }
-
-        const postponedCount = await localEm.count(GameMatch, {
-          matchday,
-          status: 'postponed',
-        } as any);
-
-        if (postponedCount > 0) {
-          if (!matchday.nextPostponedCheckAt) {
-            matchday.nextPostponedCheckAt = addDays(now, 7);
-          }
-
-          const nextPostponedCheckAt = toValidDate(matchday.nextPostponedCheckAt);
-          if (nextPostponedCheckAt && nextPostponedCheckAt.getTime() <= now.getTime()) {
-            const weekBucket = `${now.getUTCFullYear()}-${now.getUTCMonth() + 1}-${now.getUTCDate()}`;
-            await ensureJob({
-              league,
-              matchday,
-              step: 'postponed_recheck',
-              runAt: now,
-              idempotencyKey: `postponed-recheck:${matchday.id}:${weekBucket}`,
-              payload: {
-                leagueId: league.id,
-                matchdayId: matchday.id,
-              },
-            });
-            matchday.nextPostponedCheckAt = addDays(now, 7);
-          }
-        } else {
-          matchday.nextPostponedCheckAt = null;
-        }
-      }
-    }
-
-    await localEm.flush();
-  } catch (error: any) {
-    console.error('[matchday-automation][seed] error:', error?.message ?? error);
-  } finally {
-    seeding = false;
-  }
+  } catch (error: any) { console.error('[matchday-automation][seed]', error?.message ?? error); }
+  finally { seeding = false; }
 }
 
-async function executeClosureJob(job: MatchdayAutomationJob): Promise<boolean> {
-  const leagueId = Number((job.league as any)?.id ?? job.league);
-  const matchday = job.matchday as Matchday | null;
-  if (!Number.isFinite(leagueId) || leagueId <= 0 || !matchday) {
-    throw new Error('invalid closure job league/matchday');
-  }
-
-  const localEm = orm.em.fork();
-  const league = await localEm.findOne(League, { id: leagueId });
-  const competitionId = Number(league?.idEnApi ?? (job.league as any)?.idEnApi ?? 0);
-  if (Number.isFinite(competitionId) && competitionId > 0) {
-    await syncPlayedMatchesResultsForCompetition(competitionId);
-    await processRankingsForCompetition(competitionId);
-  }
-
-  let isLatest = (job.payload as any)?.isLatest !== false;
-  if (!isLatest) {
-    const latestDueMatchday = await localEm.findOne(Matchday, {
-      league: { id: leagueId },
-      status: { $ne: 'completed' },
-      autoUpdateAt: { $ne: null, $lte: new Date() },
-    } as any, {
-      orderBy: [{ matchdayNumber: 'desc' }, { autoUpdateAt: 'desc' }],
-    });
-
-    isLatest = Number(latestDueMatchday?.id ?? 0) === Number(matchday.id ?? 0);
-  }
-
-  if (isLatest) {
-    await invokeController(sumEndOfMatchdayPoints as any, {
-      leagueId,
-      matchdayNumber: matchday.matchdayNumber,
-      season: matchday.season,
-    });
-
-    await invokeController(settleMarketAndRefreshByLeague as any, {
-      leagueId,
-      matchdayNumber: matchday.matchdayNumber,
-      season: matchday.season,
-    });
-    await translateLeagueRealPlayersValues(leagueId);
-  } else {
-    console.log(
-      `[matchday-automation] closure job=${job.id} league=${leagueId} matchday=${matchday.matchdayNumber} omitido: todavía no es latest due`,
-    );
-    return false;
-  }
-
-  const freshMatchday = await localEm.findOne(Matchday, { id: matchday.id });
-  if (freshMatchday) {
-    freshMatchday.status = 'completed';
-    (freshMatchday as any).autoUpdateAt = null; // evita que seedJobs lo vuelva a encolar
-    await localEm.flush();
-  }
-
-  return true;
-}
-
-async function executePostponedRecheckJob(job: MatchdayAutomationJob) {
-  const localEm = orm.em.fork();
-  const matchdayId = Number((job.matchday as any)?.id ?? job.matchday);
-  if (!Number.isFinite(matchdayId) || matchdayId <= 0) {
-    throw new Error('invalid postponed_recheck matchday');
-  }
-
-  const matchday = await localEm.findOne(Matchday, { id: matchdayId }, { populate: ['league'] });
-  if (!matchday) {
-    return;
-  }
-
-  const postponedMatches = await localEm.find(GameMatch, { matchday, status: 'postponed' } as any);
-
-  for (const postponed of postponedMatches) {
-    const candidate = await localEm.findOne(GameMatch, {
-      matchday,
-      homeTeam: postponed.homeTeam,
-      awayTeam: postponed.awayTeam,
-      id: { $ne: postponed.id },
-      status: { $in: ['scheduled', 'in_progress', 'finalizado'] },
-    } as any, { orderBy: { startDateTime: 'desc' } });
-
-    if (!candidate) {
-      continue;
-    }
-
-    const candidateStartDateTime = toValidDate(candidate.startDateTime) ?? new Date();
-    const runAt = addHours(candidateStartDateTime, 8);
-
-    await ensureJob({
-      league: matchday.league as League,
-      matchday,
-      gameMatch: candidate,
-      step: 'postponed_match_sum',
-      runAt: runAt.getTime() <= Date.now() ? new Date() : runAt,
-      idempotencyKey: createIdempotencyKey('postponed-match-sum', [matchday.league.id, matchday.id, candidate.id]),
-      payload: {
-        leagueId: matchday.league.id,
-        matchdayNumber: matchday.matchdayNumber,
-        season: matchday.season,
-        gameMatchId: candidate.id,
-      },
-    });
-  }
-
-  matchday.nextPostponedCheckAt = addDays(new Date(), 7);
-  await localEm.flush();
-}
-
-async function executePostponedMatchSumJob(job: MatchdayAutomationJob) {
-  const matchday = job.matchday as Matchday | null;
-  const gameMatch = job.gameMatch as GameMatch | null;
-  const leagueId = Number((job.league as any)?.id ?? job.league);
-
-  if (!matchday || !gameMatch || !Number.isFinite(leagueId) || leagueId <= 0) {
-    throw new Error('invalid postponed_match_sum payload');
-  }
-
-  await invokeController(sumEndOfMatchdayPoints as any, {
-    leagueId,
-    matchdayNumber: matchday.matchdayNumber,
-    season: matchday.season,
-    gameMatchId: gameMatch.id,
-  });
-}
-
-async function processDueJobs() {
-  if (!enabled || processing) {
-    return;
-  }
-
+export async function processDueMatchdayJobs() {
+  if (!enabled || processing) return;
   processing = true;
   try {
-    const localEm = orm.em.fork();
+    const em = orm.em.fork();
     const now = new Date();
-
-    const jobs = await localEm.find(MatchdayAutomationJob, {
-      status: 'pending',
-      runAt: { $lte: now },
-    } as any, {
-      populate: ['league', 'matchday', 'gameMatch'],
-      orderBy: { runAt: 'asc' },
-      limit: 20,
+    await captureDueLineups(em, now);
+    // Crashed processes leave an expiring lease, never a job stuck in running forever.
+    await em.nativeUpdate(MatchdayAutomationJob, { status: 'running', $or: [{ leaseUntil: { $lte: now } }, { leaseUntil: null }] }, { status: 'pending', leaseToken: null });
+    const jobs = await em.find(MatchdayAutomationJob, { status: { $in: ['pending', 'failed'] }, runAt: { $lte: now } }, {
+      populate: ['league', 'matchday', 'gameMatch'], orderBy: [{ runAt: 'asc' }, { id: 'asc' }], limit: 20,
     });
-
     for (const job of jobs) {
-      job.status = 'running';
-      job.startedAt = new Date();
-      job.attempts = Number(job.attempts ?? 0) + 1;
-      job.lastError = null;
-      await localEm.flush();
-
+      const token = randomUUID();
+      const claimed = await orm.em.fork().nativeUpdate(MatchdayAutomationJob, { id: job.id, status: job.status, runAt: { $lte: new Date() } }, {
+        status: 'running', leaseToken: token, leaseUntil: later(5), startedAt: new Date(), attempts: Number(job.attempts) + 1, lastError: null,
+      });
+      if (!claimed) continue;
+      const owned = { id: job.id, status: 'running' as const, leaseToken: token };
+      const heartbeat = setInterval(() => { void orm.em.fork().nativeUpdate(MatchdayAutomationJob, owned, { leaseUntil: later(5) }).catch(console.error); }, 30_000);
       try {
-        let shouldCompleteJob = true;
-
+        let retryAt: Date | null = null;
         if (job.step === 'matchday_closure') {
-          shouldCompleteJob = await executeClosureJob(job);
-        } else if (job.step === 'postponed_recheck') {
-          await executePostponedRecheckJob(job);
-        } else if (job.step === 'postponed_match_sum') {
-          await executePostponedMatchSumJob(job);
-        }
+          const result = await runLeagueMatchdayClosure(idOf(job.matchday));
+          if (!result.completed) retryAt = result.retryAt ?? later(30);
+        } else if (job.step === 'postponed_match_sum') retryAt = await recoverMatch(job);
+        // Legacy daily rechecks complete without API calls. Unknown postponements are checked at league closures.
 
-        if (shouldCompleteJob) {
-          job.status = 'completed';
-          job.finishedAt = new Date();
-        } else {
-          job.status = 'pending';
-          job.runAt = addMinutes(new Date(), 15);
-          job.lastError = 'waiting until matchday is latest due for full closure';
-          job.finishedAt = null;
-        }
-        await localEm.flush();
+        await orm.em.fork().nativeUpdate(MatchdayAutomationJob, owned, {
+          status: retryAt ? 'pending' : 'completed', runAt: retryAt ?? job.runAt,
+          finishedAt: retryAt ? null : new Date(), leaseUntil: null, leaseToken: null,
+        });
       } catch (error: any) {
-        const message: string = error?.message ?? 'unknown automation failure';
-        const isRateLimit = /429|rate.?limit|too.?many.?requests|quota.?exceeded/i.test(message);
-
-        if (isRateLimit) {
-          // Todas las API keys agotadas → reprogramar en 24 hs (se recargan al día siguiente).
-          job.status = 'pending';
-          job.runAt = addHours(new Date(), 24);
-          job.lastError = `[rate-limit] reprogramado +24h: ${message}`;
-          job.finishedAt = null;
-          console.warn(`[matchday-automation] job=${job.id} step=${job.step} rate-limit agotado → retry en 24 hs`);
-        } else {
-          job.status = 'failed';
-          job.lastError = message;
-          job.finishedAt = new Date();
-        }
-
-        await localEm.flush();
-      }
+        const message = String(error?.message ?? error).slice(0, 4000);
+        const rateLimited = /429|rate.?limit|quota|too.?many/i.test(message);
+        await orm.em.fork().nativeUpdate(MatchdayAutomationJob, owned, { status: 'pending', runAt: rateLimited ? hoursAfter(new Date(), 24) : later(Math.min(60, 5 * (Number(job.attempts) + 1))),
+          lastError: message, leaseUntil: null, leaseToken: null });
+        console.error('[matchday-automation][job=' + job.id + ']', message);
+      } finally { clearInterval(heartbeat); }
     }
-  } catch (error: any) {
-    console.error('[matchday-automation][process] error:', error?.message ?? error);
-  } finally {
-    processing = false;
-  }
+  } catch (error: any) { console.error('[matchday-automation][process]', error?.message ?? error); }
+  finally { processing = false; }
 }
 
 export function startMatchdayAutomationScheduler() {
-  if (schedulerStarted || !enabled) {
-    return;
-  }
-
+  if (schedulerStarted || !enabled) return;
   schedulerStarted = true;
-  console.log(`[matchday-automation] scheduler started (seed=${seedIntervalMs}ms process=${processIntervalMs}ms)`);
-
-  void seedJobs();
-  void processDueJobs();
-
-  setInterval(() => {
-    void seedJobs();
-  }, seedIntervalMs);
-
-  setInterval(() => {
-    void processDueJobs();
-  }, processIntervalMs);
+  console.log('[matchday-automation] persistent scheduler started');
+  void seedMatchdayJobs().then(() => processDueMatchdayJobs());
+  setInterval(() => { void seedMatchdayJobs(); }, seedIntervalMs);
+  setInterval(() => { void processDueMatchdayJobs(); }, processIntervalMs);
 }

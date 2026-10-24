@@ -1,3 +1,7 @@
+INVENTARIO HISTÓRICO DE PROVEEDORES EVALUADOS.
+La integración vigente utiliza el cliente backend/src/integrations/sportsapipro/sportsapipro.client.ts y configuración SPORTSAPIPRO_BASE_URL_V2.
+Los enlaces e IDs de versiones anteriores no son un contrato de la integración actual. Las consultas del frontend a las colecciones locales no consumen cuota del proveedor.
+
 Listado de posibles APIs
 - https://www.api-football.com/documentation-v3
 - https://rapidapi.com/GiulianoCrescimbeni/api/football98
